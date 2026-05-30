@@ -1,0 +1,62 @@
+services:
+  workspace:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    command: sleep infinity
+    environment:
+      PYTHONUNBUFFERED: "1"
+      REDIS_CACHE: redis-cache:6379
+      REDIS_QUEUE: redis-queue:6379
+      REDIS_SOCKETIO: redis-socketio:6379
+      DB_HOST: mariadb
+      DB_PORT: "3306"
+      WORKSPACE: /workspace/lenscloud
+    volumes:
+      - ..:/workspace/lenscloud:cached
+      - bench-data:/home/frappe/frappe-bench
+    depends_on:
+      - mariadb
+      - redis-cache
+      - redis-queue
+      - redis-socketio
+    ports:
+      - "8000:8000"
+      - "9000:9000"
+
+  mariadb:
+    image: mariadb:10.6
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --skip-character-set-client-handshake
+    environment:
+      MARIADB_ROOT_PASSWORD: admin
+      MARIADB_DATABASE: frappe
+      MARIADB_USER: frappe
+      MARIADB_PASSWORD: frappe
+    volumes:
+      - mariadb-data:/var/lib/mysql
+
+  redis-cache:
+    image: redis:7-alpine
+    volumes:
+      - redis-cache-data:/data
+
+  redis-queue:
+    image: redis:7-alpine
+    volumes:
+      - redis-queue-data:/data
+
+  redis-socketio:
+    image: redis:7-alpine
+    volumes:
+      - redis-socketio-data:/data
+
+volumes:
+  bench-data:
+  mariadb-data:
+  redis-cache-data:
+  redis-queue-data:
+  redis-socketio-data:
