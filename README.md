@@ -1,33 +1,72 @@
-### Lenscloud
+# LensCloud Platform
 
-Advanced Cloud Management for Frappe LENS Apps
+LensCloud Platform is the Frappe-based control plane for managing customer self-service and platform operations.
 
-### Installation
+This repository is intentionally focused on the product layer:
+- native Frappe authentication and role-based access
+- customer onboarding and subscription flows
+- release group selection and promotion
+- bench and site lifecycle workflows
+- backup and restore workflows
+- upgrade orchestration
+- DNS and Route53 automation
+- customer portal and platform console UI
+- audit, policy, and permissions
 
-You can install this app using the [bench](https://github.com/frappe/bench) CLI:
+The runtime infrastructure is managed elsewhere by Kubernetes and the Frappe Operator.
 
-```bash
-cd $PATH_TO_YOUR_BENCH
-bench get-app $URL_OF_THIS_REPO --branch version-16
-bench install-app lenscloud
-```
+## Responsibilities
 
-### Contributing
+- Provide a modern Frappe UI for the platform team.
+- Provide a customer-facing self-service portal in the same app.
+- Expose API endpoints for safe automation.
+- Track customers, subscriptions, environments, release groups, benches, sites, DNS state, backups, and upgrades.
+- Enforce policy around region, environment, and tenant placement.
+- Orchestrate operator resources instead of reimplementing runtime mechanics.
 
-This app uses `pre-commit` for code formatting and linting. Please [install pre-commit](https://pre-commit.com/#installation) and enable it for this repository:
+## Non-Goals
 
-```bash
-cd apps/lenscloud
-pre-commit install
-```
+- Cluster provisioning
+- Cloud account bootstrapping
+- Node pool creation
+- DNS/firewall bootstrap
+- Direct runtime reconciliation of Frappe pods
 
-Pre-commit is configured to use the following tools for checking and formatting your code:
+## Runtime Model
 
-- ruff
-- eslint
-- prettier
-- pyupgrade
+- The app itself runs as a containerized Frappe application.
+- It talks to Kubernetes and Frappe Operator through an internal integration layer.
+- It should remain usable for customers and platform operators without requiring CLI access.
 
-### License
+## Initial Requirements
 
-mit
+See [requirements.md](./requirements.md).
+
+## Devcontainer
+
+Open this repo in the local devcontainer defined under [`.devcontainer/`](./.devcontainer).
+
+The platform workspace follows the Frappe CRM / Frappe Docker development pattern:
+- `docker-compose.yml` for the local workspace services
+- `init.sh` for bench and site bootstrap
+- `devcontainer.json` for the VS Code container entrypoint
+
+## Agent Handoff
+
+Repo-local agent guidance lives in [AGENTS.md](./AGENTS.md) and [docs/agent-handoff.md](./docs/agent-handoff.md).
+
+## Suggested Stack
+
+- Frappe app for the UI and workflows
+- Kubernetes API integration for operator resources
+- PostgreSQL or MariaDB for platform metadata
+- S3-compatible object storage for backups and exports
+- Redis for queues and background jobs
+
+## Early Milestones
+
+1. Define the data model.
+2. Define the API contract.
+3. Build the first UI screens for customer, bench, and site lifecycle.
+4. Add backup and restore operations.
+5. Add region-aware policy and audit logging.
