@@ -50,10 +50,20 @@ The platform workspace follows the Frappe CRM / Frappe Docker development patter
 - `docker-compose.yml` for the local workspace services
 - `init.sh` for bench and site bootstrap
 - `devcontainer.json` for the VS Code container entrypoint
+- `backend` as the active Frappe workspace container
+
+The workspace is pinned to Frappe v16 for now so we stay on a stable product line while the platform foundation takes shape.
+At this stage it bootstraps a bench and `dev.localhost` only; the `lenscloud` app will be added later when the app scaffold exists.
 
 ## Agent Handoff
 
 Repo-local agent guidance lives in [AGENTS.md](./AGENTS.md) and [docs/agent-handoff.md](./docs/agent-handoff.md).
+The broader operating model is documented in:
+- [docs/agent-matrix.md](./docs/agent-matrix.md)
+- [docs/skills.md](./docs/skills.md)
+- [docs/mcps.md](./docs/mcps.md)
+- [docs/state-model.md](./docs/state-model.md)
+- [docs/workflows.md](./docs/workflows.md)
 
 ## Suggested Stack
 

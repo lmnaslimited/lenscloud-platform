@@ -33,3 +33,4 @@ This repository is the product layer for the `lenscloud` app. It is Frappe-first
 
 - This repo owns the `lenscloud` app and product workflows only.
 - Infra/bootstrap belongs in `lenscloud-infra`.
+
