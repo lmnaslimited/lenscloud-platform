@@ -1,22 +1,21 @@
 {
-  "name": "lenscloud-platform",
-  "dockerComposeFile": [
-    "docker-compose.yml"
-  ],
-  "service": "workspace",
-  "workspaceFolder": "/workspace/lenscloud",
-  "remoteUser": "frappe",
-  "postCreateCommand": "bash .devcontainer/init.sh",
-  "postStartCommand": "bash .devcontainer/start.sh",
-  "customizations": {
-    "vscode": {
-      "extensions": [
-        "ms-python.python",
-        "ms-python.vscode-pylance",
-        "dbaeumer.vscode-eslint",
-        "ms-azuretools.vscode-docker"
-      ]
-    }
-  },
-  "shutdownAction": "stopCompose"
-}
+    "name": "Frappe Bench v16",
+    "forwardPorts": [8000, 9000, 6787],
+    "remoteUser": "frappe",
+    "settings": {
+      "terminal.integrated.defaultProfile.linux": "bash",
+      "debug.node.autoAttach": "disabled"
+    },
+    "dockerComposeFile": "./docker-compose.yml",
+    "service": "frappe",
+    "workspaceFolder": "/workspace/frappe-bench",
+    "postCreateCommand": "bash /workspace/scripts/init.sh",
+    "shutdownAction": "stopCompose",
+    "extensions": [
+      "ms-python.python",
+      "ms-vscode.live-server",
+      "grapecity.gc-excelviewer",
+      "mtxr.sqltools",
+      "visualstudioexptteam.vscodeintellicode"
+    ]
+  }

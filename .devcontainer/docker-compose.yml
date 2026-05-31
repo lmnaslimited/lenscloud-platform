@@ -1,62 +1,47 @@
+version: "3.7"
 services:
-  workspace:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    init: true
-    command: sleep infinity
-    environment:
-      PYTHONUNBUFFERED: "1"
-      REDIS_CACHE: redis-cache:6379
-      REDIS_QUEUE: redis-queue:6379
-      REDIS_SOCKETIO: redis-socketio:6379
-      DB_HOST: mariadb
-      DB_PORT: "3306"
-      WORKSPACE: /workspace/lenscloud
-    volumes:
-      - ..:/workspace/lenscloud:cached
-      - bench-data:/home/frappe/frappe-bench
-    depends_on:
-      - mariadb
-      - redis-cache
-      - redis-queue
-      - redis-socketio
-    ports:
-      - "8000:8000"
-      - "9000:9000"
-
   mariadb:
-    image: mariadb:10.6
+    # v16 requires MariaDB 11.4+ (11.8 is recommended for latest features)
+    image: mariadb:11.8
     command:
       - --character-set-server=utf8mb4
       - --collation-server=utf8mb4_unicode_ci
       - --skip-character-set-client-handshake
     environment:
-      MARIADB_ROOT_PASSWORD: admin
-      MARIADB_DATABASE: frappe
-      MARIADB_USER: frappe
-      MARIADB_PASSWORD: frappe
+      MYSQL_ROOT_PASSWORD: 123
     volumes:
       - mariadb-data:/var/lib/mysql
+  
+  # Enable PostgreSQL only if you use it, see development/README.md for more information.
+  # postgresql:
+  #   image: postgres:11.8
+  #   environment:
+  #     POSTGRES_PASSWORD: 123
+  #   volumes:
+  #     - postgresql-data:/var/lib/postgresql/data
 
   redis-cache:
     image: redis:7-alpine
-    volumes:
-      - redis-cache-data:/data
 
   redis-queue:
     image: redis:7-alpine
-    volumes:
-      - redis-queue-data:/data
 
   redis-socketio:
     image: redis:7-alpine
+
+  frappe:
+    # Use the 'latest' or 'jammy' bench image
+    image: frappe/bench:latest
+    command: sleep infinity
+    environment:
+      - SHELL=/bin/bash
     volumes:
-      - redis-socketio-data:/data
+      - ..:/workspace:cached
+    working_dir: /workspace/frappe-bench
+    ports:
+      - "8000-8005:8000-8005"
+      - "9000-9005:9000-9005"
 
 volumes:
-  bench-data:
   mariadb-data:
-  redis-cache-data:
-  redis-queue-data:
-  redis-socketio-data:
+  postgresql-data:
