@@ -34,6 +34,42 @@ This repository is the product layer for the `lenscloud` app. It is Frappe-first
 - This repo owns the `lenscloud` app and product workflows only.
 - Infra/bootstrap belongs in `lenscloud-infra`.
 
+
+## Current Frontend Decisions Beyond Original Requirement
+
+These decisions supersede the early generic doctype-first interpretation of the frontend:
+
+- The frontend uses Frappe UI as the native component foundation, with CRM and Press used only as implementation references for structure, resource APIs, routing, and cloud-console patterns.
+- The platform console remains an operator workspace with dense lists, dashboards, a contextual inspector, and an optional assistant drawer.
+- The customer portal is site-first and conversion-oriented, not a doctype-management console.
+- Customer actions must be primary page actions, especially `Create Site`; they must not be hidden only inside the inspector.
+- Customer navigation is `Dashboard`, `Sites`, `Create Site`, and `Account`.
+- The customer dashboard prioritizes converting signed-in/inbound users into active site creators.
+- Customer site management should expose clear lifecycle actions from the page body and site cards/details: create, open/manage, backup, restore, upgrade, DNS, suspend, and support/request status.
+- The inspector remains useful for customer context, assistant help, and technical metadata, but it is secondary to the primary site workflow.
+- Region is a native Frappe tree doctype and must support both `Tree` and `List` display modes in the platform console, using `parent_region`, `is_group`, and nested-set ordering.
+- Redundant shell/header chrome should stay removed: app name and scope live in the left pane; page headers should focus on the active page and actions.
+- Platform Settings and Customer Account use tabbed inspector models for consistency.
+
+## Customer Portal Product Flow
+
+The customer portal exists to help a signed-in customer create and manage sites quickly.
+
+Primary customer outcomes:
+
+1. Create a new site from a dedicated guided flow.
+2. See existing sites and their lifecycle status at a glance.
+3. Manage common site actions without understanding platform internals.
+4. Understand when a workflow is pending because backend/orchestration support is not yet wired.
+
+Customer `Create Site` first-pass flow:
+
+1. Site Basics: site name, company/project context, preferred domain or subdomain.
+2. Plan/Product: selected product or plan placeholder, explicitly marked as a backend/billing gap when not wired.
+3. Region: customer-friendly region selection sourced from the Region tree/list data, without exposing nested-set internals.
+4. Review: summary and clear submission state.
+5. Pending Activation: when backend site creation is missing, show a pending request/status surface instead of inventing backend behavior.
+
 ## Handover Objects
 
 These handover objects define the ordered frontend work for LensCloud Platform. Agents must complete them in sequence and stop at every phase boundary until the phase owner confirms the next step.
@@ -91,9 +127,10 @@ The LensCloud shell is a control-plane workspace, not a literal CRM clone:
 - Goal: Build doctype-specific inspector behavior for platform and customer records.
 - Work items:
   1. Add platform-facing inspector views for Customer, Release Group, Bench, Site, Region, and Platform Settings.
-  2. Add customer-facing inspector views for account and site lifecycle surfaces.
-  3. Group fields clearly into summary, editable fields, lifecycle status, related objects, and history.
-  4. Add lifecycle action entry points for site create, suspend, delete, backup, restore, upgrade, and DNS automation.
+  2. Add customer-facing product pages for dashboard, sites, dedicated create-site flow, and account.
+  3. Keep customer lifecycle actions in primary page surfaces, using the inspector only for context, assistant help, and technical details.
+  4. Group platform inspector fields clearly into summary, editable fields, lifecycle status, related objects, and history.
+  5. Add lifecycle action entry points for site create, suspend, delete, backup, restore, upgrade, and DNS automation.
   5. Mark any missing backend behavior as a gap instead of assuming it exists.
 - Dependencies:
   - Handover Object 1
@@ -103,7 +140,7 @@ The LensCloud shell is a control-plane workspace, not a literal CRM clone:
   - `docs/state-model.md`
   - `lenscloud-infra` operator contract, read-only reference only
 - Expected outcome:
-  - A control-plane inspector that supports platform engineers first and customer workflows second.
+  - A platform inspector that supports platform engineers, plus a customer site-first portal optimized for site creation and management.
 - Stop point:
   - Stop after the inspector behavior for at least one doctype is confirmed.
 
@@ -144,8 +181,8 @@ The LensCloud shell is a control-plane workspace, not a literal CRM clone:
 - Use Frappe UI patterns as the frontend foundation.
 - Use CRM frontend shell patterns as a reference for split-workspace behavior, not as a literal product template.
 - Follow Press dashboard conventions for cloud-platform surfaces, status views, and action-oriented pages.
-- Keep the platform-console and customer-portal experiences clearly separated by role.
-- Build the right contextual inspector to hold summaries, editable fields, status, related objects, and history.
+- Keep the platform-console and customer-portal experiences clearly separated by role; customer pages are product flows, not doctype management pages.
+- Build the right contextual inspector to hold summaries, editable fields, status, related objects, and history for platform pages; keep it secondary on customer pages.
 - Keep the assistant drawer optional and secondary to the inspector.
 - Do not build around Desk-only customization unless a specific screen requires it.
 - Keep the interface Frappe-native, compact, and workflow-oriented.

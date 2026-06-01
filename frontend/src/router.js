@@ -7,6 +7,8 @@ import DashboardPage from '@/pages/DashboardPage.vue'
 import ResourcePage from '@/pages/ResourcePage.vue'
 import PlatformSettingsPage from '@/pages/PlatformSettingsPage.vue'
 import CustomerAccountPage from '@/pages/CustomerAccountPage.vue'
+import CustomerCreateSitePage from '@/pages/CustomerCreateSitePage.vue'
+import CustomerSitesPage from '@/pages/CustomerSitesPage.vue'
 
 const routes = [
 	{
@@ -44,9 +46,10 @@ const routes = [
 		meta: { scope: 'customer' },
 		children: [
 			{ path: 'dashboard', name: 'customer-dashboard', component: DashboardPage, props: { scope: 'customer' }, meta: { scope: 'customer' } },
+			{ path: 'sites', name: 'customer-sites', component: CustomerSitesPage, meta: { scope: 'customer' } },
+			{ path: 'sites/:name', name: 'customer-site-detail', component: CustomerSitesPage, meta: { scope: 'customer' } },
+			{ path: 'create-site', name: 'customer-create-site', component: CustomerCreateSitePage, meta: { scope: 'customer' } },
 			{ path: 'account', name: 'customer-account', component: CustomerAccountPage, meta: { scope: 'customer' } },
-			{ path: 'sites', name: 'customer-sites', component: ResourcePage, props: { scope: 'customer', resourceKey: 'customer-sites', mode: 'list' }, meta: { scope: 'customer' } },
-			{ path: 'sites/:name', name: 'customer-site-detail', component: ResourcePage, props: { scope: 'customer', resourceKey: 'customer-sites', mode: 'detail' }, meta: { scope: 'customer' } },
 		],
 	},
 ]

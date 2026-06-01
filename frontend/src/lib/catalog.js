@@ -453,9 +453,10 @@ export const customerNav = [
 	{
 		heading: 'Customer portal',
 		items: [
-			{ key: 'customer-dashboard', label: 'Dashboard', note: 'Your active work surface', route: '/customer/dashboard', icon: LayoutDashboard },
+			{ key: 'customer-dashboard', label: 'Dashboard', note: 'Site status and next steps', route: '/customer/dashboard', icon: LayoutDashboard },
+			{ key: 'customer-sites', label: 'Sites', note: 'Manage tenant instances', route: '/customer/sites', icon: Globe2 },
+			{ key: 'customer-create-site', label: 'Create Site', note: 'Start a new site request', route: '/customer/create-site', icon: SquareArrowOutUpRight },
 			{ key: 'customer-account', label: 'Account', note: 'Identity and region', route: '/customer/account', icon: UserRound },
-			{ key: 'customer-sites', label: 'Sites', note: 'Your tenant instances', route: '/customer/sites', icon: Globe2 },
 		],
 	},
 ]

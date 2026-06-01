@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Badge, Button, ListView } from 'frappe-ui'
-import { Activity, Globe2, Server, Users } from 'lucide-vue-next'
+import { Activity, Globe2, Server, Users, SquareArrowOutUpRight } from 'lucide-vue-next'
 import { listDocs, formatFieldValue, getDoc } from '@/lib/api'
 import { platformResources, customerResources, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
@@ -85,6 +85,7 @@ const platformSummary = computed(() => [
 
 const customerSummary = computed(() => [
 	{ label: 'Sites', route: '/customer/sites', count: data.customerSites.length, icon: Globe2, note: 'Linked instances' },
+	{ label: 'Create Site', route: '/customer/create-site', count: data.customerSites.length ? 0 : 1, icon: SquareArrowOutUpRight, note: data.customerSites.length ? 'Start another site' : 'Recommended next step' },
 	{ label: 'Account', route: '/customer/account', count: data.customerAccount ? 1 : 0, icon: Users, note: 'Customer identity' },
 ])
 
@@ -106,19 +107,23 @@ const placementRows = computed(() => {
 	<WorkspaceLayout
 		title="Dashboard"
 		:subtitle="scope === 'customer'
-			? 'Your authenticated surface for account visibility and customer lifecycle tracking.'
+			? 'Create and manage LensCloud sites from a customer-first workspace.'
 			: 'Operator-friendly surface for customers, release groups, benches, sites, regions, and settings.'"
 		inspector-kicker="Scope inspector"
 		inspector-title="Workspace context"
 		:inspector-subtitle="scope === 'customer'
-			? 'Customer-facing dashboard context, linked sites, and request entry points.'
+			? 'Customer site status, activation path, and request context.'
 			: 'Platform control-plane context, recent records, and session visibility.'"
 		assistant-label="Assistant"
 		assistant-hint="The assistant stays attached to the current dashboard context and can be expanded from the inspector."
 	>
 		<template #actions>
+			<Button v-if="scope === 'customer'" :as="RouterLink" to="/customer/create-site">
+				<SquareArrowOutUpRight class="size-4" />
+				Create Site
+			</Button>
 			<Badge v-if="scope === 'platform'" class="bg-surface-gray-2 text-ink-gray-6">Platform first</Badge>
-			<Badge v-else class="bg-surface-gray-2 text-ink-gray-6">Customer facing</Badge>
+			<Badge v-else class="bg-surface-gray-2 text-ink-gray-6">Site first</Badge>
 			<Button variant="subtle" @click="load">Refresh</Button>
 		</template>
 
@@ -198,24 +203,41 @@ const placementRows = computed(() => {
 					</div>
 				</section>
 
-				<section v-else class="rounded border border-outline-gray-2 bg-surface-white p-4">
-					<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Customer surface</p>
-					<h2 class="mt-1 text-base font-semibold text-ink-gray-9">Account and site status</h2>
-					<div v-if="!data.customerAccount" class="mt-3 rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
-						<p class="text-sm font-medium text-ink-gray-9">Customer record not linked</p>
-						<p class="mt-1 text-sm leading-6 text-ink-gray-5">The frontend expects a Customer record tied to the signed-in user.</p>
+				<section v-else class="grid gap-3 xl:grid-cols-[1fr_1fr]">
+					<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
+						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Next step</p>
+						<h2 class="mt-1 text-base font-semibold text-ink-gray-9">{{ data.customerSites.length ? 'Manage your sites' : 'Create your first site' }}</h2>
+						<p class="mt-2 text-sm leading-6 text-ink-gray-5">{{ data.customerSites.length ? 'Open a site to review status and start lifecycle actions.' : 'Start a site request from the customer portal. Provisioning remains pending until backend orchestration is connected.' }}</p>
+						<div class="mt-4 flex flex-wrap gap-2">
+							<Button :as="RouterLink" to="/customer/create-site">
+								<SquareArrowOutUpRight class="size-4" />
+								Create Site
+							</Button>
+							<Button :as="RouterLink" to="/customer/sites" variant="subtle">View Sites</Button>
+						</div>
 					</div>
-					<ListView
-						v-else
-						class="mt-3 h-[360px] rounded border border-outline-gray-2"
-						:columns="[
-							{ label: 'Site', key: 'name', width: 3, getLabel: ({ row }) => row.title || row.name },
-							{ label: 'Bench', key: 'bench', width: '160px', getLabel: ({ row }) => formatFieldValue(row.bench) },
-						]"
-						:rows="data.customerSites"
-						row-key="name"
-						:options="{ selectable: false, showTooltip: true }"
-					/>
+
+					<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
+						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Sites</p>
+						<h2 class="mt-1 text-base font-semibold text-ink-gray-9">Recent instances</h2>
+						<div v-if="!data.customerAccount" class="mt-3 rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
+							<p class="text-sm font-medium text-ink-gray-9">Customer record not linked</p>
+							<p class="mt-1 text-sm leading-6 text-ink-gray-5">The frontend expects a Customer record tied to the signed-in user.</p>
+						</div>
+						<div v-else-if="!data.customerSites.length" class="mt-3 rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
+							<p class="text-sm font-medium text-ink-gray-9">No sites yet</p>
+							<p class="mt-1 text-sm leading-6 text-ink-gray-5">Create a site to start using LensCloud.</p>
+						</div>
+						<div v-else class="mt-3 space-y-2">
+							<RouterLink v-for="site in data.customerSites" :key="site.name" :to="`/customer/sites/${encodeURIComponent(site.name)}`" class="flex items-center justify-between gap-3 rounded px-2 py-2 transition hover:bg-surface-gray-1">
+								<div class="min-w-0">
+									<p class="truncate text-sm font-medium text-ink-gray-9">{{ site.title || site.name }}</p>
+									<p class="truncate text-xs text-ink-gray-5">{{ formatFieldValue(site.bench) }}</p>
+								</div>
+								<Badge class="bg-surface-gray-2 text-ink-gray-6">Open</Badge>
+							</RouterLink>
+						</div>
+					</div>
 				</section>
 			</template>
 			</div>
