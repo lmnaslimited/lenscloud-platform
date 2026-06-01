@@ -45,7 +45,8 @@ export const platformResources = [
 			{
 				label: 'Sites',
 				doctype: 'Site',
-				field: 'customer',
+				linkField: 'customer',
+				sourceField: 'name',
 				fields: ['name', 'title', 'bench', 'modified'],
 				route: (name) => `/platform/sites/${encodeURIComponent(name)}`,
 			},
@@ -88,7 +89,8 @@ export const platformResources = [
 			{
 				label: 'Benches',
 				doctype: 'Bench',
-				field: 'release_group',
+				linkField: 'release_group',
+				sourceField: 'name',
 				fields: ['name', 'title', 'region', 'privacy'],
 				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
 			},
@@ -186,10 +188,10 @@ export const platformResources = [
 			{
 				label: 'Bench',
 				doctype: 'Bench',
-				field: 'name',
+				linkField: 'name',
+				sourceField: 'bench',
 				fields: ['name', 'title', 'release_group', 'region'],
 				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-				useFieldAsFilter: 'bench',
 			},
 		],
 		actions: [
@@ -283,6 +285,13 @@ export const platformResources = [
 		detailRoute: (name) => `/platform/regions/${encodeURIComponent(name)}`,
 		icon: Globe2,
 		listHelp: 'Placement hierarchy for region-aware and environment-aware workflows.',
+		tree: {
+			parentField: 'parent_region',
+			groupField: 'is_group',
+			orderBy: 'lft asc',
+			extraFields: ['lft', 'rgt'],
+		},
+		listLimit: 200,
 		summaryFields: [
 			{ key: 'title', label: 'Title' },
 			{ key: 'parent_region', label: 'Parent region', linkPrefix: '/platform/regions/' },
@@ -298,14 +307,16 @@ export const platformResources = [
 			{
 				label: 'Customers',
 				doctype: 'Customer',
-				field: 'region',
+				linkField: 'region',
+				sourceField: 'name',
 				fields: ['name', 'first_name', 'last_name', 'external_customer_id'],
 				route: (name) => `/platform/customers/${encodeURIComponent(name)}`,
 			},
 			{
 				label: 'Benches',
 				doctype: 'Bench',
-				field: 'region',
+				linkField: 'region',
+				sourceField: 'name',
 				fields: ['name', 'title', 'release_group', 'privacy'],
 				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
 			},
@@ -399,10 +410,10 @@ export const customerResources = [
 			{
 				label: 'Bench',
 				doctype: 'Bench',
-				field: 'name',
+				linkField: 'name',
+				sourceField: 'bench',
 				fields: ['name', 'title', 'release_group', 'region'],
 				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-				useFieldAsFilter: 'bench',
 			},
 		],
 		actions: [

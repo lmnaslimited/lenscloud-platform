@@ -1,10 +1,9 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
-import { Button, Badge } from 'frappe-ui'
+import { Alert, Badge, Button, ListView, Tabs, TextInput } from 'frappe-ui'
 import { listDocs, saveDoc } from '@/lib/api'
-import PageHeader from '@/components/PageHeader.vue'
-import ActionPanel from '@/components/ActionPanel.vue'
 import { customerResources } from '@/lib/catalog'
+import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import { useSessionStore } from '@/lib/session'
 
 const session = useSessionStore()
@@ -13,6 +12,12 @@ const error = ref(null)
 const saveState = ref('idle')
 const customer = ref(null)
 const sites = ref([])
+const inspectorTab = ref(0)
+const inspectorTabs = [
+	{ label: 'Summary' },
+	{ label: 'Sites' },
+	{ label: 'Requests' },
+]
 const formState = reactive({
 	first_name: '',
 	last_name: '',
@@ -52,9 +57,7 @@ async function load() {
 }
 
 async function save() {
-	if (!customer.value) {
-		return
-	}
+	if (!customer.value) return
 
 	saveState.value = 'saving'
 	try {
@@ -72,102 +75,142 @@ onMounted(load)
 </script>
 
 <template>
-	<div class="stack">
-		<PageHeader
-			kicker="Customer portal"
-			title="Account"
-			subtitle="Your customer identity, region placement, and linked site view."
-		>
-			<template #actions>
-				<Badge v-if="customer">Linked</Badge>
-				<Badge v-else>Gap: no customer record</Badge>
-				<Button @click="load">Refresh</Button>
-			</template>
-		</PageHeader>
+	<WorkspaceLayout
+		title="Account"
+		subtitle="Your customer identity, region placement, and linked site view."
+		inspector-kicker="Customer inspector"
+		inspector-title="Account context"
+		inspector-subtitle="Keep the customer record, linked sites, and request entry points separated from the editable profile fields."
+		assistant-label="Assistant"
+		assistant-hint="The assistant will help explain customer-facing lifecycle actions, account status, and request flow context."
+	>
+		<template #actions>
+			<Badge v-if="customer" class="bg-surface-gray-2 text-ink-gray-6">Linked</Badge>
+			<Badge v-else class="bg-surface-gray-2 text-ink-gray-6">Gap: no customer record</Badge>
+			<Button variant="subtle" @click="load">Refresh</Button>
+		</template>
 
-		<div v-if="error" class="section-band" style="border-color: rgba(180, 35, 24, 0.3); background: rgba(180, 35, 24, 0.04)">
-			<p class="empty-title">Account gap</p>
-			<p class="helper-text">{{ error }}</p>
-		</div>
+		<template #main>
+			<div class="h-full overflow-y-auto p-4">
+			<Alert v-if="error" theme="red" title="Account gap" :message="error" />
 
-		<div v-if="loading" class="section-band">
-			<div class="spinner" />
-			<p class="empty-title" style="margin-top: 8px">Loading account…</p>
-		</div>
+			<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
+				<div v-if="loading" class="flex items-center gap-3">
+					<LoadingIndicator />
+					<div>
+						<p class="text-sm font-medium text-ink-gray-9">Loading account…</p>
+						<p class="text-sm leading-6 text-ink-gray-5">Reading the linked customer record.</p>
+					</div>
+				</div>
 
-		<template v-else>
-			<div v-if="!customer" class="empty-state">
-				<p class="empty-title">No linked customer record yet</p>
-				<p class="helper-text">The UI expects a Customer document tied to the signed-in user. If that linkage is missing, this page surfaces the gap instead of inventing data.</p>
-			</div>
+				<div v-else-if="!customer" class="rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
+					<p class="text-sm font-medium text-ink-gray-9">No linked customer record yet</p>
+					<p class="mt-1 text-sm leading-6 text-ink-gray-5">The UI expects a Customer document tied to the signed-in user. If that linkage is missing, the gap is surfaced instead of invented data.</p>
+				</div>
 
-			<div v-else class="stack">
-				<div class="form-panel">
-					<div class="section-head" style="margin-bottom: 6px">
-						<div>
-							<div class="section-title">Customer record</div>
-							<p class="section-subtitle">Uses standard Frappe document save APIs. No backend flow customization is added here.</p>
-						</div>
+				<div v-else class="space-y-4">
+					<div>
+						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Customer record</p>
+						<p class="mt-1 text-sm leading-6 text-ink-gray-5">Uses standard Frappe document save APIs. No backend flow customization is added here.</p>
 					</div>
 
-					<div class="form-grid">
-						<label class="field form-control">
-							<span>First name</span>
-							<input v-model="formState.first_name" />
+					<div class="grid gap-3 sm:grid-cols-2">
+						<label class="space-y-1.5">
+							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">First name</span>
+							<TextInput v-model="formState.first_name" variant="subtle" class="w-full" />
 						</label>
-						<label class="field form-control">
-							<span>Last name</span>
-							<input v-model="formState.last_name" />
+						<label class="space-y-1.5">
+							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">Last name</span>
+							<TextInput v-model="formState.last_name" variant="subtle" class="w-full" />
 						</label>
-						<label class="field form-control">
-							<span>Primary region</span>
-							<input v-model="formState.region" placeholder="Region name" />
+						<label class="space-y-1.5">
+							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">Primary region</span>
+							<TextInput v-model="formState.region" placeholder="Region name" variant="subtle" class="w-full" />
 						</label>
-						<label class="field form-control">
-							<span>External customer ID</span>
-							<input v-model="formState.external_customer_id" placeholder="Billing or CRM identifier" />
+						<label class="space-y-1.5">
+							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">External customer ID</span>
+							<TextInput v-model="formState.external_customer_id" placeholder="Billing or CRM identifier" variant="subtle" class="w-full" />
 						</label>
 					</div>
 
-					<div class="form-actions">
-						<Badge v-if="saveState === 'saved'">Saved</Badge>
-						<Badge v-else-if="saveState === 'saving'">Saving…</Badge>
-						<Badge v-else-if="saveState === 'error'">Save failed</Badge>
+					<div class="flex flex-wrap items-center gap-2">
+						<Badge v-if="saveState === 'saved'" class="bg-emerald-50 text-emerald-700">Saved</Badge>
+						<Badge v-else-if="saveState === 'saving'" class="bg-surface-gray-2 text-ink-gray-6">Saving…</Badge>
+						<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Save failed</Badge>
 						<Button @click="save">Save account</Button>
 					</div>
 				</div>
+			</div>
 
-				<div class="section-band">
-					<div class="section-head">
-						<div>
-							<div class="section-title">Linked sites</div>
-							<p class="section-subtitle">Recent sites tied to your account.</p>
-						</div>
-						<Badge>{{ sites.length }}</Badge>
+			<div class="mt-3 rounded border border-outline-gray-2 bg-surface-white p-4">
+				<div class="flex items-center justify-between gap-3">
+					<div>
+						<p class="text-sm font-medium text-ink-gray-9">Linked sites</p>
+						<p class="mt-1 text-xs text-ink-gray-5">Recent sites tied to your account.</p>
 					</div>
-
-					<div v-if="!sites.length" class="empty-state">
-						<p class="empty-title">No sites linked yet</p>
-						<p class="helper-text">The portal is ready for site lifecycle flows once the backend contract is available.</p>
-					</div>
-
-					<div v-else class="table-list">
-						<div v-for="site in sites" :key="site.name" class="table-row">
-							<div class="table-main">
-								<p class="table-title">{{ site.title || site.name }}</p>
-								<p class="helper-text mono">{{ site.name }}</p>
-							</div>
-							<div class="table-meta">
-								<Badge>Bench: {{ site.bench || '—' }}</Badge>
-								<Badge>Customer: {{ site.customer || '—' }}</Badge>
-							</div>
-							<div class="badge">UI-visible</div>
-						</div>
-					</div>
+					<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ sites.length }}</Badge>
 				</div>
 
-				<ActionPanel :actions="customerResources[0].actions" context-label="customer account" />
+				<div v-if="!sites.length" class="mt-3 rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
+					<p class="text-sm font-medium text-ink-gray-9">No sites linked yet</p>
+					<p class="mt-1 text-sm leading-6 text-ink-gray-5">The portal is ready for site lifecycle flows once the backend contract is available.</p>
+				</div>
+
+				<div v-else class="mt-3 overflow-hidden rounded border border-outline-gray-2">
+					<ListView
+						class="h-[360px]"
+						:columns="[
+							{ label: 'Name', key: 'name', width: 3, getLabel: ({ row }) => row.title || row.name },
+							{ label: 'Bench', key: 'bench', width: '160px', getLabel: ({ row }) => row.bench || '—' },
+							{ label: 'Customer', key: 'customer', width: '160px', getLabel: ({ row }) => row.customer || '—' },
+						]"
+						:rows="sites"
+						row-key="name"
+						:options="{ selectable: false, showTooltip: true }"
+					/>
+				</div>
+			</div>
 			</div>
 		</template>
-	</div>
+
+		<template #inspector>
+			<Tabs v-model="inspectorTab" as="div" :tabs="inspectorTabs" class="h-full [&_[role='tab']]:py-2 [&_[role='tab']]:text-sm [&_[role='tablist']]:gap-4 [&_[role='tablist']]:px-1 [&_[role='tabpanel']]:px-1 [&_[role='tabpanel']]:py-3">
+				<template #tab-panel="{ tab }">
+					<div v-if="tab.label === 'Summary'" class="space-y-3">
+						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="min-w-0">
+									<p class="text-xs font-medium text-ink-gray-5">Customer</p>
+									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ customer ? (customer.first_name || customer.name) : 'No customer record' }}</p>
+								</div>
+								<Avatar :label="customer ? (customer.first_name || customer.name) : 'Gap'" size="sm" />
+							</div>
+						</div>
+						<div v-if="customer" class="grid gap-2">
+							<div v-for="item in customerResources[0].detailFields.slice(0, 4)" :key="item.key" class="rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
+								<p class="text-sm text-ink-gray-5">{{ item.label }}</p>
+								<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ customer[item.key] || '-' }}</p>
+							</div>
+						</div>
+						<p v-else class="text-sm leading-5 text-ink-gray-5">A Customer record linked to the signed-in user has not been found yet.</p>
+					</div>
+					<div v-else-if="tab.label === 'Sites'" class="space-y-2">
+						<div class="flex items-center justify-between rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
+							<span class="text-sm text-ink-gray-5">Linked sites</span>
+							<span class="text-sm font-medium text-ink-gray-9">{{ sites.length }}</span>
+						</div>
+						<p v-if="!sites.length" class="text-sm leading-5 text-ink-gray-5">No linked sites yet.</p>
+						<div v-for="site in sites" v-else :key="site.name" class="rounded px-2 py-1.5 text-sm hover:bg-surface-gray-1">
+							<p class="truncate font-medium text-ink-gray-9">{{ site.title || site.name }}</p>
+							<p class="truncate text-xs text-ink-gray-5">{{ site.bench || 'No bench' }}</p>
+						</div>
+					</div>
+					<div v-else class="space-y-3">
+						<p class="text-sm leading-5 text-ink-gray-5">Customer-facing request entry points stay UI-only until backend workflow support is confirmed.</p>
+						<Button :to="'/customer/sites'" tag="RouterLink" variant="subtle">Open sites</Button>
+					</div>
+				</template>
+			</Tabs>
+		</template>
+	</WorkspaceLayout>
 </template>

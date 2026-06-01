@@ -70,6 +70,12 @@ app_license = "mit"
 # automatically create page for each record of this doctype
 # website_generators = ["Web Page"]
 
+# Keep the LensCloud SPA route stable on refresh and deep links.
+website_route_rules = [
+	{"from_route": "/lenscloud", "to_route": "lenscloud"},
+	{"from_route": "/lenscloud/<path:path>", "to_route": "lenscloud"},
+]
+
 # automatically load and sync documents of this doctype from downstream apps
 # importable_doctypes = [doctype_1]
 

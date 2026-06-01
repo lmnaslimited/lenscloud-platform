@@ -72,9 +72,9 @@ export default defineConfig({
 		rollupOptions: {
 			input: 'index.html',
 			output: {
-				entryFileNames: 'assets/lenscloud.js',
+				entryFileNames: 'assets/lenscloud-[hash].js',
 				chunkFileNames: 'assets/chunks/[name]-[hash].js',
-				assetFileNames: 'assets/[name][extname]',
+				assetFileNames: 'assets/[name]-[hash][extname]',
 			},
 		},
 	},
