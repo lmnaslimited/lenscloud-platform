@@ -5,5 +5,5 @@
 from frappe.model.document import Document
 
 
-class RelaseGroup(Document):
+class ReleaseGroup(Document):
 	pass

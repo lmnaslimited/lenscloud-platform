@@ -14,18 +14,21 @@ This repo owns the product layer for the `lenscloud` app. The agent roles below 
 - DNS and Route53 automation
 - backup, restore, and upgrade workflows
 - customer portal and platform console
+- validate state-model alignment and mark missing backend behavior as gaps
 
 ### UI/UX Agent
 - Frappe UI structure
 - customer portal vs platform console
 - role-aware navigation
 - status and progress views
+- shell, list/detail, and action-entry patterns
 
 ### Operator Integration Agent
 - Frappe Operator contract
 - implemented vs scaffolded CRDs
 - safe lifecycle usage
 - prevent scope drift into runtime reconciliation
+- keep action surfaces aligned with `lenscloud-infra`
 
 ### Data/Model Agent
 - customer
@@ -37,6 +40,7 @@ This repo owns the product layer for the `lenscloud` app. The agent roles below 
 - backup
 - restore
 - upgrade
+- state-model naming and compatibility
 
 ### Automation/Workflow Agent
 - idempotent site creation
@@ -44,6 +48,7 @@ This repo owns the product layer for the `lenscloud` app. The agent roles below 
 - backups and restores
 - upgrades
 - retry and rollback behavior
+- lifecycle action ordering and failure handling
 
 ### SOP/Docs Agent
 - README quality
@@ -51,4 +56,11 @@ This repo owns the product layer for the `lenscloud` app. The agent roles below 
 - runbooks
 - release notes
 - handoff readiness
+- phase order, stop points, and work-item traceability
 
+## Phase Mapping
+
+- Handover Object 1: UI/UX Agent + Platform Product Agent
+- Handover Object 2: UI/UX Agent
+- Handover Object 3: Platform Product Agent + UI/UX Agent
+- Handover Object 4: Platform Product Agent + UI/UX Agent

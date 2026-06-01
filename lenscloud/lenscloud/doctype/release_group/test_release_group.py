@@ -13,9 +13,9 @@ IGNORE_TEST_RECORD_DEPENDENCIES = []  # eg. ["User"]
 
 
 
-class IntegrationTestRelaseGroup(IntegrationTestCase):
+class IntegrationTestReleaseGroup(IntegrationTestCase):
 	"""
-	Integration tests for RelaseGroup.
+	Integration tests for ReleaseGroup.
 	Use this class for testing interactions between multiple components.
 	"""
 
