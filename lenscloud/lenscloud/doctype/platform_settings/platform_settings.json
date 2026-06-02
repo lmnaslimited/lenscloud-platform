@@ -25,7 +25,8 @@
   },
   {
    "fieldname": "tab_break_nfns",
-   "fieldtype": "Tab Break"
+   "fieldtype": "Tab Break",
+   "label": "Integrations"
   },
   {
    "fieldname": "crm_system",
@@ -47,7 +48,7 @@
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-05-31 14:50:31.604415",
+ "modified": "2026-06-02 22:21:29.719277",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Platform Settings",

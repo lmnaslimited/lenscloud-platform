@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Alert, Badge, Button, Tabs, TextInput } from 'frappe-ui'
 import { getDoc, saveDoc } from '@/lib/api'
 import { platformSettings } from '@/lib/catalog'
@@ -50,6 +50,28 @@ async function save() {
 	}
 }
 
+const assistantContext = computed(() => {
+	const gaps = []
+	if (!formState.root_domain) gaps.push('Root domain is required for customer Create Site domain previews')
+	if (!formState.billing_system) gaps.push('Billing system is not configured')
+	if (!formState.crm_system) gaps.push('CRM system is not configured')
+	if (!formState.support_system) gaps.push('Support system is not configured')
+
+	return {
+		scope: 'platform',
+		summary: 'Guidance for platform-wide root domain and external system configuration.',
+		badges: ['Platform Settings', record.value ? 'loaded' : 'pending', saveState.value],
+		sections: [
+			{ label: 'Root domain', value: formState.root_domain || 'Not configured' },
+			{ label: 'Billing system', value: formState.billing_system || 'Not configured' },
+			{ label: 'CRM system', value: formState.crm_system || 'Not configured' },
+			{ label: 'Support system', value: formState.support_system || 'Not configured' },
+		],
+		gaps,
+		nextSteps: ['Configure root_domain before customer site creation.', 'Configure external systems before relying on billing, CRM, or support summaries.', 'SSO setup remains external to this frontend.'],
+	}
+})
+
 onMounted(load)
 </script>
 
@@ -62,6 +84,7 @@ onMounted(load)
 		inspector-subtitle="Keep read-only status and editable singleton fields separate."
 		assistant-label="Assistant"
 		assistant-hint="The assistant will help explain integration settings, status, and change impact for platform engineers."
+		:assistant-context="assistantContext"
 	>
 		<template #actions>
 			<Badge class="bg-surface-gray-2 text-ink-gray-6">Singleton</Badge>

@@ -1,5 +1,5 @@
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { Alert, Badge, Button, ListView, Tabs, TextInput } from 'frappe-ui'
 import { listDocs, saveDoc } from '@/lib/api'
 import { customerResources } from '@/lib/catalog'
@@ -71,6 +71,21 @@ async function save() {
 	}
 }
 
+const assistantContext = computed(() => ({
+	scope: 'customer',
+	summary: customer.value ? 'Guidance for customer account details and linked site context.' : 'Customer account linkage is missing for this signed-in user.',
+	badges: ['Account', customer.value ? 'linked' : 'gap', `${sites.value.length} site(s)`],
+	sections: [
+		{ label: 'Customer record', value: customer.value?.name || 'No linked Customer record' },
+		{ label: 'Region', value: formState.region || 'No region selected' },
+		{ label: 'External customer ID', value: formState.external_customer_id || 'Not configured' },
+	],
+	gaps: customer.value ? [] : ['Signed-in user has no linked Customer record'],
+	nextSteps: customer.value
+		? ['Keep profile fields current.', 'Use Create Site for new site requests.', 'Use Sites for support-first site management.']
+		: ['Create or link a Customer record to this Frappe user before customer flows can show account data.'],
+}))
+
 onMounted(load)
 </script>
 
@@ -83,6 +98,7 @@ onMounted(load)
 		inspector-subtitle="Keep the customer record, linked sites, and request entry points separated from the editable profile fields."
 		assistant-label="Assistant"
 		assistant-hint="The assistant will help explain customer-facing lifecycle actions, account status, and request flow context."
+		:assistant-context="assistantContext"
 	>
 		<template #actions>
 			<Badge v-if="customer" class="bg-surface-gray-2 text-ink-gray-6">Linked</Badge>

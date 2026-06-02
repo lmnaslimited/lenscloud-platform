@@ -3,12 +3,12 @@
 ## Allowed Now
 
 - site create
-- site suspend
-- site delete
-- backup
-- restore
-- upgrade
-- DNS automation
+- site suspend, platform-facing by default
+- site delete, platform-facing by default
+- backup, platform-facing or qualified-customer only
+- restore, platform-facing or qualified-customer only
+- upgrade, platform-facing or qualified-customer only
+- DNS automation, platform-facing or qualified-customer only
 
 ## Later
 
@@ -50,24 +50,53 @@ The customer portal must optimize for converting signed-in/inbound users into ac
 Customer navigation:
 
 - Dashboard: conversion-oriented overview with a primary `Create Site` CTA, site counts, lifecycle status, and pending gaps.
-- Sites: customer-friendly site cards/table with direct management actions.
+- Sites: customer-friendly site cards/table with create/open/support actions; advanced operations are locked by default.
 - Create Site: dedicated guided flow for site creation requests.
 - Account: customer identity, region preference, subscription/billing placeholders, and linked account context.
 
 Customer action placement:
 
 - `Create Site` must be a first-class route and prominent CTA.
-- Customer lifecycle actions must appear in the main page body or site detail surface, not only in the inspector.
+- Customer create/support actions must appear in the main page body or site detail surface, not only in the inspector. Advanced operations must appear as locked/qualified features, not normal customer actions.
 - The inspector may provide context, assistant help, technical metadata, and request history.
-- Missing backend behavior must be shown as pending/unavailable/captured-as-request; do not implement backend business logic in this pass.
+- Missing backend behavior must be shown as pending/unavailable/captured-as-request; locked advanced operations must be labeled as qualification/platform-managed features. Do not implement backend business logic in this pass.
 
 Create Site state model references:
 
 - Customer: signed-in account and customer identity.
-- Subscription: plan/product placeholder until backend subscription behavior is wired.
+- Subscription: plan/product placeholder until backend subscription behavior is wired through the configured billing system.
 - Site: requested tenant instance and eventual provisioned site.
 - Region: preferred placement source, displayed customer-friendly even though Region is a platform tree doctype.
 - Bench: platform placement target, not directly editable by the customer in the first pass.
+- Platform Settings: `root_domain` is mandatory for customer domain previews; customers enter subdomains only.
+
+## Commercial And Integration Workflow
+
+Commercial and relationship information is surfaced in LensCloud but sourced from external systems configured in `Platform Settings`.
+
+- `billing_system` is the primary source for invoicing, finance status, plan, renewal, and payment-state summaries.
+- `crm_system` is the primary source for account relationship, onboarding, and lifecycle/customer-stage summaries.
+- `support_system` is the primary source for support tickets, escalation state, and support redirects.
+- Customers see summaries and support redirects only; they do not get direct billing-system or CRM-system access from LensCloud.
+- Platform agents see extended billing, CRM, and support context and may use Frappe SSO links to external systems when configured.
+- Frappe SSO setup is handled outside this frontend implementation and must not be implemented here.
+
+## Customer Domain Workflow
+
+Customer-created sites use the platform root domain in this pass.
+
+- Customers enter a preferred subdomain/name only.
+- The final domain preview is `{preferred_subdomain}.{Platform Settings.root_domain}`.
+- If `root_domain` is missing, Create Site must clearly show a Platform Settings gap and prevent normal submission.
+- Subdomain validation is frontend-only in this pass and must not imply backend reservation has happened.
+
+## Locked Advanced Operations
+
+Backup, restore, upgrade, advanced DNS, suspend, and delete are not first-class customer features by default.
+
+- Show these as locked features that require LensCloud qualification/certification or platform-team handling.
+- Do not label locked features merely as backend gaps.
+- Platform console may expose these actions as operator entry points while still marking missing backend/orchestration behavior as gaps.
 
 ## Region Tree Workflow
 
@@ -80,13 +109,12 @@ Region is a native Frappe tree doctype. Platform-facing Region views must suppor
 
 ## Frontend Execution Order
 
-The frontend work for LensCloud Platform follows the handover objects in `docs/agent-handoff.md`.
+The canonical frontend work-item list and status tracker is the `Frontend Handover Tracker` table in `docs/agent-handoff.md`.
 
-1. Complete Handover Object 1 before writing any frontend implementation.
-2. Complete Handover Object 2 before wiring doctype-specific inspector behavior.
-3. Complete Handover Object 3 before adding the assistant drawer and broader validation.
-4. Complete Handover Object 4 last.
-5. Every phase must end at its stop point and wait for explicit confirmation before the next phase begins.
+1. Work on the row marked `Next` before starting later pending rows.
+2. Update that tracker table as work changes status.
+3. Do not duplicate the frontend tracker in this file.
+4. Every phase must end at its stop point and wait for explicit confirmation before scope expansion.
 
 ## Frontend Guardrails
 

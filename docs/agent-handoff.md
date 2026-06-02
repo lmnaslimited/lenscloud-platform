@@ -45,11 +45,11 @@ These decisions supersede the early generic doctype-first interpretation of the 
 - Customer actions must be primary page actions, especially `Create Site`; they must not be hidden only inside the inspector.
 - Customer navigation is `Dashboard`, `Sites`, `Create Site`, and `Account`.
 - The customer dashboard prioritizes converting signed-in/inbound users into active site creators.
-- Customer site management should expose clear lifecycle actions from the page body and site cards/details: create, open/manage, backup, restore, upgrade, DNS, suspend, and support/request status.
+- Customer site management should expose clear first-class actions for create, open/manage, and support/request status. Backup, restore, upgrade, advanced DNS, suspend, and delete are locked features for qualified/certified customers or platform-managed operations, not default customer actions.
 - The inspector remains useful for customer context, assistant help, and technical metadata, but it is secondary to the primary site workflow.
 - Region is a native Frappe tree doctype and must support both `Tree` and `List` display modes in the platform console, using `parent_region`, `is_group`, and nested-set ordering.
 - Redundant shell/header chrome should stay removed: app name and scope live in the left pane; page headers should focus on the active page and actions.
-- Platform Settings and Customer Account use tabbed inspector models for consistency.
+- Platform Settings and Customer Account use tabbed inspector models for consistency. Platform Settings is also the source of truth for `root_domain`, `billing_system`, `crm_system`, and `support_system` UI integration state.
 
 ## Customer Portal Product Flow
 
@@ -64,11 +64,36 @@ Primary customer outcomes:
 
 Customer `Create Site` first-pass flow:
 
-1. Site Basics: site name, company/project context, preferred domain or subdomain.
-2. Plan/Product: selected product or plan placeholder, explicitly marked as a backend/billing gap when not wired.
-3. Region: customer-friendly region selection sourced from the Region tree/list data, without exposing nested-set internals.
-4. Review: summary and clear submission state.
-5. Pending Activation: when backend site creation is missing, show a pending request/status surface instead of inventing backend behavior.
+1. Site Basics: customer enters a preferred subdomain/name only.
+2. Domain Preview: the UI derives `{preferred_subdomain}.{Platform Settings.root_domain}`. Customers cannot enter arbitrary primary domains in this pass.
+3. Plan/Product: selected product or plan placeholder, explicitly marked as a billing-system integration gap when not wired.
+4. Region: customer-friendly region selection sourced from the Region tree/list data, without exposing nested-set internals.
+5. Review: summary and clear submission state.
+6. Pending Activation: when backend site creation is missing, show a pending request/status surface instead of inventing backend behavior.
+
+## Commercial And External System Model
+
+LensCloud customer surfaces show commercial and relationship context, but do not give customers direct access to the billing or CRM systems.
+
+- Billing, CRM, and support configuration comes from `Platform Settings`.
+- Customer dashboard should show billing summary, CRM/account relationship summary, and support summary when integrations are configured.
+- When integration APIs are missing, the UI must show configured/missing integration state and placeholder data without inventing records.
+- Customers may be redirected to the support system in worst-case support scenarios, but they do not receive direct billing-system or CRM-system access from LensCloud.
+- Platform agents see richer billing, CRM, and support context in the platform console and may use Frappe SSO links to external systems when configured.
+- Frappe SSO setup is external to this repo and should be treated as a configured dependency, not implemented here.
+
+## Locked Customer Operations
+
+The following customer-visible site operations are locked by default:
+
+- Backup
+- Restore
+- Upgrade
+- Advanced DNS
+- Suspend
+- Delete
+
+They may be enabled only for qualified/certified LensCloud customers or performed by the platform team. The UI must label them as `Requires LensCloud qualification` or `Managed by platform team`, not as ordinary disabled backend gaps.
 
 ## Handover Objects
 
@@ -80,99 +105,78 @@ The LensCloud shell is a control-plane workspace, not a literal CRM clone:
 - the AI assistant is an optional drawer attached to the inspector, not a permanent competing pane
 - read-only status surfaces must stay visually separate from editable document fields
 
-### Handover Object 1: Workspace Contract and Role Map
+### Frontend Handover Tracker
 
-- Owner: UI/UX Agent + Platform Product Agent
-- Goal: Define the LensCloud workspace contract, route map, and role split for platform-console and customer-portal surfaces.
-- Work items:
-  1. Define the shared workspace shell structure using Frappe UI patterns adapted for platform-engineer workflows.
-  2. Define the platform-console vs customer-portal navigation model.
-  3. Define the main workspace, right contextual inspector, and optional AI assistant drawer contract.
-  4. Specify how read-only status, editable fields, and action entry points are separated in the inspector.
-  5. Align the route map with native Frappe auth and permissions.
-- Dependencies:
-  - `README.md`
-  - `requirements.md`
-  - `docs/state-model.md`
-  - `docs/workflows.md`
-  - CRM frontend shell patterns as a reference for split-workspace behavior
-  - Press dashboard patterns as a reference for cloud-control workflows
-- Expected outcome:
-  - A confirmed workspace contract and role map that can be implemented without further ambiguity.
-- Stop point:
-  - Stop after the workspace contract, route map, and role split are confirmed.
+This table is the single source of truth for frontend handover status. Do not add duplicate frontend work-item lists elsewhere; update this table as work moves.
 
-### Handover Object 2: Shared Workspace Shell
+Status values:
 
-- Owner: UI/UX Agent
-- Goal: Build the shared workspace shell and page framing for the platform console and customer portal.
-- Work items:
-  1. Create the shared workspace shell around the existing routes without breaking page URLs.
-  2. Add a reusable page header, action bar, and context strip for the main workspace.
-  3. Add a right contextual inspector that can render read-only summary, editable fields, lifecycle status, related objects, and history.
-  4. Keep the first pass read-heavy and action-light.
-- Dependencies:
-  - Handover Object 1
-  - Existing doctypes
-  - Native Frappe auth and permissions
-  - `docs/state-model.md`
-- Expected outcome:
-  - A usable shared workspace with consistent page framing and an inspector rail.
-- Stop point:
-  - Stop after the shared shell and inspector contract are confirmed.
+- `Complete`: implemented and validated for the current P0 scope.
+- `Next`: next logical work item.
+- `Pending`: not started.
+- `Blocked`: cannot proceed without new backend, SSO, infra, or user input.
 
-### Handover Object 3: Inspector-Driven Doctype Management
+| Phase | Work Item | Owner / Agent | Dependencies | Expected Outcome | Priority | Status | Stop Point |
+|---|---|---|---|---|---|---|---|
+| Handover Object 1 | Define shared workspace shell structure using Frappe UI patterns adapted for platform-engineer workflows | UI/UX Agent + Platform Product Agent | `README.md`, `requirements.md`, `docs/state-model.md`, `docs/workflows.md`, CRM frontend reference, Press dashboard reference | Confirmed control-plane workspace contract with left navigation, main workspace, inspector, and assistant drawer reservation | P0 | Complete | Workspace contract confirmed before scaffold work |
+| Handover Object 1 | Define platform-console vs customer-portal navigation model | UI/UX Agent + Platform Product Agent | Native Frappe auth and permissions, role model | Platform navigation and customer site-first navigation are separated by role | P0 | Complete | Role split confirmed |
+| Handover Object 1 | Define main workspace, right contextual inspector, and optional AI assistant drawer contract | UI/UX Agent + Platform Product Agent | CRM split-workspace reference, LensCloud control-plane requirements | Workspace model separates main actions, inspector details, and assistant context | P0 | Complete | Inspector/assistant placement confirmed |
+| Handover Object 1 | Specify separation between read-only status, editable fields, and action entry points | Platform Product Agent + UI/UX Agent | `docs/state-model.md`, `docs/workflows.md` | Fields, lifecycle status, external context, and UI action entry points are visibly separated | P0 | Complete | Separation model confirmed |
+| Handover Object 1 | Align route map with native Frappe auth and permissions | UI/UX Agent | Native Frappe login/session/roles | Authenticated platform and customer routes use Frappe session state | P0 | Complete | Route map confirmed |
+| Handover Object 2 | Create shared workspace shell around existing routes without breaking page URLs | UI/UX Agent | Handover Object 1, existing frontend routes | Frappe UI shell with platform/customer scope navigation and stable route rendering | P0 | Complete | Shell reviewed and route smoke-tested |
+| Handover Object 2 | Add reusable page header, action bar, and context strip for main workspace | UI/UX Agent | Shared workspace shell | Compact page framing without redundant chrome | P0 | Complete | Header/action framing reviewed |
+| Handover Object 2 | Add right contextual inspector for summary, editable fields, lifecycle status, related objects, and history | UI/UX Agent + Platform Product Agent | `docs/state-model.md`, existing doctypes | Inspector tabs include Summary, Fields, Status, Actions, Related, and platform-only External where relevant | P0 | Complete | Inspector contract validated |
+| Handover Object 2 | Keep first pass read-heavy and action-light | Platform Product Agent | Backend gaps, infra boundary | UI shows gaps/locked states instead of inventing backend business logic | P0 | Complete | Gap handling confirmed |
+| Handover Object 3 | Add platform-facing inspector views for Customer, Release Group, Bench, Site, Region, and Platform Settings | UI/UX Agent + Platform Product Agent | Existing doctypes, Frappe document APIs | Platform records render list/detail/inspector surfaces; Region supports tree/list; Platform Settings has tabs | P0 | Complete | Platform resource set validated |
+| Handover Object 3 | Add customer-facing product pages for dashboard, sites, dedicated create-site flow, and account | UI/UX Agent + Platform Product Agent | Native Frappe auth, Customer/Site doctypes, Platform Settings | Customer portal is site-first with Dashboard, Sites, Create Site, and Account | P0 | Complete | Customer route set validated |
+| Handover Object 3 | Keep customer create/support actions in primary page surfaces and keep advanced operations locked unless customer qualification is proven | Platform Product Agent + UI/UX Agent | `docs/workflows.md`, commercial/qualification rules | Create Site and Contact Support are first-class; backup/restore/upgrade/advanced DNS/suspend/delete are locked | P0 | Complete | Customer action model validated |
+| Handover Object 3 | Group platform inspector fields into summary, editable fields, lifecycle status, related objects, external systems, and history | UI/UX Agent + Platform Product Agent | `docs/state-model.md`, Platform Settings integrations | Inspector exposes fields, Status tab, Related tab, External tab for Customers/Sites | P0 | Complete | Inspector grouping validated |
+| Handover Object 3 | Add lifecycle action entry points for site create and support/customer requests; keep advanced actions platform-facing or locked | Platform Product Agent | Backend lifecycle APIs may be missing; `lenscloud-infra` read-only contract | UI-only action entry points show backend gaps; customer advanced actions show qualification locks | P0 | Complete | Action visibility validated |
+| Handover Object 3 | Mark missing backend behavior as a gap instead of assuming it exists | Platform Product Agent + Operator Integration Agent | Backend API availability, operator contract | Missing billing/CRM/support/lifecycle/provisioning data is surfaced as gaps/placeholders | P0 | Complete | Gap labels validated |
+| Handover Object 4 | Reserve assistant drawer inside or alongside the inspector | UI/UX Agent | Workspace shell and inspector | Assistant drawer exists as a secondary contextual area in the inspector shell | P0 | Complete | Assistant reservation validated |
+| Handover Object 4 | Make assistant context-aware using scope, doctype, record, and action state | UI/UX Agent + Platform Product Agent | Assistant implementation/API not wired yet; current route/record/action context available | Assistant receives meaningful context from current workspace and selected record/action | P1 | Complete | Assistant context contract validated across platform and customer routes |
+| Handover Object 4 | Wire permissions, empty states, loading states, and error states | UI/UX Agent + Platform Product Agent | Native Frappe permissions, frontend route guards | Role-aware UX with stable loading/empty/error states across platform and customer routes | P0 | Complete | Full route smoke test passed |
+| Handover Object 4 | Add audit/history placeholders and recent-action surfaces | Platform Product Agent + UI/UX Agent | `docs/state-model.md`; backend event/audit source missing | Status tab and dashboard surfaces show audit/recent activity placeholders without inventing data | P0 | Complete | Audit/status placeholder validation passed |
+| Handover Object 4 | Validate every action shown maps to a real backend or is explicitly marked unavailable/locked/gap | Platform Product Agent + Operator Integration Agent | Backend support, `lenscloud-infra` read-only reference | UI clearly distinguishes supported, UI-only, backend gap, SSO pending, and qualification-locked actions | P0 | Complete | Full P0 smoke suite passed |
+| Handover Object 4 | Ensure frontend stays inside platform/infrastructure boundary | Operator Integration Agent + Platform Product Agent | `lenscloud-infra` read-only reference | Frontend does not mutate infra or implement reconciliation logic | P0 | Complete | Boundary validation passed |
 
-- Owner: Platform Product Agent + UI/UX Agent
-- Goal: Build doctype-specific inspector behavior for platform and customer records.
-- Work items:
-  1. Add platform-facing inspector views for Customer, Release Group, Bench, Site, Region, and Platform Settings.
-  2. Add customer-facing product pages for dashboard, sites, dedicated create-site flow, and account.
-  3. Keep customer lifecycle actions in primary page surfaces, using the inspector only for context, assistant help, and technical details.
-  4. Group platform inspector fields clearly into summary, editable fields, lifecycle status, related objects, and history.
-  5. Add lifecycle action entry points for site create, suspend, delete, backup, restore, upgrade, and DNS automation.
-  5. Mark any missing backend behavior as a gap instead of assuming it exists.
-- Dependencies:
-  - Handover Object 1
-  - Handover Object 2
-  - Native Frappe login and role checks
-  - `docs/workflows.md`
-  - `docs/state-model.md`
-  - `lenscloud-infra` operator contract, read-only reference only
-- Expected outcome:
-  - A platform inspector that supports platform engineers, plus a customer site-first portal optimized for site creation and management.
-- Stop point:
-  - Stop after the inspector behavior for at least one doctype is confirmed.
+### Completed P0 Validation
 
-### Handover Object 4: Assistant Drawer and Validation
+P0 was validated with an authenticated Playwright smoke test covering:
 
-- Owner: Platform Product Agent + UI/UX Agent
-- Goal: Add the assistant drawer and validate that the workspace matches the documented state model.
-- Work items:
-  1. Reserve and wire the assistant drawer inside or alongside the inspector.
-  2. Make the assistant context-aware using scope, doctype, record, and action state.
-  3. Wire permissions, empty states, loading states, and error states.
-  4. Add audit/history placeholders and recent-action surfaces.
-  5. Validate that every action shown in the UI maps to a real backend or is explicitly marked unavailable.
-  6. Ensure the frontend stays inside the platform/infrastructure boundary.
-- Dependencies:
-  - Handover Objects 1-3
-  - Native Frappe permissions
-  - `docs/state-model.md`
-  - `docs/workflows.md`
-- Expected outcome:
-  - A role-aware, auditable frontend with an assistant drawer that feels native to the workspace.
-- Stop point:
-  - Stop after the validation pass is confirmed and before any expansion beyond the first frontend pass.
+- `/platform/dashboard`
+- `/platform/customers`
+- `/platform/release-groups`
+- `/platform/benches`
+- `/platform/sites`
+- `/platform/regions`
+- `/platform/settings`
+- `/customer/dashboard`
+- `/customer/sites`
+- `/customer/create-site`
+- `/customer/account`
+
+Validated outcomes:
+
+- platform Status tab shows lifecycle/audit vocabulary
+- platform External tab shows Billing/CRM/Support context for Customers and Sites
+- Region supports tree/list mode
+- customer advanced operations are locked by qualification/platform handling
+- Create Site blocks normal submission when `Platform Settings.root_domain` is missing
+- no browser console errors in the P0 smoke suite
+- viewport remains contained at `900 / 900`
+- assistant drawer receives contextual guidance for platform resources, customer site creation, customer sites, account, dashboard, and platform settings
+
+### Next Work Item
+
+The previous tracked item, Handover Object 4 assistant context awareness, is complete. The next work item should be selected from new user-confirmed scope rather than inferred from a duplicate plan.
 
 ## Agent Execution Order
 
-1. The UI/UX Agent and Platform Product Agent must complete Handover Object 1 first.
-2. No frontend implementation may begin until Handover Object 1 is confirmed.
-3. The UI/UX Agent completes Handover Object 2 next, using the approved workspace contract.
-4. The Inspector-Driven Doctype Management work in Handover Object 3 may begin only after the shared shell is in place.
-5. Handover Object 4 is the final pass and must not start until the earlier objects are complete.
-6. Every phase ends with a stop point that requires confirmation before the next phase begins.
+1. Use the `Frontend Handover Tracker` table as the canonical work-item list and status source.
+2. Complete the row marked `Next` before moving to later pending work.
+3. Do not create duplicate frontend plan tables in other docs; update the tracker row status instead.
+4. Every phase boundary still ends at its stop point and requires confirmation before scope expansion.
 
 ## Agent Instructions
 
@@ -197,7 +201,7 @@ The LensCloud shell is a control-plane workspace, not a literal CRM clone:
 - Make sure lifecycle actions, status views, and audit surfaces match the documented state model.
 - Ensure read-only status and editable fields stay visually distinct in the inspector.
 - Any missing backend behavior must be marked as a gap, not assumed.
-- Confirm whether each action is customer-facing, platform-facing, or shared before the UI is built.
+- Confirm whether each action is customer-facing, platform-facing, locked-qualified, or shared before the UI is built.
 - Stop at every phase boundary and wait for confirmation.
 
 ### Operator Integration Agent

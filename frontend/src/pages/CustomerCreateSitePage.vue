@@ -2,8 +2,8 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Alert, Badge, Button, TextInput, Textarea } from 'frappe-ui'
-import { Check, ChevronRight, Globe2, MapPin, Package, Send } from 'lucide-vue-next'
-import { listDocs } from '@/lib/api'
+import { Check, ChevronRight, Globe2, MapPin, Package, Send, Settings2 } from 'lucide-vue-next'
+import { getDoc, listDocs } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
@@ -13,12 +13,13 @@ const submitted = ref(false)
 const error = ref(null)
 const customer = ref(null)
 const regions = ref([])
+const platformSettings = ref(null)
 const selectedPlan = ref('starter')
 
 const form = reactive({
 	site_name: '',
 	company_name: '',
-	domain: '',
+	subdomain: '',
 	region: '',
 	notes: '',
 })
@@ -30,7 +31,41 @@ const plans = [
 ]
 
 const selectedRegion = computed(() => regions.value.find((region) => region.name === form.region) || null)
-const canSubmit = computed(() => form.site_name.trim() && form.company_name.trim() && form.region)
+const rootDomain = computed(() => platformSettings.value?.root_domain || '')
+const normalizedSubdomain = computed(() => form.subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, ''))
+const domainPreview = computed(() => (normalizedSubdomain.value && rootDomain.value ? `${normalizedSubdomain.value}.${rootDomain.value}` : ''))
+const rootDomainMissing = computed(() => !rootDomain.value)
+const canSubmit = computed(() => form.site_name.trim() && form.company_name.trim() && form.region && normalizedSubdomain.value && rootDomain.value)
+const integrationStatus = computed(() => [
+	{ label: 'Billing', value: platformSettings.value?.billing_system || 'Not configured' },
+	{ label: 'CRM', value: platformSettings.value?.crm_system || 'Not configured' },
+	{ label: 'Support', value: platformSettings.value?.support_system || 'Not configured' },
+])
+
+const assistantContext = computed(() => {
+	const gaps = []
+	if (rootDomainMissing.value) gaps.push('Platform Settings root_domain is missing')
+	integrationStatus.value.filter((system) => system.value === 'Not configured').forEach((system) => gaps.push(`${system.label} system not configured`))
+	if (!customer.value) gaps.push('Signed-in user has no linked Customer record')
+
+	return {
+		scope: 'customer',
+		summary: submitted.value
+			? 'Site request has been captured in the UI and is waiting for backend provisioning support.'
+			: 'Guidance for creating a site with a preferred subdomain under the platform root domain.',
+		badges: ['Create Site', rootDomainMissing.value ? 'root domain gap' : 'domain ready', submitted.value ? 'captured' : 'draft'],
+		sections: [
+			{ label: 'Domain preview', value: domainPreview.value || 'Root domain and subdomain are required' },
+			{ label: 'Selected plan', value: plans.find((plan) => plan.key === selectedPlan.value)?.label || 'No plan selected' },
+			{ label: 'Selected region', value: selectedRegion.value?.title || selectedRegion.value?.name || 'No region selected' },
+			{ label: 'Submission state', value: canSubmit.value ? 'Ready to capture UI request' : 'Waiting for required fields or root domain' },
+		],
+		gaps,
+		nextSteps: submitted.value
+			? ['View Sites to track the requested instance.', 'Platform provisioning remains pending until backend support is connected.']
+			: ['Enter site name, company, preferred subdomain, plan, and region.', 'Configure Platform Settings root_domain before normal submission.', 'Use support path for questions; billing and CRM are summary-only for customers.'],
+	}
+})
 
 async function load() {
 	loading.value = true
@@ -42,6 +77,8 @@ async function load() {
 			filters: [['user', '=', session.user]],
 		})
 		customer.value = customers[0] || null
+
+		platformSettings.value = await getDoc('Platform Settings', 'Platform Settings').catch(() => null)
 
 		regions.value = await listDocs('Region', {
 			fields: ['name', 'title', 'parent_region', 'is_group', 'lft', 'rgt'],
@@ -76,6 +113,7 @@ onMounted(load)
 		inspector-subtitle="The UI captures intent now. Backend provisioning and subscription wiring remain explicit gaps until connected."
 		assistant-label="Assistant"
 		assistant-hint="The assistant will help customers choose regions, plans, DNS settings, and next steps."
+		:assistant-context="assistantContext"
 	>
 		<template #actions>
 			<Badge class="bg-amber-50 text-amber-700">Backend gap</Badge>
@@ -97,15 +135,15 @@ onMounted(load)
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="text-base font-semibold text-ink-gray-9">Site request captured</p>
-							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ form.site_name }} is ready to become a provisioning request once backend orchestration is connected.</p>
+							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ domainPreview || form.site_name }} is ready to become a provisioning request once backend orchestration is connected.</p>
 							<div class="mt-4 grid gap-2 sm:grid-cols-2">
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 									<p class="text-xs text-ink-gray-5">Company</p>
 									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ form.company_name }}</p>
 								</div>
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
-									<p class="text-xs text-ink-gray-5">Region</p>
-									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ selectedRegion?.title || selectedRegion?.name || form.region }}</p>
+									<p class="text-xs text-ink-gray-5">Domain</p>
+									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ domainPreview || 'Pending root domain' }}</p>
 								</div>
 							</div>
 							<div class="mt-4 flex flex-wrap gap-2">
@@ -132,9 +170,16 @@ onMounted(load)
 								<TextInput v-model="form.company_name" variant="subtle" placeholder="Acme Incorporated" />
 							</label>
 							<label class="space-y-1.5 sm:col-span-2">
-								<span class="text-xs font-medium text-ink-gray-5">Preferred domain</span>
-								<TextInput v-model="form.domain" variant="subtle" placeholder="app.example.com" />
+								<span class="text-xs font-medium text-ink-gray-5">Preferred subdomain</span>
+								<TextInput v-model="form.subdomain" variant="subtle" placeholder="acme" />
 							</label>
+							<div class="sm:col-span-2 rounded border border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+								<div class="flex items-center justify-between gap-3">
+									<span class="text-xs font-medium text-ink-gray-5">Domain preview</span>
+									<Badge :class="rootDomainMissing ? 'bg-red-50 text-red-700' : 'bg-surface-white text-ink-gray-7'">{{ rootDomainMissing ? 'Root domain missing' : rootDomain }}</Badge>
+								</div>
+								<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ domainPreview || 'Enter a subdomain after Platform Settings root domain is configured' }}</p>
+							</div>
 						</div>
 					</section>
 
@@ -158,7 +203,13 @@ onMounted(load)
 								<p class="mt-1 text-xs leading-5 text-ink-gray-5">{{ plan.note }}</p>
 							</button>
 						</div>
-						<Alert class="mt-3" theme="yellow" title="Subscription gap" message="Billing and subscription APIs are not wired in this frontend pass." />
+						<div class="mt-3 grid gap-2">
+							<div v-for="system in integrationStatus" :key="system.label" class="flex items-center justify-between rounded border border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+								<span class="text-sm text-ink-gray-5">{{ system.label }}</span>
+								<span class="truncate text-sm font-medium text-ink-gray-9">{{ system.value }}</span>
+							</div>
+						</div>
+						<Alert class="mt-3" theme="yellow" title="Billing integration gap" message="Plan and invoice data will come from the billing system configured in Platform Settings. Direct billing-system access is not exposed to customers here." />
 					</section>
 
 					<section class="rounded border border-outline-gray-2 bg-surface-white p-4">
@@ -184,6 +235,7 @@ onMounted(load)
 						<h2 class="text-base font-semibold text-ink-gray-9">Review</h2>
 						<div class="mt-3 space-y-2 text-sm leading-6 text-ink-gray-6">
 							<p>Site: <span class="font-medium text-ink-gray-9">{{ form.site_name || 'Required' }}</span></p>
+							<p>Domain: <span class="font-medium text-ink-gray-9">{{ domainPreview || 'Root domain/subdomain required' }}</span></p>
 							<p>Company: <span class="font-medium text-ink-gray-9">{{ form.company_name || 'Required' }}</span></p>
 							<p>Plan: <span class="font-medium text-ink-gray-9">{{ plans.find((plan) => plan.key === selectedPlan)?.label }}</span></p>
 							<p>Region: <span class="font-medium text-ink-gray-9">{{ selectedRegion?.title || selectedRegion?.name || 'Required' }}</span></p>
@@ -210,6 +262,18 @@ onMounted(load)
 							<ChevronRight class="size-4 text-ink-gray-4" />
 							{{ step }}
 						</div>
+					</div>
+				</div>
+				<div class="rounded border border-outline-gray-2 bg-surface-white p-3">
+					<div class="flex items-center gap-2">
+						<Settings2 class="size-4 text-ink-gray-5" />
+						<p class="text-sm font-medium text-ink-gray-9">Platform settings</p>
+					</div>
+					<div class="mt-3 space-y-2 text-sm leading-6 text-ink-gray-6">
+						<p>Root domain: {{ rootDomain || 'Not configured' }}</p>
+						<p>Billing: {{ platformSettings?.billing_system || 'Not configured' }}</p>
+						<p>CRM: {{ platformSettings?.crm_system || 'Not configured' }}</p>
+						<p>Support: {{ platformSettings?.support_system || 'Not configured' }}</p>
 					</div>
 				</div>
 				<Alert theme="yellow" title="UI-only request" message="This pass does not create backend business logic. Submission is represented as a pending activation request until backend support is connected." />

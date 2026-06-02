@@ -3,10 +3,10 @@ import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Alert, Badge, Button, Dropdown, ListView, Tabs, TextInput, Textarea } from 'frappe-ui'
 import { listDocs, getDoc, saveDoc, formatFieldValue } from '@/lib/api'
-import { getResourceByKey } from '@/lib/catalog'
+import { getResourceByKey, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
-import { ChevronDown, ChevronRight, Filter, FolderTree, List, MapPin, MoreHorizontal, Search } from 'lucide-vue-next'
+import { ChevronDown, ChevronRight, CreditCard, Filter, FolderTree, LifeBuoy, List, Lock, MapPin, MoreHorizontal, Search, Users } from 'lucide-vue-next'
 
 const props = defineProps({
 	resourceKey: { type: String, required: true },
@@ -24,6 +24,7 @@ const record = ref(null)
 const related = ref([])
 const error = ref(null)
 const customerContext = ref(null)
+const settingsContext = ref(null)
 const saveState = ref('idle')
 const activeActionKey = ref('')
 const searchQuery = ref('')
@@ -144,6 +145,122 @@ const treeRows = computed(() => {
 
 const visibleRowCount = computed(() => (displayMode.value === 'tree' && isTreeResource.value ? treeRows.value.length : visibleRecords.value.length))
 
+const showExternalContext = computed(() => props.scope === 'platform' && ['customers', 'sites'].includes(props.resourceKey))
+const externalSystems = computed(() => [
+	{
+		label: 'Billing',
+		icon: CreditCard,
+		configured: Boolean(settingsContext.value?.billing_system),
+		value: settingsContext.value?.billing_system || 'Not configured',
+		button: 'Open Billing',
+		description: 'Invoice status, payment state, plan, renewal, and finance notes are sourced from the billing system.',
+		customerPlaceholder: 'Billing account, invoice status, balance, and renewal are pending integration data.',
+	},
+	{
+		label: 'CRM',
+		icon: Users,
+		configured: Boolean(settingsContext.value?.crm_system),
+		value: settingsContext.value?.crm_system || 'Not configured',
+		button: 'Open CRM',
+		description: 'Relationship owner, onboarding status, lifecycle stage, and contacts are sourced from CRM.',
+		customerPlaceholder: 'CRM stage, onboarding state, contacts, and account notes are pending integration data.',
+	},
+	{
+		label: 'Support',
+		icon: LifeBuoy,
+		configured: Boolean(settingsContext.value?.support_system),
+		value: settingsContext.value?.support_system || 'Not configured',
+		button: 'Open Support',
+		description: 'Tickets, SLA state, escalations, and support handoff are sourced from the support system.',
+		customerPlaceholder: 'Open tickets, last ticket state, SLA, and escalation status are pending integration data.',
+	},
+])
+const lockedOperatorActions = computed(() => [
+	{ label: 'Backup', value: props.resourceKey === 'sites' ? 'Qualified customer or platform-managed' : 'Site-level only' },
+	{ label: 'Restore', value: props.resourceKey === 'sites' ? 'Qualified customer or platform-managed' : 'Site-level only' },
+	{ label: 'Upgrade', value: props.resourceKey === 'sites' ? 'Qualified customer or platform-managed' : 'Site-level only' },
+	{ label: 'Advanced DNS', value: props.resourceKey === 'sites' ? 'Qualified customer or platform-managed' : 'Site-level only' },
+])
+
+const stateModelRows = computed(() => {
+	const common = [
+		{ label: 'Approval state', value: 'Backend status source pending' },
+		{ label: 'Provisioning state', value: 'Backend status source pending' },
+		{ label: 'Audit trail', value: 'Event source pending' },
+	]
+
+	const byResource = {
+		customers: [
+			{ label: 'Customer', value: record.value?.name || 'No customer selected' },
+			{ label: 'Subscription', value: 'Billing-system integration pending' },
+			{ label: 'Support state', value: 'Support-system integration pending' },
+		],
+		'sites': [
+			{ label: 'Site', value: record.value?.name || 'No site selected' },
+			{ label: 'DNS Record', value: 'DNS lifecycle source pending' },
+			{ label: 'Backup', value: 'Operator/request status pending' },
+			{ label: 'Restore', value: 'Operator/request status pending' },
+			{ label: 'Upgrade', value: 'Operator/request status pending' },
+		],
+		benches: [
+			{ label: 'Bench', value: record.value?.name || 'No bench selected' },
+			{ label: 'Release Group', value: record.value?.release_group || 'Not linked' },
+			{ label: 'Tenant placement', value: record.value?.region || 'Placement source pending' },
+		],
+		'release-groups': [
+			{ label: 'Release Group', value: record.value?.name || 'No release group selected' },
+			{ label: 'Bench image management', value: 'Promotion/backend status pending' },
+		],
+		regions: [
+			{ label: 'Region', value: record.value?.name || 'No region selected' },
+			{ label: 'Tenant placement', value: record.value?.is_group ? 'Placement group' : 'Placement leaf' },
+		],
+	}
+
+	return [...(byResource[props.resourceKey] || []), ...common]
+})
+
+const recentActivityRows = computed(() => [
+	{ label: 'Last document update', value: record.value?.modified || 'Not available from current fields' },
+	{ label: 'Last UI refresh', value: loading.value ? 'Loading' : 'Current session' },
+	{ label: 'Infrastructure boundary', value: 'No infra mutation from this UI pass' },
+])
+
+const assistantContext = computed(() => {
+	const gaps = []
+	if (showExternalContext.value) {
+		externalSystems.value.filter((system) => !system.configured).forEach((system) => gaps.push(`${system.label} system not configured`))
+		gaps.push('SSO links are placeholders until configured outside LensCloud')
+	}
+	if (activeAction.value && !activeAction.value.backendSupported) gaps.push(`${activeAction.value.label} backend support is not wired`)
+	if (props.resourceKey === 'sites') gaps.push('Provisioning, DNS, backup, restore, and upgrade status sources are pending')
+	if (props.resourceKey === 'customers') gaps.push('Subscription, billing, CRM, and support data are integration placeholders')
+
+	return {
+		scope: props.scope,
+		summary: record.value
+			? `Guidance for ${resource.value?.label || 'record'} ${record.value.title || record.value.first_name || record.value.name}.`
+			: `Guidance for the ${resource.value?.label || 'records'} ${displayMode.value === 'tree' ? 'tree' : 'list'} surface.`,
+		badges: [resource.value?.doctype, displayMode.value === 'tree' && isTreeResource.value ? 'tree' : props.mode, activeAction.value ? activeAction.value.label : 'no action selected'].filter(Boolean),
+		sections: [
+			{ label: 'Selected record', value: record.value ? (record.value.title || record.value.first_name || record.value.name) : 'No record selected' },
+			{ label: 'Current tab set', value: inspectorTabs.value.map((tab) => tab.label).join(', ') },
+			{ label: 'Rows visible', value: `${visibleRowCount.value} of ${records.value.length}` },
+			{ label: 'Infrastructure boundary', value: 'This frontend surfaces control-plane intent only; it does not mutate infrastructure.' },
+		],
+		gaps,
+		nextSteps: activeAction.value
+			? [
+				activeAction.value.backendSupported ? 'Review action fields before capture.' : 'Treat this action as UI-only until backend support is connected.',
+				'Use Status and External tabs to confirm lifecycle and commercial gaps.',
+			]
+			: [
+				'Review Summary and Status before taking action.',
+				showExternalContext.value ? 'Use External tab for Billing, CRM, and Support context.' : 'Open a record to inspect detailed context.',
+			],
+	}
+})
+
 const filterOptions = computed(() => [
 	{ label: 'All records', onClick: () => { filterMode.value = 'all' } },
 	{ label: 'Linked records', onClick: () => { filterMode.value = 'linked' } },
@@ -166,6 +283,15 @@ async function loadCustomerContext() {
 
 	customerContext.value = customerRecords[0] || null
 	return customerContext.value
+}
+
+async function loadSettingsContext() {
+	if (!showExternalContext.value) {
+		settingsContext.value = null
+		return
+	}
+
+	settingsContext.value = await getDoc(platformSettings.doctype, platformSettings.doctype).catch(() => null)
 }
 
 async function loadList() {
@@ -238,7 +364,7 @@ async function load() {
 	error.value = null
 	related.value = []
 	try {
-		await loadList()
+		await Promise.all([loadList(), loadSettingsContext()])
 		const previewName = route.params.name || (props.mode === 'list' ? records.value[0]?.name : '')
 		await loadDetail(previewName)
 	} catch (err) {
@@ -258,12 +384,22 @@ watch(isTreeResource, (enabled) => {
 const title = computed(() => resource.value?.label || 'Records')
 const subtitle = computed(() => resource.value?.listHelp || 'Native Frappe document surface.')
 const activeAction = computed(() => (resource.value?.actions || []).find((action) => action.key === activeActionKey.value) || null)
-const inspectorTabs = computed(() => [
-	{ label: 'Summary' },
-	{ label: 'Fields' },
-	{ label: `Actions${resource.value?.actions?.length ? ` (${resource.value.actions.length})` : ''}` },
-	{ label: `Related${related.value.length ? ` (${related.value.length})` : ''}` },
-])
+const inspectorTabs = computed(() => {
+	const tabs = [
+		{ label: 'Summary' },
+		{ label: 'Fields' },
+		{ label: 'Status' },
+	]
+
+	if (showExternalContext.value) tabs.push({ label: 'External' })
+
+	tabs.push(
+		{ label: `Actions${resource.value?.actions?.length ? ` (${resource.value.actions.length})` : ''}` },
+		{ label: `Related${related.value.length ? ` (${related.value.length})` : ''}` },
+	)
+
+	return tabs
+})
 
 function selectAction(action) {
 	activeActionKey.value = activeActionKey.value === action.key ? '' : action.key
@@ -318,6 +454,7 @@ async function saveCurrentRecord() {
 		:inspector-subtitle="mode === 'detail' && record ? 'Update fields, review related records, and surface request entry points from this rail.' : 'Open a record to inspect editable fields and related data.'"
 		assistant-label="Assistant"
 		assistant-hint="This drawer will eventually provide context-aware help for the selected doctype, record, and action path."
+		:assistant-context="assistantContext"
 	>
 		<template #actions>
 			<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ displayMode === 'tree' && isTreeResource ? 'Tree view' : (mode === 'detail' ? 'Detail view' : 'List view') }}</Badge>
@@ -501,6 +638,88 @@ async function saveCurrentRecord() {
 								<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Failed</Badge>
 							</div>
 						</template>
+					</div>
+
+					<div v-else-if="tab.label.startsWith('Status')" class="space-y-3">
+						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
+							<div class="flex items-start justify-between gap-3">
+								<div>
+									<p class="text-sm font-medium text-ink-gray-9">State model alignment</p>
+									<p class="mt-1 text-xs leading-5 text-ink-gray-5">This tab exposes documented lifecycle vocabulary without inventing backend state or infrastructure behavior.</p>
+								</div>
+								<Badge class="bg-surface-white text-ink-gray-7">Read only</Badge>
+							</div>
+						</div>
+
+						<div class="rounded border border-outline-gray-2 bg-surface-white">
+							<div class="border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+								<p class="text-sm font-medium text-ink-gray-9">Lifecycle state</p>
+							</div>
+							<div class="p-2">
+								<div v-for="row in stateModelRows" :key="row.label" class="flex items-center justify-between gap-3 rounded px-2 py-1.5">
+									<span class="text-sm text-ink-gray-5">{{ row.label }}</span>
+									<span class="truncate text-sm font-medium text-ink-gray-9">{{ row.value }}</span>
+								</div>
+							</div>
+						</div>
+
+						<div class="rounded border border-outline-gray-2 bg-surface-white">
+							<div class="border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+								<p class="text-sm font-medium text-ink-gray-9">Recent activity</p>
+							</div>
+							<div class="p-2">
+								<div v-for="row in recentActivityRows" :key="row.label" class="flex items-center justify-between gap-3 rounded px-2 py-1.5">
+									<span class="text-sm text-ink-gray-5">{{ row.label }}</span>
+									<span class="truncate text-sm font-medium text-ink-gray-9">{{ row.value }}</span>
+								</div>
+							</div>
+						</div>
+					</div>
+
+					<div v-else-if="tab.label.startsWith('External')" class="space-y-3">
+						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
+							<div class="flex items-start justify-between gap-3">
+								<div>
+									<p class="text-sm font-medium text-ink-gray-9">Platform agent context</p>
+									<p class="mt-1 text-xs leading-5 text-ink-gray-5">Billing, CRM, and Support summaries are sourced from configured external systems. SSO setup is external to this frontend.</p>
+								</div>
+								<Badge class="bg-surface-white text-ink-gray-7">Platform only</Badge>
+							</div>
+						</div>
+
+						<div v-for="system in externalSystems" :key="system.label" class="rounded border border-outline-gray-2 bg-surface-white p-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex min-w-0 items-start gap-2">
+									<component :is="system.icon" class="mt-0.5 size-4 shrink-0 text-ink-gray-5" />
+									<div class="min-w-0">
+										<p class="text-sm font-medium text-ink-gray-9">{{ system.label }}</p>
+										<p class="mt-1 truncate text-xs text-ink-gray-5">{{ system.value }}</p>
+									</div>
+								</div>
+								<Badge :class="system.configured ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ system.configured ? 'Configured' : 'Missing' }}</Badge>
+							</div>
+							<p class="mt-2 text-xs leading-5 text-ink-gray-5">{{ system.description }}</p>
+							<div class="mt-3 rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+								<p class="text-xs leading-5 text-ink-gray-5">{{ system.customerPlaceholder }}</p>
+							</div>
+							<div class="mt-3 flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
+								<Button size="sm" variant="subtle" disabled>{{ system.button }}</Button>
+								<Badge class="bg-surface-gray-2 text-ink-gray-6">SSO pending</Badge>
+							</div>
+						</div>
+
+						<div v-if="props.resourceKey === 'sites'" class="rounded border border-outline-gray-2 bg-surface-white p-3">
+							<div class="flex items-center gap-2">
+								<Lock class="size-4 text-ink-gray-5" />
+								<p class="text-sm font-medium text-ink-gray-9">Customer qualification</p>
+							</div>
+							<div class="mt-3 space-y-2">
+								<div v-for="item in lockedOperatorActions" :key="item.label" class="flex items-center justify-between gap-3 rounded border border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+									<span class="text-sm text-ink-gray-7">{{ item.label }}</span>
+									<Badge class="bg-surface-white text-ink-gray-7">{{ item.value }}</Badge>
+								</div>
+							</div>
+						</div>
 					</div>
 
 					<div v-else-if="tab.label.startsWith('Actions')" class="space-y-3">

@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { Alert, Badge, Button, ListView } from 'frappe-ui'
-import { CircleHelp, CloudDownload, Globe2, Pause, RefreshCcw, RotateCcw, Server, ShieldAlert, SquareArrowOutUpRight } from 'lucide-vue-next'
+import { Alert, Badge, Button } from 'frappe-ui'
+import { CircleHelp, CloudDownload, Globe2, LifeBuoy, Lock, Pause, RefreshCcw, RotateCcw, Server, ShieldAlert, SquareArrowOutUpRight } from 'lucide-vue-next'
 import { listDocs, formatFieldValue } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -17,12 +17,12 @@ const sites = ref([])
 const selectedName = computed(() => route.params.name || sites.value[0]?.name || '')
 const selectedSite = computed(() => sites.value.find((site) => site.name === selectedName.value) || null)
 
-const siteActions = [
-	{ label: 'Backup', icon: CloudDownload, status: 'Backend gap' },
-	{ label: 'Restore', icon: RotateCcw, status: 'Backend gap' },
-	{ label: 'Upgrade', icon: RefreshCcw, status: 'Backend gap' },
-	{ label: 'DNS', icon: CircleHelp, status: 'Backend gap' },
-	{ label: 'Suspend', icon: Pause, status: 'Backend gap' },
+const lockedActions = [
+	{ label: 'Backup', icon: CloudDownload, status: 'Requires LensCloud qualification' },
+	{ label: 'Restore', icon: RotateCcw, status: 'Requires LensCloud qualification' },
+	{ label: 'Upgrade', icon: RefreshCcw, status: 'Requires LensCloud qualification' },
+	{ label: 'Advanced DNS', icon: CircleHelp, status: 'Managed by platform team' },
+	{ label: 'Suspend', icon: Pause, status: 'Managed by platform team' },
 ]
 
 const stats = computed(() => [
@@ -30,6 +30,28 @@ const stats = computed(() => [
 	{ label: 'Ready', value: sites.value.length, note: 'Status field pending' },
 	{ label: 'Requests', value: 0, note: 'Request backend pending' },
 ])
+
+const assistantContext = computed(() => ({
+	scope: 'customer',
+	summary: selectedSite.value
+		? `Guidance for site ${selectedSite.value.title || selectedSite.value.name}.`
+		: 'Guidance for customer site management and support-first workflows.',
+	badges: ['Sites', selectedSite.value ? 'site selected' : 'no site selected', 'advanced ops locked'],
+	sections: [
+		{ label: 'Customer record', value: customer.value?.name || 'No linked customer record' },
+		{ label: 'Sites visible', value: `${sites.value.length} linked site(s)` },
+		{ label: 'Selected site', value: selectedSite.value ? (selectedSite.value.title || selectedSite.value.name) : 'No site selected' },
+		{ label: 'Standard action', value: 'Contact Support is the normal customer path for site help.' },
+	],
+	gaps: [
+		'Site status field/source is pending',
+		'Request backend is pending',
+		'Advanced operations require qualification or platform-team handling',
+	],
+	nextSteps: sites.value.length
+		? ['Open a site card for context.', 'Use Contact Support for standard requests.', 'Ask LensCloud about qualification before backup/restore/upgrade/DNS actions.']
+		: ['Create the first site request.', 'Wait for backend provisioning support to connect the request flow.'],
+}))
 
 async function load() {
 	loading.value = true
@@ -65,12 +87,13 @@ onMounted(load)
 <template>
 	<WorkspaceLayout
 		title="Sites"
-		subtitle="Create, review, and manage your LensCloud tenant instances."
+		subtitle="Create sites, review status, and contact support. Advanced operations require LensCloud qualification."
 		inspector-kicker="Site context"
 		:inspector-title="selectedSite ? (selectedSite.title || selectedSite.name) : 'No site selected'"
-		inspector-subtitle="Detailed lifecycle metadata and assistant guidance live here; primary customer actions stay in the main page."
+		inspector-subtitle="Commercial, support, and technical context live here. Advanced lifecycle actions are locked unless qualification is approved."
 		assistant-label="Assistant"
-		assistant-hint="The assistant will help explain site status, DNS, backups, restores, and upgrade choices."
+		assistant-hint="The assistant will help explain site status, support paths, billing context, and qualification requirements."
+		:assistant-context="assistantContext"
 	>
 		<template #actions>
 			<Button :as="RouterLink" to="/customer/create-site">
@@ -93,7 +116,7 @@ onMounted(load)
 						<div class="flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<p class="text-base font-semibold text-ink-gray-9">Manage sites</p>
-								<p class="mt-1 text-sm leading-5 text-ink-gray-5">Create a site, review current instances, and start lifecycle actions from one place.</p>
+								<p class="mt-1 text-sm leading-5 text-ink-gray-5">Create a site, review current instances, and use support for standard customer requests. Advanced operations are qualification-gated.</p>
 							</div>
 							<Button :as="RouterLink" to="/customer/create-site">
 								<SquareArrowOutUpRight class="size-4" />
@@ -154,10 +177,11 @@ onMounted(load)
 							</div>
 
 							<div class="mt-3 flex flex-wrap gap-2" @click.prevent>
-								<Button v-for="action in siteActions.slice(0, 4)" :key="action.label" size="sm" variant="subtle" disabled>
-									<component :is="action.icon" class="size-4" />
-									{{ action.label }}
+								<Button size="sm" variant="subtle">
+									<LifeBuoy class="size-4" />
+									Contact Support
 								</Button>
+								<Badge class="bg-surface-gray-2 text-ink-gray-6">Advanced ops locked</Badge>
 							</div>
 						</RouterLink>
 					</section>
@@ -185,7 +209,22 @@ onMounted(load)
 					</div>
 				</div>
 
-				<Alert theme="yellow" title="Lifecycle backend gap" message="Customer lifecycle buttons are visible as product actions, but remain disabled until backend orchestration endpoints are connected." />
+				<div class="rounded border border-outline-gray-2 bg-surface-white p-3">
+					<div class="flex items-center gap-2">
+						<Lock class="size-4 text-ink-gray-5" />
+						<p class="text-sm font-medium text-ink-gray-9">Locked advanced operations</p>
+					</div>
+					<div class="mt-3 space-y-2">
+						<div v-for="action in lockedActions" :key="action.label" class="flex items-center justify-between gap-3 rounded border border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+							<div class="flex min-w-0 items-center gap-2">
+								<component :is="action.icon" class="size-4 shrink-0 text-ink-gray-5" />
+								<span class="truncate text-sm font-medium text-ink-gray-8">{{ action.label }}</span>
+							</div>
+							<Badge class="bg-surface-white text-ink-gray-7">{{ action.status }}</Badge>
+						</div>
+					</div>
+				</div>
+				<Alert theme="blue" title="Support first" message="Customers use support for standard requests. Backup, restore, upgrade, advanced DNS, suspend, and delete require LensCloud qualification or platform-team handling." />
 			</div>
 		</template>
 	</WorkspaceLayout>

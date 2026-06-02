@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Badge, Button, ListView } from 'frappe-ui'
-import { Activity, Globe2, Server, Users, SquareArrowOutUpRight } from 'lucide-vue-next'
+import { Activity, CreditCard, Globe2, LifeBuoy, Server, SquareArrowOutUpRight, Users } from 'lucide-vue-next'
 import { listDocs, formatFieldValue, getDoc } from '@/lib/api'
 import { platformResources, customerResources, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
@@ -50,6 +50,8 @@ async function loadCustomer() {
 	})
 
 	data.customerAccount = customerRecords[0] || null
+
+	data.platformSettings = await getDoc(platformSettings.doctype, platformSettings.doctype).catch(() => null)
 
 	if (data.customerAccount) {
 		data.customerSites = await listDocs('Site', {
@@ -101,6 +103,59 @@ const placementRows = computed(() => {
 		{ label: 'Release coverage', value: (data.platform['release-groups'] || []).length, total: Math.max(benches.length, 1), hint: `${(data.platform['release-groups'] || []).length} release groups` },
 	]
 })
+
+const externalSystems = computed(() => [
+	{
+		label: 'Billing',
+		icon: CreditCard,
+		configured: Boolean(data.platformSettings?.billing_system),
+		value: data.platformSettings?.billing_system || 'Not configured',
+		customerNote: 'Invoices, plans, renewal, and finance status are read from the billing system.',
+		platformNote: 'Platform agents see finance context and may use SSO to billing when configured.',
+	},
+	{
+		label: 'CRM',
+		icon: Users,
+		configured: Boolean(data.platformSettings?.crm_system),
+		value: data.platformSettings?.crm_system || 'Not configured',
+		customerNote: 'Account relationship and onboarding status are read from CRM.',
+		platformNote: 'Platform agents see CRM relationship context and may use SSO to CRM when configured.',
+	},
+	{
+		label: 'Support',
+		icon: LifeBuoy,
+		configured: Boolean(data.platformSettings?.support_system),
+		value: data.platformSettings?.support_system || 'Not configured',
+		customerNote: 'Support ticket summaries and redirects use the configured support system.',
+		platformNote: 'Platform agents see support state and may use SSO to the support system when configured.',
+	},
+])
+
+const assistantContext = computed(() => {
+	const missing = externalSystems.value.filter((system) => !system.configured).map((system) => `${system.label} system not configured`)
+	return {
+		scope: props.scope,
+		summary: props.scope === 'customer'
+			? 'Customer dashboard guidance focused on creating sites, reviewing commercial summaries, and finding support paths.'
+			: 'Platform dashboard guidance focused on operational inventory, placement shape, and external-system readiness.',
+		badges: [props.scope, loading.value ? 'loading' : 'ready'],
+		sections: props.scope === 'customer'
+			? [
+				{ label: 'Customer account', value: data.customerAccount?.name || 'No linked customer record' },
+				{ label: 'Sites', value: `${data.customerSites.length} linked site(s)` },
+				{ label: 'Primary action', value: 'Create Site is the main conversion path.' },
+			]
+			: [
+				{ label: 'Customers', value: `${(data.platform.customers || []).length} recent record(s)` },
+				{ label: 'Sites', value: `${(data.platform.sites || []).length} recent record(s)` },
+				{ label: 'External systems', value: externalSystems.value.map((system) => `${system.label}: ${system.configured ? 'configured' : 'missing'}`).join(', ') },
+			],
+		gaps: missing,
+		nextSteps: props.scope === 'customer'
+			? ['Create a site when root domain is configured.', 'Use Support for standard requests; advanced operations remain locked.']
+			: ['Open Customers or Sites for External context.', 'Use Region tree/list to inspect placement hierarchy.'],
+	}
+})
 </script>
 
 <template>
@@ -116,6 +171,7 @@ const placementRows = computed(() => {
 			: 'Platform control-plane context, recent records, and session visibility.'"
 		assistant-label="Assistant"
 		assistant-hint="The assistant stays attached to the current dashboard context and can be expanded from the inspector."
+		:assistant-context="assistantContext"
 	>
 		<template #actions>
 			<Button v-if="scope === 'customer'" :as="RouterLink" to="/customer/create-site">
@@ -203,6 +259,38 @@ const placementRows = computed(() => {
 					</div>
 				</section>
 
+				<section v-if="scope === 'customer'" class="grid gap-3 xl:grid-cols-3">
+					<div v-for="system in externalSystems" :key="system.label" class="rounded border border-outline-gray-2 bg-surface-white p-4">
+						<div class="flex items-start justify-between gap-3">
+							<div class="flex items-center gap-2">
+								<component :is="system.icon" class="size-4 text-ink-gray-5" />
+								<p class="text-sm font-semibold text-ink-gray-9">{{ system.label }}</p>
+							</div>
+							<Badge :class="system.configured ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ system.configured ? 'Configured' : 'Gap' }}</Badge>
+						</div>
+						<p class="mt-3 truncate text-sm font-medium text-ink-gray-9">{{ system.value }}</p>
+						<p class="mt-1 text-sm leading-5 text-ink-gray-5">{{ system.customerNote }}</p>
+					</div>
+				</section>
+
+				<section v-if="scope === 'platform'" class="rounded border border-outline-gray-2 bg-surface-white p-4">
+					<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">External systems</p>
+					<h2 class="mt-1 text-base font-semibold text-ink-gray-9">Billing, CRM, and support context</h2>
+					<div class="mt-3 grid gap-3 xl:grid-cols-3">
+						<div v-for="system in externalSystems" :key="system.label" class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
+							<div class="flex items-start justify-between gap-3">
+								<div class="flex items-center gap-2">
+									<component :is="system.icon" class="size-4 text-ink-gray-5" />
+									<p class="text-sm font-semibold text-ink-gray-9">{{ system.label }}</p>
+								</div>
+								<Badge :class="system.configured ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ system.configured ? 'SSO ready' : 'Missing' }}</Badge>
+							</div>
+							<p class="mt-3 truncate text-sm font-medium text-ink-gray-9">{{ system.value }}</p>
+							<p class="mt-1 text-sm leading-5 text-ink-gray-5">{{ system.platformNote }}</p>
+						</div>
+					</div>
+				</section>
+
 				<section v-else class="grid gap-3 xl:grid-cols-[1fr_1fr]">
 					<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
 						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Next step</p>
@@ -272,6 +360,9 @@ const placementRows = computed(() => {
 						<p>Platform resources: {{ platformSummary.length }}</p>
 						<p>Customer resources: {{ customerSummary.length }}</p>
 						<p>Assistant drawer is reserved beneath the inspector header.</p>
+						<p>Billing system: {{ data.platformSettings?.billing_system || 'Not configured' }}</p>
+						<p>CRM system: {{ data.platformSettings?.crm_system || 'Not configured' }}</p>
+						<p>Support system: {{ data.platformSettings?.support_system || 'Not configured' }}</p>
 					</div>
 				</div>
 			</div>
