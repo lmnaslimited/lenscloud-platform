@@ -14,12 +14,7 @@ const inspectorTabs = [
 	{ label: 'Summary' },
 	{ label: 'Fields' },
 ]
-const formState = reactive({
-	root_domain: '',
-	crm_system: '',
-	support_system: '',
-	billing_system: '',
-})
+const formState = reactive(Object.fromEntries(platformSettings.detailFields.map((field) => [field.key, ''])))
 
 async function load() {
 	loading.value = true
@@ -27,7 +22,7 @@ async function load() {
 	try {
 		record.value = await getDoc(platformSettings.doctype, platformSettings.doctype)
 		for (const key of Object.keys(formState)) {
-			formState[key] = record.value?.[key] || ''
+			formState[key] = platformSettings.detailFields.find((field) => field.key === key)?.type === 'check' ? Boolean(record.value?.[key]) : (record.value?.[key] || '')
 		}
 	} catch (err) {
 		error.value = err?.message || 'Unable to load platform settings.'
@@ -52,7 +47,11 @@ async function save() {
 
 const assistantContext = computed(() => {
 	const gaps = []
+	if (!formState.active_cluster_context) gaps.push('Active cluster/context is required before operator-backed Bench creation')
+	if (!formState.operator_namespace) gaps.push('Operator namespace is required before Frappe Operator integration')
+	if (!formState.default_storage_class) gaps.push('Default storage class is required before Bench creation defaults are usable')
 	if (!formState.root_domain) gaps.push('Root domain is required for customer Create Site domain previews')
+	if (!formState.route53_hosted_zone_id && !formState.route53_zone_reference) gaps.push('Route53 hosted zone ID or zone reference is required before DNS automation')
 	if (!formState.billing_system) gaps.push('Billing system is not configured')
 	if (!formState.crm_system) gaps.push('CRM system is not configured')
 	if (!formState.support_system) gaps.push('Support system is not configured')
@@ -62,13 +61,17 @@ const assistantContext = computed(() => {
 		summary: 'Guidance for platform-wide root domain and external system configuration.',
 		badges: ['Platform Settings', record.value ? 'loaded' : 'pending', saveState.value],
 		sections: [
+			{ label: 'Active cluster/context', value: formState.active_cluster_context || 'Not configured' },
+			{ label: 'Operator namespace', value: formState.operator_namespace || 'Not configured' },
+			{ label: 'Default storage class', value: formState.default_storage_class || 'Not configured' },
 			{ label: 'Root domain', value: formState.root_domain || 'Not configured' },
+			{ label: 'Route53 zone', value: formState.route53_hosted_zone_id || formState.route53_zone_reference || 'Not configured' },
 			{ label: 'Billing system', value: formState.billing_system || 'Not configured' },
 			{ label: 'CRM system', value: formState.crm_system || 'Not configured' },
 			{ label: 'Support system', value: formState.support_system || 'Not configured' },
 		],
 		gaps,
-		nextSteps: ['Configure root_domain before customer site creation.', 'Configure external systems before relying on billing, CRM, or support summaries.', 'SSO setup remains external to this frontend.'],
+		nextSteps: ['Configure cluster/operator defaults before operator-backed Bench creation.', 'Configure root_domain and Route53 zone before DNS automation.', 'Configure external systems before relying on billing, CRM, or support summaries.', 'SSO setup remains external to this frontend.'],
 	}
 })
 
@@ -111,21 +114,13 @@ onMounted(load)
 					</div>
 
 					<div class="grid gap-3 sm:grid-cols-2">
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">Root domain</span>
-							<TextInput v-model="formState.root_domain" placeholder="example.com" variant="subtle" class="w-full" />
-						</label>
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">CRM system</span>
-							<TextInput v-model="formState.crm_system" placeholder="CRM endpoint or identifier" variant="subtle" class="w-full" />
-						</label>
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">Support system</span>
-							<TextInput v-model="formState.support_system" placeholder="Support endpoint or identifier" variant="subtle" class="w-full" />
-						</label>
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">Billing system</span>
-							<TextInput v-model="formState.billing_system" placeholder="Billing endpoint or identifier" variant="subtle" class="w-full" />
+						<label v-for="field in platformSettings.detailFields" :key="field.key" class="space-y-1.5">
+							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">{{ field.label }}</span>
+							<label v-if="field.type === 'check'" class="flex h-8 items-center gap-2 rounded border border-outline-gray-2 bg-surface-gray-1 px-2.5 text-sm text-ink-gray-7">
+				<input v-model="formState[field.key]" type="checkbox" class="size-4 rounded border-outline-gray-3" />
+				Enabled
+			</label>
+			<TextInput v-else v-model="formState[field.key]" :placeholder="field.label" variant="subtle" class="w-full" />
 						</label>
 					</div>
 

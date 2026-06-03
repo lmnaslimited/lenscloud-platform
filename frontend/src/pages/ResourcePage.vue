@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Alert, Badge, Button, Dropdown, ListView, Tabs, TextInput, Textarea } from 'frappe-ui'
-import { listDocs, getDoc, saveDoc, formatFieldValue } from '@/lib/api'
+import { listDocs, getDoc, saveDoc, createDoc, submitDoc, cancelDoc, formatFieldValue } from '@/lib/api'
 import { getResourceByKey, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -34,6 +34,9 @@ const displayMode = ref('list')
 const expandedTreeNodes = ref(new Set())
 const formState = reactive({})
 const actionState = reactive({})
+const createForm = reactive({})
+const isCreating = ref(false)
+const lifecycleState = ref('idle')
 
 const selectedName = computed(() => route.params.name || records.value[0]?.name || '')
 const isTreeResource = computed(() => Boolean(resource.value?.tree))
@@ -145,6 +148,50 @@ const treeRows = computed(() => {
 
 const visibleRowCount = computed(() => (displayMode.value === 'tree' && isTreeResource.value ? treeRows.value.length : visibleRecords.value.length))
 
+const documentLifecycleFields = computed(() => resource.value?.lifecycleFields || (resource.value?.detailFields || []).filter((field) => !['name', 'docstatus', 'amended_from'].includes(field.key)))
+const canCreateDocument = computed(() => props.scope === 'platform' && Boolean(resource.value?.creatable))
+const canEditDocument = computed(() => Boolean(resource.value?.editable) && (!resource.value?.submittable || Number(record.value?.docstatus || 0) === 0))
+const canSubmitDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 0))
+const canCancelDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 1))
+const canAmendDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 2))
+const documentStatusLabel = computed(() => {
+	if (!resource.value?.submittable) return record.value ? 'Saved' : 'No document'
+	const status = Number(record.value?.docstatus || 0)
+	if (status === 1) return 'Submitted'
+	if (status === 2) return 'Cancelled'
+	return 'Draft'
+})
+
+function resetCreateForm(source = {}) {
+	for (const key of Object.keys(createForm)) delete createForm[key]
+	for (const field of documentLifecycleFields.value) {
+		createForm[field.key] = source[field.key] ?? field.default ?? ''
+	}
+	if (source.amended_from) createForm.amended_from = source.amended_from
+}
+
+function startCreate(source = {}) {
+	resetCreateForm(source)
+	isCreating.value = true
+	lifecycleState.value = 'idle'
+	error.value = null
+}
+
+function stopCreate() {
+	isCreating.value = false
+	resetCreateForm()
+}
+
+function buildDocumentPayload(source) {
+	const payload = {}
+	for (const field of documentLifecycleFields.value) {
+		if (field.readOnly) continue
+		payload[field.key] = source[field.key] ?? ''
+	}
+	if (source.amended_from) payload.amended_from = source.amended_from
+	return payload
+}
+
 const showExternalContext = computed(() => props.scope === 'platform' && ['customers', 'sites'].includes(props.resourceKey))
 const externalSystems = computed(() => [
 	{
@@ -197,19 +244,34 @@ const stateModelRows = computed(() => {
 		],
 		'sites': [
 			{ label: 'Site', value: record.value?.name || 'No site selected' },
-			{ label: 'DNS Record', value: 'DNS lifecycle source pending' },
-			{ label: 'Backup', value: 'Operator/request status pending' },
-			{ label: 'Restore', value: 'Operator/request status pending' },
-			{ label: 'Upgrade', value: 'Operator/request status pending' },
+			{ label: 'Site status', value: record.value?.site_status || 'Draft/status source pending' },
+			{ label: 'Provisioning status', value: record.value?.provisioning_status || 'Operator status pending' },
+			{ label: 'DNS status', value: record.value?.dns_status || 'Route53 status pending' },
+			{ label: 'Backup', value: record.value?.backup_state || 'Operator/request status pending' },
+			{ label: 'Restore', value: record.value?.restore_state || 'Operator/request status pending' },
+			{ label: 'Upgrade', value: record.value?.upgrade_state || 'Operator/request status pending' },
 		],
 		benches: [
 			{ label: 'Bench', value: record.value?.name || 'No bench selected' },
 			{ label: 'Release Group', value: record.value?.release_group || 'Not linked' },
-			{ label: 'Tenant placement', value: record.value?.region || 'Placement source pending' },
+			{ label: 'Current Release', value: record.value?.current_release || 'Not linked' },
+			{ label: 'Next Release', value: record.value?.next_release || 'Not scheduled' },
+			{ label: 'Bench status', value: record.value?.bench_status || 'Draft/status source pending' },
+			{ label: 'Upgrade/SOP status', value: record.value?.upgrade_sop_status || 'Draft' },
+			{ label: 'Tenant placement', value: record.value?.region || record.value?.cluster_runtime_target || 'Placement source pending' },
 		],
 		'release-groups': [
 			{ label: 'Release Group', value: record.value?.name || 'No release group selected' },
-			{ label: 'Bench image management', value: 'Promotion/backend status pending' },
+			{ label: 'Master data boundary', value: 'No deployable image tag is stored here' },
+			{ label: 'Release family', value: record.value?.image_repository || record.value?.registry_url || 'Image family metadata pending' },
+		],
+		releases: [
+			{ label: 'Release', value: record.value?.name || 'No release selected' },
+			{ label: 'Release Group', value: record.value?.release_group || 'Not linked' },
+			{ label: 'Image tag', value: record.value?.image_tag || 'Missing' },
+			{ label: 'Build status', value: record.value?.build_status || 'Draft' },
+			{ label: 'Release status', value: record.value?.release_status || 'Draft' },
+			{ label: 'Rollout eligibility', value: record.value?.rollout_eligibility || 'Not Eligible' },
 		],
 		regions: [
 			{ label: 'Region', value: record.value?.name || 'No region selected' },
@@ -233,7 +295,10 @@ const assistantContext = computed(() => {
 		gaps.push('SSO links are placeholders until configured outside LensCloud')
 	}
 	if (activeAction.value && !activeAction.value.backendSupported) gaps.push(`${activeAction.value.label} backend support is not wired`)
-	if (props.resourceKey === 'sites') gaps.push('Provisioning, DNS, backup, restore, and upgrade status sources are pending')
+	if (props.resourceKey === 'sites') gaps.push('Provisioning, DNS, backup, restore, and upgrade execution remain backend/operator gaps')
+	if (props.resourceKey === 'benches') gaps.push('FrappeBench creation/reconciliation remains a backend/operator gap')
+	if (props.resourceKey === 'releases') gaps.push('Build pipeline and promotion execution remain backend gaps')
+	if (props.resourceKey === 'release-groups') gaps.push('Release Group is master data; create/promote Release flows are UI-only until backend support lands')
 	if (props.resourceKey === 'customers') gaps.push('Subscription, billing, CRM, and support data are integration placeholders')
 
 	return {
@@ -244,6 +309,7 @@ const assistantContext = computed(() => {
 		badges: [resource.value?.doctype, displayMode.value === 'tree' && isTreeResource.value ? 'tree' : props.mode, activeAction.value ? activeAction.value.label : 'no action selected'].filter(Boolean),
 		sections: [
 			{ label: 'Selected record', value: record.value ? (record.value.title || record.value.first_name || record.value.name) : 'No record selected' },
+			{ label: 'Document status', value: documentStatusLabel.value },
 			{ label: 'Current tab set', value: inspectorTabs.value.map((tab) => tab.label).join(', ') },
 			{ label: 'Rows visible', value: `${visibleRowCount.value} of ${records.value.length}` },
 			{ label: 'Infrastructure boundary', value: 'This frontend surfaces control-plane intent only; it does not mutate infrastructure.' },
@@ -305,8 +371,10 @@ async function loadList() {
 
 	const fieldKeys = new Set([
 		'name',
+		'docstatus',
 		...resource.value.summaryFields.map((field) => field.key),
 		...(resource.value.detailFields || []).map((field) => field.key),
+		...(resource.value.lifecycleFields || []).map((field) => field.key),
 		...(resource.value.tree?.extraFields || []),
 	])
 
@@ -335,8 +403,8 @@ async function loadDetail(name) {
 
 	if (record.value && resource.value.editable) {
 		for (const key of Object.keys(formState)) delete formState[key]
-		for (const field of resource.value.detailFields || []) {
-			formState[field.key] = record.value[field.key] ?? ''
+		for (const field of documentLifecycleFields.value || []) {
+			formState[field.key] = record.value[field.key] ?? field.default ?? ''
 		}
 	}
 
@@ -388,6 +456,7 @@ const inspectorTabs = computed(() => {
 	const tabs = [
 		{ label: 'Summary' },
 		{ label: 'Fields' },
+		{ label: 'Document' },
 		{ label: 'Status' },
 	]
 
@@ -429,12 +498,67 @@ function assignActionField(field, value) {
 	actionState[field] = value
 }
 
-async function saveCurrentRecord() {
+async function createCurrentRecord() {
+	if (!resource.value) return
+
+	lifecycleState.value = 'creating'
+	error.value = null
+	try {
+		const created = await createDoc(resource.value.doctype, buildDocumentPayload(createForm))
+		isCreating.value = false
+		await loadList()
+		await router.push(resource.value.detailRoute(created.name))
+		await loadDetail(created.name)
+		lifecycleState.value = 'created'
+	} catch (err) {
+		lifecycleState.value = 'error'
+		error.value = err?.message || 'Unable to create document.'
+	}
+}
+
+async function submitCurrentRecord() {
 	if (!record.value || !resource.value) return
+
+	lifecycleState.value = 'submitting'
+	error.value = null
+	try {
+		const submitted = await submitDoc(record.value)
+		record.value = submitted
+		await load()
+		lifecycleState.value = 'submitted'
+	} catch (err) {
+		lifecycleState.value = 'error'
+		error.value = err?.message || 'Unable to submit document.'
+	}
+}
+
+async function cancelCurrentRecord() {
+	if (!record.value || !resource.value) return
+
+	lifecycleState.value = 'cancelling'
+	error.value = null
+	try {
+		const cancelled = await cancelDoc(resource.value.doctype, record.value.name)
+		record.value = cancelled
+		await load()
+		lifecycleState.value = 'cancelled'
+	} catch (err) {
+		lifecycleState.value = 'error'
+		error.value = err?.message || 'Unable to cancel document.'
+	}
+}
+
+function amendCurrentRecord() {
+	if (!record.value || !resource.value) return
+	startCreate({ ...record.value, amended_from: record.value.name })
+}
+
+async function saveCurrentRecord() {
+	if (!record.value || !resource.value || !canEditDocument.value) return
 
 	saveState.value = 'saving'
 	try {
-		const saved = await saveDoc(resource.value.doctype, record.value.name, formState)
+		const saved = await saveDoc(resource.value.doctype, record.value.name, buildDocumentPayload(formState))
 		record.value = saved
 		await load()
 		saveState.value = 'saved'
@@ -457,6 +581,7 @@ async function saveCurrentRecord() {
 		:assistant-context="assistantContext"
 	>
 		<template #actions>
+			<Button v-if="canCreateDocument" variant="subtle" @click="startCreate()">New {{ resource.label.replace(/s$/, '') }}</Button>
 			<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ displayMode === 'tree' && isTreeResource ? 'Tree view' : (mode === 'detail' ? 'Detail view' : 'List view') }}</Badge>
 			<Button variant="subtle" @click="load">Refresh</Button>
 		</template>
@@ -465,7 +590,32 @@ async function saveCurrentRecord() {
 			<div class="flex h-full min-h-0 flex-col p-4">
 				<Alert v-if="error" theme="red" title="Surface gap" :message="error" />
 
-				<div class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-outline-gray-2 bg-surface-white">
+				<div v-if="isCreating" class="min-h-0 flex-1 overflow-auto rounded border border-outline-gray-2 bg-surface-white p-4">
+					<div class="flex items-start justify-between gap-3 border-b border-outline-gray-2 pb-3">
+						<div>
+							<p class="text-sm font-medium text-ink-gray-9">New {{ resource.label.replace(/s$/, '') }}</p>
+							<p class="mt-1 text-sm leading-5 text-ink-gray-5">Create this document with standard Frappe permissions and document APIs.</p>
+						</div>
+						<Badge v-if="createForm.amended_from" class="bg-amber-50 text-amber-700">Amending {{ createForm.amended_from }}</Badge>
+					</div>
+
+					<div class="mt-4 grid gap-3 md:grid-cols-2">
+						<label v-for="field in documentLifecycleFields" :key="field.key" class="space-y-1.5" :class="field.type === 'textarea' ? 'md:col-span-2' : ''">
+							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">{{ field.label }}{{ field.required ? ' *' : '' }}</span>
+							<Textarea v-if="field.type === 'textarea'" v-model="createForm[field.key]" :placeholder="field.label" variant="subtle" class="w-full" />
+							<TextInput v-else v-model="createForm[field.key]" :placeholder="field.label" variant="subtle" class="w-full" />
+						</label>
+					</div>
+
+					<div class="mt-4 flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
+						<Button :disabled="lifecycleState === 'creating'" @click="createCurrentRecord">{{ lifecycleState === 'creating' ? 'Creating...' : 'Create document' }}</Button>
+						<Button variant="subtle" @click="stopCreate">Cancel</Button>
+						<Badge v-if="lifecycleState === 'created'" class="bg-emerald-50 text-emerald-700">Created</Badge>
+						<Badge v-else-if="lifecycleState === 'error'" class="bg-red-50 text-red-700">Failed</Badge>
+					</div>
+				</div>
+
+				<div v-else class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-outline-gray-2 bg-surface-white">
 				<div class="flex shrink-0 items-center justify-between gap-2 border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
 					<div class="flex min-w-0 flex-1 items-center gap-2">
 						<TextInput v-model="searchQuery" class="max-w-xs" variant="subtle" :placeholder="displayMode === 'tree' ? 'Search tree' : 'Search list'">
@@ -604,23 +754,23 @@ async function saveCurrentRecord() {
 							<div class="flex items-center justify-between gap-2">
 								<div>
 									<p class="text-sm font-medium text-ink-gray-9">Fields</p>
-									<p class="text-xs text-ink-gray-5">{{ resource.editable ? 'Editable via standard Frappe document save.' : 'Read-only for this first pass.' }}</p>
+									<p class="text-xs text-ink-gray-5">{{ canEditDocument ? 'Editable via standard Frappe document save.' : 'Read-only in the current document state.' }}</p>
 								</div>
-								<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ resource.editable ? 'Editable' : 'Read only' }}</Badge>
+								<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ canEditDocument ? 'Editable' : 'Read only' }}</Badge>
 							</div>
 
 							<div class="space-y-2">
 								<div v-for="field in resource.detailFields || []" :key="field.key" class="space-y-1">
 									<label class="text-xs font-medium text-ink-gray-5">{{ field.label }}</label>
 									<TextInput
-										v-if="resource.editable && field.key !== 'notes'"
+										v-if="canEditDocument && documentLifecycleFields.some((item) => item.key === field.key) && field.key !== 'notes' && !Array.isArray(record[field.key])"
 										v-model="formState[field.key]"
 										:placeholder="field.label"
 										variant="subtle"
 										class="w-full"
 									/>
 									<Textarea
-										v-else-if="resource.editable"
+										v-else-if="canEditDocument && documentLifecycleFields.some((item) => item.key === field.key)"
 										v-model="formState[field.key]"
 										:placeholder="field.label"
 										variant="subtle"
@@ -633,13 +783,56 @@ async function saveCurrentRecord() {
 							</div>
 
 							<div v-if="resource.editable" class="flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
-								<Button size="sm" :label="saveState === 'saving' ? 'Saving...' : 'Save'" :disabled="saveState === 'saving'" @click="saveCurrentRecord" />
+								<Button size="sm" :label="saveState === 'saving' ? 'Saving...' : 'Save'" :disabled="saveState === 'saving' || !canEditDocument" @click="saveCurrentRecord" />
 								<Badge v-if="saveState === 'saved'" class="bg-emerald-50 text-emerald-700">Saved</Badge>
 								<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Failed</Badge>
 							</div>
 						</template>
 					</div>
 
+
+					<div v-else-if="tab.label.startsWith('Document')" class="space-y-3">
+						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
+							<div class="flex items-start justify-between gap-3">
+								<div>
+									<p class="text-sm font-medium text-ink-gray-9">Document lifecycle</p>
+									<p class="mt-1 text-xs leading-5 text-ink-gray-5">Standard Frappe create, save, submit, cancel, and amend controls for document records.</p>
+								</div>
+								<Badge class="bg-surface-white text-ink-gray-7">{{ documentStatusLabel }}</Badge>
+							</div>
+						</div>
+
+						<div class="grid gap-2">
+							<div class="flex items-center justify-between rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
+								<span class="text-sm text-ink-gray-5">Create</span>
+								<Badge :class="canCreateDocument ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-gray-2 text-ink-gray-6'">{{ canCreateDocument ? 'Available' : 'Unavailable' }}</Badge>
+							</div>
+							<div class="flex items-center justify-between rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
+								<span class="text-sm text-ink-gray-5">Submit / Cancel</span>
+								<Badge :class="resource.submittable ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-gray-2 text-ink-gray-6'">{{ resource.submittable ? 'Submittable' : 'Not submittable' }}</Badge>
+							</div>
+							<div v-if="record?.amended_from" class="rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
+								<p class="text-sm text-ink-gray-5">Amended from</p>
+								<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ record.amended_from }}</p>
+							</div>
+						</div>
+
+						<div class="rounded border border-outline-gray-2 bg-surface-white p-3">
+							<div class="flex flex-wrap items-center gap-2">
+								<Button size="sm" variant="subtle" :disabled="!canCreateDocument" @click="startCreate()">New</Button>
+								<Button size="sm" variant="subtle" :disabled="!canEditDocument || saveState === 'saving'" @click="saveCurrentRecord">Save</Button>
+								<Button size="sm" variant="subtle" :disabled="!canSubmitDocument || lifecycleState === 'submitting'" @click="submitCurrentRecord">Submit</Button>
+								<Button size="sm" variant="subtle" :disabled="!canCancelDocument || lifecycleState === 'cancelling'" @click="cancelCurrentRecord">Cancel</Button>
+								<Button size="sm" variant="subtle" :disabled="!canAmendDocument" @click="amendCurrentRecord">Amend</Button>
+							</div>
+							<div class="mt-3 flex flex-wrap gap-2 border-t border-outline-gray-2 pt-3">
+								<Badge v-if="lifecycleState === 'submitted'" class="bg-emerald-50 text-emerald-700">Submitted</Badge>
+								<Badge v-else-if="lifecycleState === 'cancelled'" class="bg-amber-50 text-amber-700">Cancelled</Badge>
+								<Badge v-else-if="lifecycleState === 'error'" class="bg-red-50 text-red-700">Lifecycle failed</Badge>
+								<Badge v-else class="bg-surface-gray-2 text-ink-gray-6">{{ lifecycleState }}</Badge>
+							</div>
+						</div>
+					</div>
 					<div v-else-if="tab.label.startsWith('Status')" class="space-y-3">
 						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 							<div class="flex items-start justify-between gap-3">

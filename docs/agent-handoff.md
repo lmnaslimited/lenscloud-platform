@@ -29,6 +29,35 @@ This repository is the product layer for the `lenscloud` app. It is Frappe-first
 - `FrappeBench`, `FrappeSite`, `SiteBackup`, and `SiteRestore` are the implemented operator workflows to rely on.
 - `SiteJob` is scaffolded and should not be treated as a production feature unless the codebase is explicitly updated to prove otherwise.
 
+## Release Strategy
+
+This model supersedes any earlier wording that treated Release Group as the deployable version.
+
+- Release Group is master data for the release family.
+- Release Group holds registry URL, image repository, included apps, supported Frappe major version, and release policy.
+- Included apps are selected from `App` master data through the `Release Group Apps` table multiselect. Do not change this back to long text.
+- Release is the transactional deployable version.
+- Release holds image tag, image digest, build status, build/pipeline reference, release status, changelog, compatibility notes, and promotion state.
+- Bench links to one Release Group and deploys a current Release from that group.
+- Bench also tracks next Release, upgrade window, upgrade policy, and upgrade/SOP status.
+- Release Group pages should show number of Benches and their release levels.
+- Bench pages should show current release level, next release level, and SOP actions for moving to the next Release.
+- Future SOP/control work should use a Bench Upgrade Plan or Release Rollout Plan transactional doctype.
+
+## Gap Backlog
+
+Implementation agents must also read `docs/platform-gap-backlog.md` before starting new frontend, data-model, or operator-integration work.
+
+The backlog captures:
+
+- `/lenscloud/platform` and `/lenscloud/customer` default redirect gaps
+- unauthenticated `frappe.auth.get_logged_user` console noise
+- Socket.IO warning tolerance
+- missing favicon
+- operator-readiness fields for Bench, Site, and Platform Settings
+- the corrected Release Group vs Release field placement
+- the next infra/operator handoff requirements
+
 ## Repo Boundary
 
 - This repo owns the `lenscloud` app and product workflows only.
@@ -139,6 +168,13 @@ Status values:
 | Handover Object 4 | Add audit/history placeholders and recent-action surfaces | Platform Product Agent + UI/UX Agent | `docs/state-model.md`; backend event/audit source missing | Status tab and dashboard surfaces show audit/recent activity placeholders without inventing data | P0 | Complete | Audit/status placeholder validation passed |
 | Handover Object 4 | Validate every action shown maps to a real backend or is explicitly marked unavailable/locked/gap | Platform Product Agent + Operator Integration Agent | Backend support, `lenscloud-infra` read-only reference | UI clearly distinguishes supported, UI-only, backend gap, SSO pending, and qualification-locked actions | P0 | Complete | Full P0 smoke suite passed |
 | Handover Object 4 | Ensure frontend stays inside platform/infrastructure boundary | Operator Integration Agent + Platform Product Agent | `lenscloud-infra` read-only reference | Frontend does not mutate infra or implement reconciliation logic | P0 | Complete | Boundary validation passed |
+| Handover Object 5 | Fix platform/customer route defaults and runtime polish gaps | UI/UX Agent | `docs/platform-gap-backlog.md`, current Vue router/session code | `/platform` and `/customer` default to dashboards; guest auth/socket/favicon noise is handled cleanly | P0 | Complete | Route/runtime smoke test passed |
+| Handover Object 5 | Correct release model by introducing Release as the deployable transactional doctype | Data/Model Agent + Platform Product Agent | `requirements.md`, `docs/state-model.md`, existing Release Group and Bench doctypes | Release Group remains master data; Release holds image tag/build status; Bench links current/next Release | P0 | Complete | Data model migrated and field metadata verified |
+| Handover Object 5 | Update platform Release Group, Release, and Bench views for release-level tracking | UI/UX Agent + Platform Product Agent | Release doctype, Bench current/next release fields | Release Group shows Releases and bench adoption; Bench shows current/next Release and upgrade SOP context | P0 | Complete | Release-level routes and views smoke-tested |
+| Handover Object 5 | Add operator-readiness fields to Bench, Site, and Platform Settings | Data/Model Agent + Operator Integration Agent | `docs/platform-gap-backlog.md`, Frappe Operator contract, `lenscloud-infra` handoff model | Records can map to namespace, operator resource names, storage class, status, DNS, and cluster/operator defaults | P0 | Complete | Operator-readiness fields migrated and surfaced in UI |
+| Handover Object 5 | Define platform-team upgrade SOP surface for Bench movement to next Release | Automation/Workflow Agent + SOP/Docs Agent | Bench current/next Release fields; future Bench Upgrade Plan transactional model | Bench exposes upgrade window, upgrade policy, and upgrade/SOP status; transactional execution remains future backend work | P1 | Complete | First SOP status surface validated; backend job wiring remains pending |
+| Handover Object 6 | Bring `lenscloud-infra` dev cluster to live handoff state | Infra Bootstrap Agent + Operator Integration Agent | `lenscloud-infra`, Hcloud, kubectl, Frappe Operator, MariaDB Operator | Live cluster exists with operators installed and handoff values ready for Platform Settings/Region | P0 | Pending | Cluster handoff artifact reviewed before platform backend wiring |
+| Handover Object 6 | Wire Bench creation to operator-backed `FrappeBench` creation | Platform Product Agent + Operator Integration Agent | live infra handoff, Bench operator-readiness fields, current Release image data | Platform Bench action creates or reconciles a `FrappeBench` resource | P0 | Pending | One bench smoke test passes before Site wiring |
 
 ### Completed P0 Validation
 
@@ -166,10 +202,23 @@ Validated outcomes:
 - no browser console errors in the P0 smoke suite
 - viewport remains contained at `900 / 900`
 - assistant drawer receives contextual guidance for platform resources, customer site creation, customer sites, account, dashboard, and platform settings
+- `/platform` redirects to `/platform/dashboard`; `/customer` redirects to `/customer/dashboard`
+- `Release` route and doctype surfaces are available at `/platform/releases`
+- Release Group, Release, Bench, Site, and Platform Settings field metadata migrated and verified
+- favicon asset returns `200` from `/assets/lenscloud/frontend/favicon.ico`
 
 ### Next Work Item
 
-The previous tracked item, Handover Object 4 assistant context awareness, is complete. The next work item should be selected from new user-confirmed scope rather than inferred from a duplicate plan.
+Handover Object 5 is complete for route/runtime polish, Release data model correction, release-level platform UI, operator-readiness fields, and first Bench upgrade/SOP status surfaces. The next tracked work is Handover Object 6: bring `lenscloud-infra` to a live dev-cluster handoff state, then wire operator-backed `FrappeBench` creation from LensCloud Platform.
+
+## Document Lifecycle UI
+
+Platform resource pages now include a standard document lifecycle surface for master and transactional documents.
+
+- `App`, `Release Group`, and `Release` expose `New` document creation from the platform workspace.
+- Editable documents use standard Frappe document save APIs from the inspector field surface.
+- `Release` is submittable and exposes Submit, Cancel, and Amend controls in the `Document` inspector tab.
+- These document lifecycle controls are separate from operator/business lifecycle actions such as promote, rollout, backup, restore, upgrade, DNS, and Bench/Site provisioning. Operator-backed actions remain explicit backend gaps until wired.
 
 ## Agent Execution Order
 

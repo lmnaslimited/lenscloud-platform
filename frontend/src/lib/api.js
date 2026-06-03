@@ -1,3 +1,7 @@
+function getCsrfToken() {
+	return window.csrf_token || window.frappe?.csrf_token || window.frappe?.csrfToken || ''
+}
+
 function parseBody(response, bodyText) {
 	if (!bodyText) {
 		return {}
@@ -31,6 +35,7 @@ async function request(path, options = {}) {
 		headers: {
 			Accept: 'application/json',
 			...(options.body ? { 'Content-Type': 'application/json' } : {}),
+			...(options.body && getCsrfToken() ? { 'X-Frappe-CSRF-Token': getCsrfToken() } : {}),
 		},
 		body: options.body ? JSON.stringify(options.body) : undefined,
 	})
@@ -106,6 +111,16 @@ export async function createDoc(doctype, payload) {
 	return response.data || response.message || response
 }
 
+export async function submitDoc(doc) {
+	const response = await callMethod('frappe.client.submit', { doc }, 'POST')
+	return response.message || response.data || response
+}
+
+export async function cancelDoc(doctype, name) {
+	const response = await callMethod('frappe.client.cancel', { doctype, name }, 'POST')
+	return response.message || response.data || response
+}
+
 export function isGuestUser(user) {
 	return !user || user === 'Guest'
 }
@@ -124,7 +139,7 @@ export function formatFieldValue(value) {
 	}
 
 	if (typeof value === 'object') {
-		return value.title || value.name || JSON.stringify(value)
+		return value.title || value.app || value.name || JSON.stringify(value)
 	}
 
 	return String(value)

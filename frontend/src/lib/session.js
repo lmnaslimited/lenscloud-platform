@@ -55,7 +55,8 @@ export const useSessionStore = defineStore('session', {
 					this.roles = []
 				}
 			} catch (error) {
-				this.error = error?.message || 'Unable to load session.'
+				const message = error?.message || 'Unable to load session.'
+				this.error = /403|not permitted|forbidden/i.test(message) ? null : message
 				this.user = 'Guest'
 				this.roles = []
 			} finally {

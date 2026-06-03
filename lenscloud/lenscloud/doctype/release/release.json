@@ -1,0 +1,152 @@
+{
+ "actions": [],
+ "autoname": "format:RELEASE-{release_group}-{image_tag}",
+ "creation": "2026-06-03 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "release_group",
+  "image_section",
+  "image_tag",
+  "image_digest",
+  "build_status",
+  "build_pipeline_reference",
+  "release_status",
+  "rollout_eligibility",
+  "dates_section",
+  "build_date",
+  "promoted_date",
+  "notes_section",
+  "release_notes",
+  "compatibility_notes",
+  "amended_from"
+ ],
+ "fields": [
+  {
+   "fieldname": "release_group",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Release Group",
+   "options": "Release Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "image_section",
+   "fieldtype": "Section Break",
+   "label": "Deployable Image"
+  },
+  {
+   "fieldname": "image_tag",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Image Tag",
+   "reqd": 1
+  },
+  {
+   "fieldname": "image_digest",
+   "fieldtype": "Data",
+   "label": "Image Digest"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "build_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Build Status",
+   "options": "Draft\nQueued\nRunning\nSucceeded\nFailed\nCancelled"
+  },
+  {
+   "fieldname": "build_pipeline_reference",
+   "fieldtype": "Data",
+   "label": "Build/Pipeline Reference"
+  },
+  {
+   "default": "Draft",
+   "fieldname": "release_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Release Status",
+   "options": "Draft\nBuilt\nQuality\nProduction Eligible\nBlocked\nRetired"
+  },
+  {
+   "default": "Not Eligible",
+   "fieldname": "rollout_eligibility",
+   "fieldtype": "Select",
+   "label": "Rollout Eligibility",
+   "options": "Not Eligible\nQuality Only\nProduction Eligible\nBlocked"
+  },
+  {
+   "fieldname": "dates_section",
+   "fieldtype": "Section Break",
+   "label": "Dates"
+  },
+  {
+   "fieldname": "build_date",
+   "fieldtype": "Datetime",
+   "label": "Build Date"
+  },
+  {
+   "fieldname": "promoted_date",
+   "fieldtype": "Datetime",
+   "label": "Promoted Date"
+  },
+  {
+   "fieldname": "notes_section",
+   "fieldtype": "Section Break",
+   "label": "Notes"
+  },
+  {
+   "fieldname": "release_notes",
+   "fieldtype": "Text Editor",
+   "label": "Changelog / Release Notes"
+  },
+  {
+   "fieldname": "compatibility_notes",
+   "fieldtype": "Text Editor",
+   "label": "Compatibility Notes"
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "no_copy": 1,
+   "options": "Release",
+   "print_hide": 1,
+   "read_only": 1,
+   "search_index": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "is_calendar_and_gantt": 1,
+ "is_submittable": 1,
+ "links": [],
+ "modified": "2026-06-03 13:45:17.599454",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Release",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -63,6 +63,8 @@ The broader operating model is documented in:
 - [docs/skills.md](./docs/skills.md)
 - [docs/mcps.md](./docs/mcps.md)
 - [docs/state-model.md](./docs/state-model.md)
+- [docs/release-model.md](./docs/release-model.md)
+- [docs/platform-gap-backlog.md](./docs/platform-gap-backlog.md)
 - [docs/workflows.md](./docs/workflows.md)
 
 ## Suggested Stack

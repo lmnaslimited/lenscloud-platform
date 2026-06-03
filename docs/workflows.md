@@ -7,6 +7,8 @@
 - site delete, platform-facing by default
 - backup, platform-facing or qualified-customer only
 - restore, platform-facing or qualified-customer only
+- release create/promote/block, platform-facing only
+- bench upgrade planning, platform-facing only
 - upgrade, platform-facing or qualified-customer only
 - DNS automation, platform-facing or qualified-customer only
 
@@ -22,6 +24,59 @@
 - Keep lifecycle operations idempotent where possible.
 - Treat operator resources as the source of truth.
 - Do not reimplement Kubernetes reconciliation logic in the app.
+- Do not treat Release Group as a deployable version; Bench must deploy a specific Release.
+
+## Release And Bench Upgrade Workflow
+
+Release Group is the stable release family. Release is the deployable transaction. Bench tracks current and next release state.
+
+Release Group actions:
+
+- view Releases
+- view Benches grouped by current Release
+- view Benches behind latest eligible Release
+- create Release
+- promote Release
+- schedule rollout
+- compare Release adoption
+
+Release actions:
+
+- mark build ready
+- promote to Quality
+- promote to Production eligible
+- block Release
+- view affected Benches
+- schedule Bench upgrades
+
+Bench actions:
+
+- create Bench from Release Group and Release
+- schedule upgrade to next Release
+- run pre-upgrade checklist
+- start upgrade
+- verify upgrade
+- rollback to previous Release
+- mark upgrade complete
+
+Bench upgrade SOP states:
+
+- Draft
+- Scheduled
+- Precheck
+- Ready
+- Running
+- Verifying
+- Completed
+- Rolled Back
+- Failed
+
+Frontend expectations:
+
+- Release Group pages must summarize release adoption across Benches.
+- Release pages must show build/promotion status and affected Benches.
+- Bench pages must show current Release, next Release, schedule, and SOP progress.
+- Missing backend/operator behavior must be marked as a gap until connected.
 
 ## Workspace Model
 
@@ -67,7 +122,7 @@ Create Site state model references:
 - Subscription: plan/product placeholder until backend subscription behavior is wired through the configured billing system.
 - Site: requested tenant instance and eventual provisioned site.
 - Region: preferred placement source, displayed customer-friendly even though Region is a platform tree doctype.
-- Bench: platform placement target, not directly editable by the customer in the first pass.
+- Bench: platform placement target with current Release and next Release context, not directly editable by the customer in the first pass.
 - Platform Settings: `root_domain` is mandatory for customer domain previews; customers enter subdomains only.
 
 ## Commercial And Integration Workflow
@@ -106,6 +161,14 @@ Region is a native Frappe tree doctype. Platform-facing Region views must suppor
 - Group nodes use `is_group`.
 - Ordering should follow nested-set fields such as `lft`/`rgt` where available.
 - List mode remains available for filtering, scanning, and standard record work.
+
+## Document Lifecycle Workflow
+
+Frappe document lifecycle actions are first-class UI actions in the platform console.
+
+- Master data such as `App` and `Release Group` can be created through the platform resource workspace.
+- `Release` is a submittable transaction and should move through Draft, Submitted, Cancelled, and Amended states using native Frappe document APIs.
+- Document lifecycle actions must not be confused with infrastructure lifecycle actions. Submit/cancel a `Release` records the platform transaction; it does not deploy infrastructure.
 
 ## Frontend Execution Order
 

@@ -55,7 +55,7 @@ async function loadCustomer() {
 
 	if (data.customerAccount) {
 		data.customerSites = await listDocs('Site', {
-			fields: ['name', 'title', 'bench', 'customer', 'modified'],
+			fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'bench', 'customer', 'modified'],
 			limit: 4,
 			filters: [['customer', '=', data.customerAccount.name]],
 		})
@@ -100,7 +100,7 @@ const placementRows = computed(() => {
 	return [
 		{ label: 'Sites per bench', value: sites.length, total: Math.max(benches.length, 1), hint: `${sites.length} sites / ${benches.length || 0} benches` },
 		{ label: 'Benches per region', value: benches.length, total: Math.max(regions.length, 1), hint: `${benches.length || 0} benches / ${regions.length || 0} regions` },
-		{ label: 'Release coverage', value: (data.platform['release-groups'] || []).length, total: Math.max(benches.length, 1), hint: `${(data.platform['release-groups'] || []).length} release groups` },
+		{ label: 'Release coverage', value: (data.platform.releases || []).length, total: Math.max(benches.length, 1), hint: `${(data.platform.releases || []).length} deployable releases` },
 	]
 })
 

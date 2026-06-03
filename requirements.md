@@ -26,12 +26,17 @@ Build a Frappe-based platform application that serves both customer self-service
 - The platform must support region selection for site placement.
 - The platform must support quality vs production separation in site placement.
 
-## 4. Bench and Release Groups
+## 4. Release Groups, Releases, and Benches
 
-- The platform must represent benches as release-group instances.
-- The platform must treat a release group as the unit of bench image management.
-- The platform must support bench creation, upgrade, rollback, and retirement.
-- The platform must enforce site-to-bench placement rules.
+- The platform must represent Release Group as master data for a release family, not as a deployable version.
+- Release Group must hold stable product/image-family configuration such as registry URL, image repository, included apps, supported Frappe major version, and release policy.
+- The platform must introduce Release as the transactional deployable version for a Release Group.
+- Release must hold image tag, image digest when available, build status, pipeline/build reference, release status, changelog, compatibility notes, and promotion state.
+- Bench must link to a Release Group and deploy a specific current Release of that group.
+- Bench must support current release, next release, upgrade schedule/window, upgrade policy, and upgrade status.
+- Release Group views must summarize number of benches and their release levels.
+- Bench views must show current release level, next release level, and platform-team SOPs for moving to the next release.
+- The platform must support bench creation, release upgrade, rollback, retirement, and site-to-bench placement rules.
 
 ## 5. DNS and Domain Automation
 
@@ -44,8 +49,9 @@ Build a Frappe-based platform application that serves both customer self-service
 
 - The platform must support scheduled and on-demand backups.
 - The platform must support restore workflows.
-- The platform must support upgrade orchestration by release group or image tag.
+- The platform must support upgrade orchestration by Release and scheduled Bench upgrade plans.
 - The platform must keep an audit trail of backup, restore, and upgrade actions.
+- The platform must provide SOP-oriented upgrade flows for platform teams, including pre-check, schedule, execute, verify, rollback, and complete states.
 
 ## 7. Platform Operations
 

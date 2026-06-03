@@ -5,14 +5,52 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "cluster_section",
+  "active_cluster_context",
+  "operator_namespace",
+  "default_storage_class",
+  "default_bench_namespace_pattern",
   "dns_route53_section",
   "root_domain",
+  "route53_hosted_zone_id",
+  "route53_zone_reference",
   "tab_break_nfns",
   "billing_system",
+  "billing_integration_enabled",
+  "billing_integration_status",
   "crm_system",
-  "support_system"
+  "crm_integration_enabled",
+  "crm_integration_status",
+  "support_system",
+  "support_integration_enabled",
+  "support_integration_status"
  ],
  "fields": [
+  {
+   "fieldname": "cluster_section",
+   "fieldtype": "Section Break",
+   "label": "Cluster and Operator"
+  },
+  {
+   "fieldname": "active_cluster_context",
+   "fieldtype": "Data",
+   "label": "Active Cluster/Context Reference"
+  },
+  {
+   "fieldname": "operator_namespace",
+   "fieldtype": "Data",
+   "label": "Operator Namespace"
+  },
+  {
+   "fieldname": "default_storage_class",
+   "fieldtype": "Data",
+   "label": "Default Storage Class"
+  },
+  {
+   "fieldname": "default_bench_namespace_pattern",
+   "fieldtype": "Data",
+   "label": "Default Bench Namespace Pattern"
+  },
   {
    "fieldname": "dns_route53_section",
    "fieldtype": "Section Break",
@@ -24,9 +62,36 @@
    "label": "Root Domain"
   },
   {
+   "fieldname": "route53_hosted_zone_id",
+   "fieldtype": "Data",
+   "label": "Route53 Hosted Zone ID"
+  },
+  {
+   "fieldname": "route53_zone_reference",
+   "fieldtype": "Data",
+   "label": "Route53 Zone Reference"
+  },
+  {
    "fieldname": "tab_break_nfns",
    "fieldtype": "Tab Break",
    "label": "Integrations"
+  },
+  {
+   "fieldname": "billing_system",
+   "fieldtype": "Data",
+   "label": "Billing System"
+  },
+  {
+   "fieldname": "billing_integration_enabled",
+   "fieldtype": "Check",
+   "label": "Billing Integration Enabled"
+  },
+  {
+   "fieldname": "billing_integration_status",
+   "fieldtype": "Select",
+   "label": "Billing Integration Status",
+   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled",
+   "default": "Not Configured"
   },
   {
    "fieldname": "crm_system",
@@ -34,21 +99,40 @@
    "label": "CRM System"
   },
   {
+   "fieldname": "crm_integration_enabled",
+   "fieldtype": "Check",
+   "label": "CRM Integration Enabled"
+  },
+  {
+   "fieldname": "crm_integration_status",
+   "fieldtype": "Select",
+   "label": "CRM Integration Status",
+   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled",
+   "default": "Not Configured"
+  },
+  {
    "fieldname": "support_system",
    "fieldtype": "Data",
    "label": "Support System"
   },
   {
-   "fieldname": "billing_system",
-   "fieldtype": "Data",
-   "label": "Billing System"
+   "fieldname": "support_integration_enabled",
+   "fieldtype": "Check",
+   "label": "Support Integration Enabled"
+  },
+  {
+   "fieldname": "support_integration_status",
+   "fieldtype": "Select",
+   "label": "Support Integration Status",
+   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled",
+   "default": "Not Configured"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-02 22:21:29.719277",
+ "modified": "2026-06-03 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Platform Settings",

@@ -7,33 +7,122 @@
  "engine": "InnoDB",
  "field_order": [
   "title",
+  "customer",
   "bench",
-  "customer"
+  "domain_section",
+  "subdomain",
+  "domain",
+  "site_status",
+  "provisioning_status",
+  "operator_section",
+  "operator_resource_name",
+  "dns_status",
+  "lifecycle_section",
+  "backup_state",
+  "restore_state",
+  "upgrade_state"
  ],
  "fields": [
   {
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
-   "unique": 1
-  },
-  {
-   "fieldname": "bench",
-   "fieldtype": "Link",
-   "label": "Bench",
-   "options": "Bench"
+   "unique": 1,
+   "reqd": 1
   },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Customer",
    "options": "Customer"
+  },
+  {
+   "fieldname": "bench",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Bench",
+   "options": "Bench"
+  },
+  {
+   "fieldname": "domain_section",
+   "fieldtype": "Section Break",
+   "label": "Domain"
+  },
+  {
+   "fieldname": "subdomain",
+   "fieldtype": "Data",
+   "label": "Subdomain"
+  },
+  {
+   "fieldname": "domain",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Domain"
+  },
+  {
+   "fieldname": "site_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Site Status",
+   "options": "Draft\nRequested\nProvisioning\nActive\nSuspended\nFailed\nDeleted",
+   "default": "Draft"
+  },
+  {
+   "fieldname": "provisioning_status",
+   "fieldtype": "Select",
+   "label": "Provisioning Status",
+   "options": "Not Started\nPending\nRunning\nReady\nFailed",
+   "default": "Not Started"
+  },
+  {
+   "fieldname": "operator_section",
+   "fieldtype": "Section Break",
+   "label": "Operator and DNS"
+  },
+  {
+   "fieldname": "operator_resource_name",
+   "fieldtype": "Data",
+   "label": "Operator Resource Name"
+  },
+  {
+   "fieldname": "dns_status",
+   "fieldtype": "Select",
+   "label": "DNS Status",
+   "options": "Not Started\nPending\nCreated\nFailed",
+   "default": "Not Started"
+  },
+  {
+   "fieldname": "lifecycle_section",
+   "fieldtype": "Section Break",
+   "label": "Lifecycle State"
+  },
+  {
+   "fieldname": "backup_state",
+   "fieldtype": "Select",
+   "label": "Backup State",
+   "options": "Not Configured\nScheduled\nRunning\nSucceeded\nFailed",
+   "default": "Not Configured"
+  },
+  {
+   "fieldname": "restore_state",
+   "fieldtype": "Select",
+   "label": "Restore State",
+   "options": "Not Requested\nPending\nRunning\nSucceeded\nFailed",
+   "default": "Not Requested"
+  },
+  {
+   "fieldname": "upgrade_state",
+   "fieldtype": "Select",
+   "label": "Upgrade State",
+   "options": "Not Scheduled\nScheduled\nRunning\nVerifying\nSucceeded\nFailed",
+   "default": "Not Scheduled"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-31 14:51:31.276744",
+ "modified": "2026-06-03 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Site",

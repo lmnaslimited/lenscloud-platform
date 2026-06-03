@@ -6,26 +6,83 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "registry",
-  "title"
+  "title",
+  "status",
+  "image_section",
+  "registry_url",
+  "image_repository",
+  "supported_frappe_major_version",
+  "release_policy",
+  "apps_section",
+  "included_apps",
+  "apps_metadata"
  ],
  "fields": [
-  {
-   "fieldname": "registry",
-   "fieldtype": "Data",
-   "label": "Registry"
-  },
   {
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
    "unique": 1
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Active\nInactive"
+  },
+  {
+   "fieldname": "image_section",
+   "fieldtype": "Section Break",
+   "label": "Image Family"
+  },
+  {
+   "fieldname": "registry_url",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Registry URL"
+  },
+  {
+   "fieldname": "image_repository",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Image Repository"
+  },
+  {
+   "fieldname": "supported_frappe_major_version",
+   "fieldtype": "Data",
+   "label": "Supported Frappe Major Version"
+  },
+  {
+   "default": "Manual",
+   "fieldname": "release_policy",
+   "fieldtype": "Select",
+   "label": "Release Policy",
+   "options": "Manual\nQuality First\nProduction Eligible\nLTS"
+  },
+  {
+   "fieldname": "apps_section",
+   "fieldtype": "Section Break",
+   "label": "Apps"
+  },
+  {
+   "fieldname": "included_apps",
+   "fieldtype": "Table MultiSelect",
+   "label": "Included Apps",
+   "options": "Release Group Apps"
+  },
+  {
+   "fieldname": "apps_metadata",
+   "fieldtype": "Code",
+   "label": "Apps Metadata",
+   "options": "JSON"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-05-31 14:15:41.321938",
+ "modified": "2026-06-03 13:04:35.610604",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Release Group",

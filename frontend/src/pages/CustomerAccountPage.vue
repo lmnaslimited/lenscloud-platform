@@ -42,7 +42,7 @@ async function load() {
 			}
 
 			sites.value = await listDocs('Site', {
-				fields: ['name', 'title', 'bench', 'customer', 'modified'],
+				fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'bench', 'customer', 'modified'],
 				limit: 8,
 				filters: [['customer', '=', customer.value.name]],
 			})

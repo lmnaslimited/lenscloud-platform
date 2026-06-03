@@ -7,16 +7,36 @@
  "engine": "InnoDB",
  "field_order": [
   "title",
+  "release_section",
   "release_group",
+  "current_release",
+  "next_release",
+  "placement_section",
   "region",
-  "privacy"
+  "privacy",
+  "cluster_runtime_target",
+  "operator_section",
+  "kubernetes_namespace",
+  "operator_resource_name",
+  "storage_class",
+  "bench_status",
+  "upgrade_section",
+  "upgrade_window",
+  "upgrade_policy",
+  "upgrade_sop_status"
  ],
  "fields": [
   {
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
-   "unique": 1
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "release_section",
+   "fieldtype": "Section Break",
+   "label": "Release Tracking"
   },
   {
    "fieldname": "release_group",
@@ -25,6 +45,24 @@
    "label": "Release Group",
    "options": "Release Group",
    "reqd": 1
+  },
+  {
+   "fieldname": "current_release",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Current Release",
+   "options": "Release"
+  },
+  {
+   "fieldname": "next_release",
+   "fieldtype": "Link",
+   "label": "Next Release",
+   "options": "Release"
+  },
+  {
+   "fieldname": "placement_section",
+   "fieldtype": "Section Break",
+   "label": "Placement"
   },
   {
    "fieldname": "region",
@@ -37,12 +75,70 @@
    "fieldtype": "Link",
    "label": "Privacy",
    "options": "Privacy"
+  },
+  {
+   "fieldname": "cluster_runtime_target",
+   "fieldtype": "Data",
+   "label": "Cluster or Region Runtime Target"
+  },
+  {
+   "fieldname": "operator_section",
+   "fieldtype": "Section Break",
+   "label": "Operator Readiness"
+  },
+  {
+   "fieldname": "kubernetes_namespace",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Kubernetes Namespace"
+  },
+  {
+   "fieldname": "operator_resource_name",
+   "fieldtype": "Data",
+   "label": "Operator Resource Name"
+  },
+  {
+   "fieldname": "storage_class",
+   "fieldtype": "Data",
+   "label": "Storage Class"
+  },
+  {
+   "fieldname": "bench_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Bench Status",
+   "options": "Draft\nPending\nProvisioning\nReady\nUpgrading\nSuspended\nFailed\nRetired",
+   "default": "Draft"
+  },
+  {
+   "fieldname": "upgrade_section",
+   "fieldtype": "Section Break",
+   "label": "Upgrade SOP"
+  },
+  {
+   "fieldname": "upgrade_window",
+   "fieldtype": "Data",
+   "label": "Upgrade Schedule / Window"
+  },
+  {
+   "fieldname": "upgrade_policy",
+   "fieldtype": "Select",
+   "label": "Upgrade Policy",
+   "options": "Manual\nScheduled\nAuto Quality\nAuto Production Eligible",
+   "default": "Manual"
+  },
+  {
+   "fieldname": "upgrade_sop_status",
+   "fieldtype": "Select",
+   "label": "Upgrade/SOP Status",
+   "options": "Draft\nScheduled\nPrecheck\nReady\nRunning\nVerifying\nCompleted\nRolled Back\nFailed",
+   "default": "Draft"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-01 12:35:40.120127",
+ "modified": "2026-06-03 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Bench",

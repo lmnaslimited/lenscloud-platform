@@ -42,8 +42,14 @@
         font: inherit;
       }
     </style>
-  </head>
+    <link rel="icon" href="/assets/lenscloud/frontend/favicon.ico" />
+</head>
   <body>
+    <script>
+      window.frappe = window.frappe || {};
+      window.csrf_token = "{{ csrf_token }}";
+      window.frappe.csrf_token = window.csrf_token;
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>
