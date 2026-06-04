@@ -1,8 +1,8 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
-import { Alert, Badge, Button, Dropdown, ListView, Tabs, TextInput, Textarea } from 'frappe-ui'
-import { listDocs, getDoc, saveDoc, createDoc, submitDoc, cancelDoc, formatFieldValue } from '@/lib/api'
+import { Alert, Badge, Button, Dropdown, FormControl, ListView, Tabs, TextInput } from 'frappe-ui'
+import { listDocs, getDoc, saveDoc, createDoc, submitDoc, cancelDoc, callMethod, formatFieldValue } from '@/lib/api'
 import { getResourceByKey, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -35,8 +35,12 @@ const expandedTreeNodes = ref(new Set())
 const formState = reactive({})
 const actionState = reactive({})
 const createForm = reactive({})
+const fieldOptions = reactive({})
 const isCreating = ref(false)
 const lifecycleState = ref('idle')
+const actionExecutionState = ref('idle')
+const actionResult = ref(null)
+const actionRawResult = ref(null)
 
 const selectedName = computed(() => route.params.name || records.value[0]?.name || '')
 const isTreeResource = computed(() => Boolean(resource.value?.tree))
@@ -149,6 +153,7 @@ const treeRows = computed(() => {
 const visibleRowCount = computed(() => (displayMode.value === 'tree' && isTreeResource.value ? treeRows.value.length : visibleRecords.value.length))
 
 const documentLifecycleFields = computed(() => resource.value?.lifecycleFields || (resource.value?.detailFields || []).filter((field) => !['name', 'docstatus', 'amended_from'].includes(field.key)))
+const lifecycleFieldMap = computed(() => new Map(documentLifecycleFields.value.map((field) => [field.key, field])))
 const canCreateDocument = computed(() => props.scope === 'platform' && Boolean(resource.value?.creatable))
 const canEditDocument = computed(() => Boolean(resource.value?.editable) && (!resource.value?.submittable || Number(record.value?.docstatus || 0) === 0))
 const canSubmitDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 0))
@@ -186,10 +191,55 @@ function buildDocumentPayload(source) {
 	const payload = {}
 	for (const field of documentLifecycleFields.value) {
 		if (field.readOnly) continue
-		payload[field.key] = source[field.key] ?? ''
+		if (field.type === 'check') {
+			payload[field.key] = source[field.key] ? 1 : 0
+		} else {
+			payload[field.key] = source[field.key] ?? ''
+		}
 	}
 	if (source.amended_from) payload.amended_from = source.amended_from
 	return payload
+}
+
+
+function editableField(field) {
+	return { ...(lifecycleFieldMap.value.get(field.key) || {}), ...field }
+}
+
+function fieldOptionKey(field) {
+	return `${field.type || 'text'}:${field.options || field.key}`
+}
+
+function optionLabelForDoc(doc, field) {
+	const labelFields = field.labelFields || ['title', 'first_name', 'last_name', 'image_tag', 'cluster_name', 'plan_code']
+	const label = labelFields.map((key) => doc[key]).filter(Boolean).join(' ')
+	return label && label !== doc.name ? `${label} · ${doc.name}` : doc.name
+}
+
+async function loadFieldOptions() {
+	const actionFields = (resource.value?.actions || []).flatMap((action) => action.fields || [])
+	const linkFields = [...documentLifecycleFields.value, ...actionFields].filter((field) => field.type === 'link' && field.options)
+	await Promise.all(linkFields.map(async (field) => {
+		const key = fieldOptionKey(field)
+		if (fieldOptions[key]) return
+
+		const fields = Array.from(new Set(['name', ...(field.labelFields || ['title', 'first_name', 'last_name', 'image_tag', 'cluster_name', 'plan_code'])]))
+		const rows = await listDocs(field.options, {
+			fields,
+			limit: field.limit || 100,
+			orderBy: field.orderBy || 'modified desc',
+			filters: field.filters,
+		}).catch(() => [])
+
+		fieldOptions[key] = rows.map((row) => ({
+			label: optionLabelForDoc(row, field),
+			value: row.name,
+		}))
+	}))
+}
+
+function optionsForField(field) {
+	return fieldOptions[fieldOptionKey(field)] || []
 }
 
 const showExternalContext = computed(() => props.scope === 'platform' && ['customers', 'sites'].includes(props.resourceKey))
@@ -432,7 +482,7 @@ async function load() {
 	error.value = null
 	related.value = []
 	try {
-		await Promise.all([loadList(), loadSettingsContext()])
+		await Promise.all([loadList(), loadSettingsContext(), loadFieldOptions()])
 		const previewName = route.params.name || (props.mode === 'list' ? records.value[0]?.name : '')
 		await loadDetail(previewName)
 	} catch (err) {
@@ -473,6 +523,50 @@ const inspectorTabs = computed(() => {
 function selectAction(action) {
 	activeActionKey.value = activeActionKey.value === action.key ? '' : action.key
 	for (const key of Object.keys(actionState)) delete actionState[key]
+	actionExecutionState.value = 'idle'
+	actionResult.value = null
+	actionRawResult.value = null
+}
+
+function buildActionParams() {
+	const params = { ...actionState }
+	if (activeAction.value?.paramsFromRecord && record.value) {
+		for (const [param, field] of Object.entries(activeAction.value.paramsFromRecord)) {
+			params[param] = record.value[field]
+		}
+	}
+	return params
+}
+
+
+function unwrapMethodResult(result) {
+	if (result && typeof result === 'object' && Object.hasOwn(result, 'message')) {
+		return result.message
+	}
+	return result
+}
+
+function formatActionResult(result) {
+	if (!result) return ''
+	return JSON.stringify(result, null, 2)
+}
+
+async function executeActiveAction() {
+	if (!activeAction.value?.method) return
+	actionExecutionState.value = 'running'
+	actionResult.value = null
+	actionRawResult.value = null
+	error.value = null
+	try {
+		const result = await callMethod(activeAction.value.method, buildActionParams(), 'POST')
+		actionRawResult.value = result
+		actionResult.value = unwrapMethodResult(result)
+		actionExecutionState.value = 'done'
+		await load()
+	} catch (err) {
+		actionExecutionState.value = 'error'
+		error.value = err?.message || 'Unable to execute action.'
+	}
 }
 
 function setDisplayMode(mode) {
@@ -494,9 +588,77 @@ function selectTreeRow(row) {
 	})
 }
 
-function assignActionField(field, value) {
-	actionState[field] = value
+
+
+function controlTypeForField(field) {
+	if (field.type === 'check') return 'checkbox'
+	if (field.type === 'textarea') return 'textarea'
+	if (field.type === 'select') return 'select'
+	if (field.type === 'link') return 'combobox'
+	if (field.type === 'date') return 'date'
+	if (field.type === 'datetime') return 'datetime-local'
+	if (field.type === 'number') return 'number'
+	return 'text'
 }
+
+function normalizedOptionsForField(field) {
+	if (field.type === 'select') {
+		const source = Array.isArray(field.options) ? field.options : String(field.options || '').split('\n')
+		const options = source.map((option) => (typeof option === 'object' ? option : { label: option, value: option })).filter((option) => option.value !== '')
+		return [{ label: 'None', value: '' }, ...options]
+	}
+
+	if (field.type === 'link') return [{ label: 'None', value: '' }, ...optionsForField(field)]
+	return []
+}
+
+function controlValueForField(model, field) {
+	return model[field.key]
+}
+
+function fieldControlProps(model, field) {
+	const props = {
+		type: controlTypeForField(field),
+		label: field.label,
+		required: field.required,
+		modelValue: controlValueForField(model, field),
+		variant: 'subtle',
+		disabled: Boolean(field.readOnly),
+	}
+
+	if (field.type !== 'check') {
+		props.placeholder = field.placeholder || field.label
+	}
+
+	if (field.type === 'select' || field.type === 'link') {
+		props.options = normalizedOptionsForField(field)
+	}
+
+	if (field.type === 'link') {
+		props.openOnFocus = true
+		props.openOnClick = true
+		props.allowCustomValue = Boolean(field.allowCreate)
+	}
+
+	return props
+}
+
+function canClearField(model, field) {
+	return ['link', 'select'].includes(field.type) && Boolean(model[field.key])
+}
+
+function clearModelField(model, field) {
+	model[field.key] = ''
+}
+
+function updateModelField(model, field, value) {
+	if (field.type === 'link') {
+		model[field.key] = value || ''
+		return
+	}
+	model[field.key] = value
+}
+
 
 async function createCurrentRecord() {
 	if (!resource.value) return
@@ -600,11 +762,16 @@ async function saveCurrentRecord() {
 					</div>
 
 					<div class="mt-4 grid gap-3 md:grid-cols-2">
-						<label v-for="field in documentLifecycleFields" :key="field.key" class="space-y-1.5" :class="field.type === 'textarea' ? 'md:col-span-2' : ''">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">{{ field.label }}{{ field.required ? ' *' : '' }}</span>
-							<Textarea v-if="field.type === 'textarea'" v-model="createForm[field.key]" :placeholder="field.label" variant="subtle" class="w-full" />
-							<TextInput v-else v-model="createForm[field.key]" :placeholder="field.label" variant="subtle" class="w-full" />
-						</label>
+						<div v-for="field in documentLifecycleFields" :key="field.key" :class="field.type === 'textarea' ? 'md:col-span-2' : ''">
+							<div class="flex items-end gap-2">
+								<FormControl
+									v-bind="fieldControlProps(createForm, field)"
+									:class="field.type === 'check' ? '' : 'min-w-0 flex-1'"
+									@update:modelValue="(value) => updateModelField(createForm, field, value)"
+								/>
+								<Button v-if="canClearField(createForm, field)" size="sm" variant="subtle" class="mb-0.5 shrink-0" @click="clearModelField(createForm, field)">Clear</Button>
+							</div>
+						</div>
 					</div>
 
 					<div class="mt-4 flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
@@ -761,23 +928,19 @@ async function saveCurrentRecord() {
 
 							<div class="space-y-2">
 								<div v-for="field in resource.detailFields || []" :key="field.key" class="space-y-1">
-									<label class="text-xs font-medium text-ink-gray-5">{{ field.label }}</label>
-									<TextInput
-										v-if="canEditDocument && documentLifecycleFields.some((item) => item.key === field.key) && field.key !== 'notes' && !Array.isArray(record[field.key])"
-										v-model="formState[field.key]"
-										:placeholder="field.label"
-										variant="subtle"
-										class="w-full"
-									/>
-									<Textarea
-										v-else-if="canEditDocument && documentLifecycleFields.some((item) => item.key === field.key)"
-										v-model="formState[field.key]"
-										:placeholder="field.label"
-										variant="subtle"
-										class="w-full"
-									/>
-									<div v-else class="truncate rounded bg-surface-gray-1 px-2.5 py-1.5 text-sm text-ink-gray-7">
-										{{ formatFieldValue(record[field.key]) }}
+									<div v-if="canEditDocument && documentLifecycleFields.some((item) => item.key === field.key) && !Array.isArray(record[field.key])" class="flex items-end gap-2">
+										<FormControl
+											v-bind="fieldControlProps(formState, editableField(field))"
+											:class="editableField(field).type === 'check' ? '' : 'min-w-0 flex-1'"
+											@update:modelValue="(value) => updateModelField(formState, editableField(field), value)"
+										/>
+										<Button v-if="canClearField(formState, editableField(field))" size="sm" variant="subtle" class="mb-0.5 shrink-0" @click="clearModelField(formState, editableField(field))">Clear</Button>
+									</div>
+									<div v-else>
+										<label class="text-xs font-medium text-ink-gray-5">{{ field.label }}</label>
+										<div class="mt-1 truncate rounded bg-surface-gray-1 px-2.5 py-1.5 text-sm text-ink-gray-7">
+											{{ formatFieldValue(record[field.key]) }}
+										</div>
 									</div>
 								</div>
 							</div>
@@ -944,28 +1107,34 @@ async function saveCurrentRecord() {
 								</div>
 
 								<div class="mt-3 space-y-2">
-									<div v-for="field in activeAction.fields || []" :key="field.key" class="space-y-1">
-										<label class="text-xs font-medium text-ink-gray-5">{{ field.label }}</label>
-										<TextInput
-											v-if="field.type !== 'textarea'"
-											v-model="actionState[field.key]"
-											:placeholder="field.placeholder"
-											variant="subtle"
-											class="w-full"
+									<div v-for="field in activeAction.fields || []" :key="field.key" class="flex items-end gap-2">
+										<FormControl
+											v-bind="fieldControlProps(actionState, field)"
+											:class="field.type === 'check' ? '' : 'min-w-0 flex-1'"
+											@update:modelValue="(value) => updateModelField(actionState, field, value)"
 										/>
-										<Textarea
-											v-else
-											v-model="actionState[field.key]"
-											:placeholder="field.placeholder"
-											variant="subtle"
-											class="w-full"
-										/>
+										<Button v-if="canClearField(actionState, field)" size="sm" variant="subtle" class="mb-0.5 shrink-0" @click="clearModelField(actionState, field)">Clear</Button>
 									</div>
 								</div>
 
 								<div class="mt-3 flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
-									<Button size="sm" variant="subtle" :disabled="!activeAction.backendSupported">Capture request</Button>
+									<Button size="sm" variant="subtle" :disabled="!activeAction.backendSupported || !activeAction.method || actionExecutionState === 'running'" @click="executeActiveAction">{{ actionExecutionState === 'running' ? 'Running...' : (activeAction.method ? 'Run action' : 'Capture request') }}</Button>
 									<Badge v-if="!activeAction.backendSupported" class="bg-amber-50 text-amber-700">Backend gap</Badge>
+									<Badge v-else-if="actionExecutionState === 'done'" class="bg-emerald-50 text-emerald-700">Done</Badge>
+									<Badge v-else-if="actionExecutionState === 'error'" class="bg-red-50 text-red-700">Failed</Badge>
+								</div>
+
+								<div v-if="actionResult" class="mt-3 rounded border border-outline-gray-2 bg-surface-white p-3">
+									<p class="text-xs font-medium uppercase text-ink-gray-5">Action result</p>
+									<div class="mt-2 space-y-1 text-xs text-ink-gray-6">
+										<p v-if="actionResult.status">Status: <span class="font-medium text-ink-gray-9">{{ actionResult.status }}</span></p>
+										<p v-if="actionResult.dry_run !== undefined">Dry run: <span class="font-medium text-ink-gray-9">{{ actionResult.dry_run ? 'Yes' : 'No' }}</span></p>
+										<p v-if="actionResult.cluster">Cluster: <span class="font-medium text-ink-gray-9">{{ actionResult.cluster }}</span></p>
+										<p v-if="actionResult.action_log">Action log: <span class="font-medium text-ink-gray-9">{{ actionResult.action_log }}</span></p>
+										<p v-if="actionResult.dns_record">DNS record: <span class="font-medium text-ink-gray-9">{{ actionResult.dns_record }}</span></p>
+									</div>
+									<pre v-if="actionResult.manifest" class="mt-3 max-h-72 overflow-auto rounded bg-surface-gray-1 p-3 text-xs text-ink-gray-8">{{ actionResult.manifest }}</pre>
+									<pre v-else class="mt-3 max-h-72 overflow-auto rounded bg-surface-gray-1 p-3 text-xs text-ink-gray-8">{{ formatActionResult(actionResult) }}</pre>
 								</div>
 							</div>
 						</template>

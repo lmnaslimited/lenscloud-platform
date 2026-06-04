@@ -125,3 +125,67 @@ Bench Upgrade Plan owns:
 - Bench is the unit of runtime grouping.
 - Site is the tenant boundary.
 - DNS must be treated as lifecycle state, not manual admin work.
+
+## Multi-Cluster Runtime Target Model
+
+LensCloud supports multiple active runtime clusters at the same time. Platform Settings does not select one global active deploy cluster.
+
+### Cluster
+
+Cluster is the registered runtime target used by Regions for deployment placement.
+
+Cluster owns:
+
+- cluster name
+- linked Region
+- provider and environment
+- active/maintenance/disabled status
+- manager host and Headlamp URL
+- Kubernetes API/access reference
+- operator namespace
+- default runtime namespace
+- default storage class
+- default bench namespace pattern
+- kubeconfig reference and credential reference, stored as server-side references only
+- health status, last sync time, and last error
+
+Cluster is used to:
+
+- derive Bench placement from Region
+- derive Site placement from Region
+- keep Kubernetes details out of customer-facing UI
+- provide the backend with a credential/reference boundary for future operator apply
+
+### Region Placement
+
+Region links to Cluster. Bench and Site deployment choose Region first, then derive Cluster from `Region.cluster`.
+
+- Bench.region -> Region.cluster -> Bench.cluster
+- Site.region -> Region.cluster -> Site.cluster
+- Platform Settings keeps only global defaults and integration settings.
+
+### Plan
+
+Plan is commercial/product master data. The Free plan must exist for first customer self-service site creation.
+
+### DNS Record
+
+DNS Record tracks intended and applied DNS automation state. DNS is lifecycle state, not manual-only admin work.
+
+A Site must not be marked DNS verified unless Route53 creation and verification actually succeed.
+
+### Orchestration Action Log
+
+Orchestration Action Log records every Bench, Site, and DNS orchestration attempt, including generated dry-run manifests and errors.
+
+### Site Identity Derivation
+
+Site `title` is derived control-plane identity, not user input. The platform derives it from the full hostname:
+
+- Customer/operator provides `subdomain`.
+- Platform Settings `root_domain` provides the default root domain for this pass.
+- Site `domain` stores the root or approved domain only and is read-only in the Site document UI.
+- Site `title` and document name are set to the full hostname `{subdomain}.{domain}`.
+- `FrappeSite.spec.siteName` must use the same full hostname, not only the subdomain.
+- Kubernetes/operator resource names remain slug-safe and may use the subdomain/operator resource field.
+- Future approved-domain support may replace the Platform Settings root domain; customer custom-domain whitelisting is out of scope for this pass.

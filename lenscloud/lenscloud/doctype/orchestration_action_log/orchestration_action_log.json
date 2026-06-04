@@ -1,0 +1,136 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "format:ORCH-{YYYY}-{#####}",
+ "creation": "2026-06-03 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "action_type",
+  "status",
+  "dry_run",
+  "cluster",
+  "region",
+  "bench",
+  "site",
+  "release",
+  "operator_namespace",
+  "operator_resource_name",
+  "manifest",
+  "message",
+  "error"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title"
+  },
+  {
+   "fieldname": "action_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Action Type",
+   "options": "Bench Dry Run\nBench Reconcile\nSite Request\nSite Dry Run\nSite Reconcile\nDNS Queue\nDNS Apply"
+  },
+  {
+   "default": "Pending",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nPending\nDry Run\nQueued\nSucceeded\nFailed\nSkipped"
+  },
+  {
+   "fieldname": "dry_run",
+   "fieldtype": "Data",
+   "label": "Dry Run"
+  },
+  {
+   "fieldname": "cluster",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cluster",
+   "options": "Cluster"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "label": "Region",
+   "options": "Region"
+  },
+  {
+   "fieldname": "bench",
+   "fieldtype": "Link",
+   "label": "Bench",
+   "options": "Bench"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Site"
+  },
+  {
+   "fieldname": "release",
+   "fieldtype": "Link",
+   "label": "Release",
+   "options": "Release"
+  },
+  {
+   "fieldname": "operator_namespace",
+   "fieldtype": "Data",
+   "label": "Operator Namespace"
+  },
+  {
+   "fieldname": "operator_resource_name",
+   "fieldtype": "Data",
+   "label": "Operator Resource Name"
+  },
+  {
+   "fieldname": "manifest",
+   "fieldtype": "Code",
+   "label": "Manifest",
+   "options": "YAML"
+  },
+  {
+   "fieldname": "message",
+   "fieldtype": "Text",
+   "label": "Message"
+  },
+  {
+   "fieldname": "error",
+   "fieldtype": "Text",
+   "label": "Error"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-04 19:32:36.545936",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Orchestration Action Log",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

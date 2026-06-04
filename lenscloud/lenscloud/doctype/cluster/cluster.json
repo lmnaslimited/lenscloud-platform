@@ -1,0 +1,212 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:title",
+ "creation": "2026-06-03 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "identity_section",
+  "cluster_name",
+  "region",
+  "provider",
+  "environment",
+  "status",
+  "access_section",
+  "manager_host",
+  "manager_public_ip",
+  "manager_private_ip",
+  "headlamp_url",
+  "kubernetes_api_endpoint",
+  "access_method",
+  "kubeconfig_reference",
+  "credential_reference",
+  "operator_section",
+  "operator_namespace",
+  "default_runtime_namespace",
+  "default_storage_class",
+  "default_bench_namespace_pattern",
+  "health_section",
+  "health_status",
+  "last_sync_time",
+  "last_error"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Identity"
+  },
+  {
+   "fieldname": "cluster_name",
+   "fieldtype": "Data",
+   "label": "Cluster Name",
+   "in_list_view": 1,
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "label": "Region",
+   "options": "Region",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "provider",
+   "fieldtype": "Select",
+   "label": "Provider",
+   "options": "Hcloud\nAWS\nLocal\nOther",
+   "default": "Hcloud"
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Select",
+   "label": "Environment",
+   "options": "Development\nStaging\nProduction",
+   "default": "Development"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nActive\nMaintenance\nDisabled\nRetired",
+   "default": "Active",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "access_section",
+   "fieldtype": "Section Break",
+   "label": "Access and Operations"
+  },
+  {
+   "fieldname": "manager_host",
+   "fieldtype": "Data",
+   "label": "Manager Host"
+  },
+  {
+   "fieldname": "manager_public_ip",
+   "fieldtype": "Data",
+   "label": "Manager Public IP"
+  },
+  {
+   "fieldname": "manager_private_ip",
+   "fieldtype": "Data",
+   "label": "Manager Private IP"
+  },
+  {
+   "fieldname": "headlamp_url",
+   "fieldtype": "Data",
+   "label": "Headlamp URL"
+  },
+  {
+   "fieldname": "kubernetes_api_endpoint",
+   "fieldtype": "Data",
+   "label": "Kubernetes API Endpoint"
+  },
+  {
+   "fieldname": "access_method",
+   "fieldtype": "Data",
+   "label": "Access Method",
+   "default": "SSH to manager VM"
+  },
+  {
+   "fieldname": "kubeconfig_reference",
+   "fieldtype": "Data",
+   "label": "Kubeconfig Reference"
+  },
+  {
+   "fieldname": "credential_reference",
+   "fieldtype": "Data",
+   "label": "Credential Reference"
+  },
+  {
+   "fieldname": "operator_section",
+   "fieldtype": "Section Break",
+   "label": "Operator Defaults"
+  },
+  {
+   "fieldname": "operator_namespace",
+   "fieldtype": "Data",
+   "label": "Operator Namespace",
+   "default": "frappe-operator-system"
+  },
+  {
+   "fieldname": "default_runtime_namespace",
+   "fieldtype": "Data",
+   "label": "Default Runtime Namespace",
+   "default": "default"
+  },
+  {
+   "fieldname": "default_storage_class",
+   "fieldtype": "Data",
+   "label": "Default Storage Class",
+   "default": "local-path"
+  },
+  {
+   "fieldname": "default_bench_namespace_pattern",
+   "fieldtype": "Data",
+   "label": "Default Bench Namespace Pattern",
+   "default": "bench-{bench}"
+  },
+  {
+   "fieldname": "health_section",
+   "fieldtype": "Section Break",
+   "label": "Health"
+  },
+  {
+   "fieldname": "health_status",
+   "fieldtype": "Select",
+   "label": "Health Status",
+   "options": "Unknown\nHealthy\nDegraded\nFailed",
+   "default": "Unknown"
+  },
+  {
+   "fieldname": "last_sync_time",
+   "fieldtype": "Datetime",
+   "label": "Last Sync Time"
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Text",
+   "label": "Last Error"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-03 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Cluster",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title"
+}

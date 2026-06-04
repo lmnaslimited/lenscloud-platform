@@ -142,8 +142,10 @@ Customer-created sites use the platform root domain in this pass.
 
 - Customers enter a preferred subdomain/name only.
 - The final domain preview is `{preferred_subdomain}.{Platform Settings.root_domain}`.
+- The Site `domain` field stores the root or approved domain, defaults from Platform Settings, and is read-only in this pass.
 - If `root_domain` is missing, Create Site must clearly show a Platform Settings gap and prevent normal submission.
 - Subdomain validation is frontend-only in this pass and must not imply backend reservation has happened.
+- Customer custom-domain whitelisting is out of scope until approved-domain support is designed.
 
 ## Locked Advanced Operations
 
@@ -186,3 +188,58 @@ The canonical frontend work-item list and status tracker is the `Frontend Handov
 - Keep the platform-console and customer-portal surfaces separate by role.
 - Mark missing backend behavior as a gap instead of assuming it exists.
 - Keep the platform/infrastructure boundary explicit at all times.
+
+## Region-Driven Cluster Placement Workflow
+
+LensCloud supports more than one active runtime cluster.
+
+- Platform Settings stores global defaults only.
+- Region determines the deployment Cluster.
+- Bench creation selects Region and derives Cluster from `Region.cluster`.
+- Site creation selects Region and derives Cluster from `Region.cluster`.
+- Customers never see kubeconfig, SSH, or credential details.
+- Platform agents may see Cluster summaries, manager host, Headlamp URL, credential reference names, and health state.
+
+Current live EU dev target from `lenscloud-infra`:
+
+- Cluster: `lenscloud-eu-dev`
+- Region: `EU`
+- Provider: `Hcloud`
+- Manager: `lenscloud-eu-manager-1`
+- Manager public IP: `116.203.22.81`
+- Manager private IP: `10.20.1.1`
+- Headlamp URL: `http://headlamp.eu.lmnaslens.com`
+- Kubernetes access model: SSH to manager VM and run `kubectl` there
+- Kubeconfig reference: manager VM `/etc/rancher/k3s/k3s.yaml`
+- Operator namespace: `frappe-operator-system`
+- Default storage class: `local-path`
+
+## Bench And Site Orchestration Workflow
+
+Backend orchestration methods are server-side only.
+
+- `dry_run_bench_manifest(bench)` generates a `FrappeBench` manifest.
+- `reconcile_bench(bench, dry_run=True)` records a safe dry-run unless real apply is explicitly wired later.
+- `request_customer_site(...)` creates a LensCloud Site request under a Plan, defaults to Free plan when selected.
+- `dry_run_site_manifest(site)` generates a `FrappeSite` manifest.
+- `reconcile_site(site, dry_run=True)` records a safe dry-run unless real apply is explicitly wired later.
+- `queue_or_apply_dns_record(site)` creates/queues DNS state and does not mark DNS verified until Route53 succeeds.
+
+Real Kubernetes apply remains gated behind backend credential/reference work and Platform Settings apply flags. The frontend must not call Kubernetes or Route53 directly.
+
+## Route53 DNS Automation Workflow
+
+DNS automation is explicit lifecycle work.
+
+- Platform Settings stores Route53 defaults: provider, hosted zone ID/reference, AWS region, credential reference, automation enabled flag.
+- Customer and platform Site creation derive the FQDN from `subdomain + root_domain`.
+- Site `domain` stores the root/approved domain; DNS Record uses the derived full hostname.
+- DNS starts as Pending or Queued.
+- Route53 apply and verification are future server-side integrations.
+- DNS must not be shown as Created/Verified unless the provider confirms it.
+
+### Site Hostname And Operator Manifest
+
+Site creation treats the full hostname as the Site identity. Operators and customers should not type the Site title directly. The backend derives read-only `Site.domain` from Platform Settings `root_domain` in this pass, then derives `Site.title` and the document name from `subdomain + domain`.
+
+The generated `FrappeSite` manifest must set `spec.siteName` to the complete hostname such as `customer.cloud.example.com`. It must not use only `customer`/subdomain, because the operator needs the same hostname that DNS and customer-facing surfaces show.

@@ -3,7 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Alert, Badge, Button, TextInput, Textarea } from 'frappe-ui'
 import { Check, ChevronRight, Globe2, MapPin, Package, Send, Settings2 } from 'lucide-vue-next'
-import { getDoc, listDocs } from '@/lib/api'
+import { callMethod, getDoc, listDocs } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
@@ -14,7 +14,7 @@ const error = ref(null)
 const customer = ref(null)
 const regions = ref([])
 const platformSettings = ref(null)
-const selectedPlan = ref('starter')
+const selectedPlan = ref('')
 
 const form = reactive({
 	site_name: '',
@@ -24,18 +24,15 @@ const form = reactive({
 	notes: '',
 })
 
-const plans = [
-	{ key: 'starter', label: 'Starter', note: 'Best for first production sites' },
-	{ key: 'business', label: 'Business', note: 'For higher traffic and support needs' },
-	{ key: 'custom', label: 'Custom', note: 'Platform team will confirm sizing' },
-]
+const plans = ref([])
 
 const selectedRegion = computed(() => regions.value.find((region) => region.name === form.region) || null)
+const selectedPlanRecord = computed(() => plans.value.find((plan) => plan.name === selectedPlan.value) || null)
 const rootDomain = computed(() => platformSettings.value?.root_domain || '')
 const normalizedSubdomain = computed(() => form.subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, ''))
 const domainPreview = computed(() => (normalizedSubdomain.value && rootDomain.value ? `${normalizedSubdomain.value}.${rootDomain.value}` : ''))
 const rootDomainMissing = computed(() => !rootDomain.value)
-const canSubmit = computed(() => form.site_name.trim() && form.company_name.trim() && form.region && normalizedSubdomain.value && rootDomain.value)
+const canSubmit = computed(() => form.site_name.trim() && form.company_name.trim() && form.region && selectedPlan.value && normalizedSubdomain.value && rootDomain.value)
 const integrationStatus = computed(() => [
 	{ label: 'Billing', value: platformSettings.value?.billing_system || 'Not configured' },
 	{ label: 'CRM', value: platformSettings.value?.crm_system || 'Not configured' },
@@ -51,12 +48,12 @@ const assistantContext = computed(() => {
 	return {
 		scope: 'customer',
 		summary: submitted.value
-			? 'Site request has been captured in the UI and is waiting for backend provisioning support.'
+			? 'Site request has been captured as a LensCloud Site record and is pending backend provisioning.'
 			: 'Guidance for creating a site with a preferred subdomain under the platform root domain.',
 		badges: ['Create Site', rootDomainMissing.value ? 'root domain gap' : 'domain ready', submitted.value ? 'captured' : 'draft'],
 		sections: [
 			{ label: 'Domain preview', value: domainPreview.value || 'Root domain and subdomain are required' },
-			{ label: 'Selected plan', value: plans.find((plan) => plan.key === selectedPlan.value)?.label || 'No plan selected' },
+			{ label: 'Selected plan', value: selectedPlanRecord.value?.title || 'No plan selected' },
 			{ label: 'Selected region', value: selectedRegion.value?.title || selectedRegion.value?.name || 'No region selected' },
 			{ label: 'Submission state', value: canSubmit.value ? 'Ready to capture UI request' : 'Waiting for required fields or root domain' },
 		],
@@ -81,10 +78,20 @@ async function load() {
 		platformSettings.value = await getDoc('Platform Settings', 'Platform Settings').catch(() => null)
 
 		regions.value = await listDocs('Region', {
-			fields: ['name', 'title', 'parent_region', 'is_group', 'lft', 'rgt'],
+			fields: ['name', 'title', 'parent_region', 'is_group', 'lft', 'rgt', 'cluster', 'deployment_status'],
 			limit: 200,
 			orderBy: 'lft asc',
 		})
+
+		plans.value = await listDocs('Plan', {
+			fields: ['name', 'title', 'plan_code', 'is_default', 'is_free', 'monthly_price', 'site_limit', 'bench_policy', 'status', 'description'],
+			filters: [['status', '=', 'Active']],
+			limit: 20,
+		})
+
+		if (!selectedPlan.value) {
+			selectedPlan.value = plans.value.find((plan) => plan.is_default)?.name || plans.value.find((plan) => plan.is_free)?.name || plans.value[0]?.name || ''
+		}
 
 		if (!form.region) {
 			form.region = customer.value?.region || regions.value.find((region) => !region.is_group)?.name || regions.value[0]?.name || ''
@@ -96,9 +103,22 @@ async function load() {
 	}
 }
 
-function submitRequest() {
+async function submitRequest() {
 	if (!canSubmit.value) return
-	submitted.value = true
+	error.value = null
+	try {
+		const result = await callMethod('lenscloud.api.orchestration.request_customer_site', {
+			site_name: form.site_name,
+			company_name: form.company_name,
+			subdomain: normalizedSubdomain.value,
+			region: form.region,
+			plan: selectedPlan.value,
+			notes: form.notes,
+		}, 'POST')
+		submitted.value = result
+	} catch (err) {
+		error.value = err?.message || 'Unable to submit site request.'
+	}
 }
 
 onMounted(load)
@@ -116,7 +136,7 @@ onMounted(load)
 		:assistant-context="assistantContext"
 	>
 		<template #actions>
-			<Badge class="bg-amber-50 text-amber-700">Backend gap</Badge>
+			<Badge class="bg-emerald-50 text-emerald-700">Free plan path</Badge>
 			<Button variant="subtle" @click="load">Refresh</Button>
 		</template>
 
@@ -135,15 +155,19 @@ onMounted(load)
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="text-base font-semibold text-ink-gray-9">Site request captured</p>
-							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ domainPreview || form.site_name }} is ready to become a provisioning request once backend orchestration is connected.</p>
+							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ submitted.hostname || domainPreview || form.site_name }} is captured as a pending LensCloud Site request.</p>
 							<div class="mt-4 grid gap-2 sm:grid-cols-2">
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 									<p class="text-xs text-ink-gray-5">Company</p>
 									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ form.company_name }}</p>
 								</div>
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
+									<p class="text-xs text-ink-gray-5">Cluster</p>
+									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ submitted.cluster || selectedRegion?.cluster || 'Derived from region' }}</p>
+								</div>
+								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 									<p class="text-xs text-ink-gray-5">Domain</p>
-									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ domainPreview || 'Pending root domain' }}</p>
+									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ submitted.hostname || domainPreview || 'Pending root domain' }}</p>
 								</div>
 							</div>
 							<div class="mt-4 flex flex-wrap gap-2">
@@ -191,16 +215,16 @@ onMounted(load)
 						<div class="mt-4 grid gap-2">
 							<button
 								v-for="plan in plans"
-								:key="plan.key"
+								:key="plan.name"
 								class="rounded border px-3 py-2 text-left transition hover:bg-surface-gray-1"
-								:class="selectedPlan === plan.key ? 'border-ink-gray-8 bg-surface-gray-1' : 'border-outline-gray-2 bg-surface-white'"
-								@click="selectedPlan = plan.key"
+								:class="selectedPlan === plan.name ? 'border-ink-gray-8 bg-surface-gray-1' : 'border-outline-gray-2 bg-surface-white'"
+								@click="selectedPlan = plan.name"
 							>
 								<div class="flex items-center justify-between gap-3">
-									<p class="text-sm font-medium text-ink-gray-9">{{ plan.label }}</p>
-									<Badge v-if="selectedPlan === plan.key" class="bg-ink-gray-8 text-white">Selected</Badge>
+									<p class="text-sm font-medium text-ink-gray-9">{{ plan.title || plan.name }}</p>
+									<Badge v-if="selectedPlan === plan.name" class="bg-ink-gray-8 text-white">Selected</Badge>
 								</div>
-								<p class="mt-1 text-xs leading-5 text-ink-gray-5">{{ plan.note }}</p>
+								<p class="mt-1 text-xs leading-5 text-ink-gray-5">{{ plan.description || (plan.is_free ? 'Free self-service starter plan' : plan.bench_policy) }}</p>
 							</button>
 						</div>
 						<div class="mt-3 grid gap-2">
@@ -226,7 +250,7 @@ onMounted(load)
 								@click="form.region = region.name"
 							>
 								<p class="text-sm font-medium text-ink-gray-9">{{ region.title || region.name }}</p>
-								<p class="mt-1 text-xs text-ink-gray-5">{{ region.parent_region || 'Primary region' }}</p>
+								<p class="mt-1 text-xs text-ink-gray-5">{{ region.cluster ? `Cluster: ${region.cluster}` : (region.parent_region || 'Cluster not mapped') }}</p>
 							</button>
 						</div>
 					</section>
@@ -237,7 +261,7 @@ onMounted(load)
 							<p>Site: <span class="font-medium text-ink-gray-9">{{ form.site_name || 'Required' }}</span></p>
 							<p>Domain: <span class="font-medium text-ink-gray-9">{{ domainPreview || 'Root domain/subdomain required' }}</span></p>
 							<p>Company: <span class="font-medium text-ink-gray-9">{{ form.company_name || 'Required' }}</span></p>
-							<p>Plan: <span class="font-medium text-ink-gray-9">{{ plans.find((plan) => plan.key === selectedPlan)?.label }}</span></p>
+							<p>Plan: <span class="font-medium text-ink-gray-9">{{ selectedPlanRecord?.title || 'Required' }}</span></p>
 							<p>Region: <span class="font-medium text-ink-gray-9">{{ selectedRegion?.title || selectedRegion?.name || 'Required' }}</span></p>
 						</div>
 						<label class="mt-3 block space-y-1.5">
@@ -276,7 +300,7 @@ onMounted(load)
 						<p>Support: {{ platformSettings?.support_system || 'Not configured' }}</p>
 					</div>
 				</div>
-				<Alert theme="yellow" title="UI-only request" message="This pass does not create backend business logic. Submission is represented as a pending activation request until backend support is connected." />
+				<Alert theme="blue" title="Pending provisioning" message="This creates a LensCloud Site request under the selected plan. Kubernetes and Route53 apply remain gated until backend credentials and apply settings are enabled." />
 			</div>
 		</template>
 	</WorkspaceLayout>

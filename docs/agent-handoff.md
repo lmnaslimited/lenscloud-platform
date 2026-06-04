@@ -58,6 +58,10 @@ The backlog captures:
 - the corrected Release Group vs Release field placement
 - the next infra/operator handoff requirements
 
+## Platform-Wide Workitems
+
+Use `platform-workitems.md` for cross-repo LensCloud work tracking. The frontend handover tracker below remains the canonical UI-specific tracker; the platform-wide tracker covers backend integration, infra handoff, local Docker runtime, DNS automation, HA/storage, and multi-cluster operations.
+
 ## Repo Boundary
 
 - This repo owns the `lenscloud` app and product workflows only.
@@ -94,7 +98,7 @@ Primary customer outcomes:
 Customer `Create Site` first-pass flow:
 
 1. Site Basics: customer enters a preferred subdomain/name only.
-2. Domain Preview: the UI derives `{preferred_subdomain}.{Platform Settings.root_domain}`. Customers cannot enter arbitrary primary domains in this pass.
+2. Domain Preview: the UI derives `{preferred_subdomain}.{Platform Settings.root_domain}`. Customers cannot enter arbitrary primary domains in this pass; the Site `domain` field stores the root/approved domain and remains read-only.
 3. Plan/Product: selected product or plan placeholder, explicitly marked as a billing-system integration gap when not wired.
 4. Region: customer-friendly region selection sourced from the Region tree/list data, without exposing nested-set internals.
 5. Review: summary and clear submission state.
@@ -175,6 +179,7 @@ Status values:
 | Handover Object 5 | Define platform-team upgrade SOP surface for Bench movement to next Release | Automation/Workflow Agent + SOP/Docs Agent | Bench current/next Release fields; future Bench Upgrade Plan transactional model | Bench exposes upgrade window, upgrade policy, and upgrade/SOP status; transactional execution remains future backend work | P1 | Complete | First SOP status surface validated; backend job wiring remains pending |
 | Handover Object 6 | Bring `lenscloud-infra` dev cluster to live handoff state | Infra Bootstrap Agent + Operator Integration Agent | `lenscloud-infra`, Hcloud, kubectl, Frappe Operator, MariaDB Operator | Live cluster exists with operators installed and handoff values ready for Platform Settings/Region | P0 | Pending | Cluster handoff artifact reviewed before platform backend wiring |
 | Handover Object 6 | Wire Bench creation to operator-backed `FrappeBench` creation | Platform Product Agent + Operator Integration Agent | live infra handoff, Bench operator-readiness fields, current Release image data | Platform Bench action creates or reconciles a `FrappeBench` resource | P0 | Pending | One bench smoke test passes before Site wiring |
+| Handover Object 6 | Track local Docker runtime requirement with infra | Infra Bootstrap Agent + SOP/Docs Agent | `lenscloud-infra/docs/local-docker-runtime.md`, Docker Desktop, k3d/K3s, Headlamp | Standalone local runtime workstream exists for Docker-only developer setups without host CLI installs | P0 | Next | Local runtime design reviewed before implementation |
 
 ### Completed P0 Validation
 
@@ -209,7 +214,20 @@ Validated outcomes:
 
 ### Next Work Item
 
-Handover Object 5 is complete for route/runtime polish, Release data model correction, release-level platform UI, operator-readiness fields, and first Bench upgrade/SOP status surfaces. The next tracked work is Handover Object 6: bring `lenscloud-infra` to a live dev-cluster handoff state, then wire operator-backed `FrappeBench` creation from LensCloud Platform.
+Handover Object 5 is complete for route/runtime polish, Release data model correction, release-level platform UI, operator-readiness fields, and first Bench upgrade/SOP status surfaces. The next tracked work is Handover Object 6: keep the live `lenscloud-infra` cluster handoff current, define the local Docker runtime workstream, then wire operator-backed `FrappeBench` creation from LensCloud Platform.
+
+
+## Multi-Cluster Placement Update
+
+This supersedes any wording that implies Platform Settings selects one active deploy cluster. LensCloud supports multiple active clusters. Region determines runtime placement.
+
+- `Cluster` is the registered runtime target.
+- `Region.cluster` selects the cluster for deployment.
+- `Bench.region` derives `Bench.cluster`.
+- `Site.region` derives `Site.cluster`.
+- Platform Settings keeps global defaults only: root domain, default plan, default storage class fallback, operator namespace fallback, Route53 defaults, and integration toggles.
+- The live EU dev target is `lenscloud-eu-dev`, sourced from `lenscloud-infra` handoff docs.
+- Kubernetes and Route53 apply are backend-only and remain gated; frontend never receives kubeconfig or provider credentials.
 
 ## Document Lifecycle UI
 
@@ -281,3 +299,7 @@ A phase is complete only when:
 - and the owner confirms the stop point has been reached.
 
 No later phase may begin until that confirmation is recorded.
+
+### Site Identity Handoff Update
+
+Site title is read-only derived identity. Do not ask users or operators to enter it. In this pass, default read-only `Site.domain` from `Platform Settings.root_domain`, then derive the full hostname as `subdomain + domain` and persist that value as `Site.title` and the Site document name. `FrappeSite.spec.siteName` and DNS Record `domain` must also use the full hostname. Keep `operator_resource_name` Kubernetes-safe and separate from the user-facing hostname. Future approved-domain support can replace the default root domain; customer custom-domain whitelisting is out of scope.

@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Alert, Badge, Button, Tabs, TextInput } from 'frappe-ui'
-import { getDoc, saveDoc } from '@/lib/api'
+import { Alert, Badge, Button, FormControl, Tabs } from 'frappe-ui'
+import { getDoc, listDocs, saveDoc } from '@/lib/api'
 import { platformSettings } from '@/lib/catalog'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
@@ -15,11 +15,95 @@ const inspectorTabs = [
 	{ label: 'Fields' },
 ]
 const formState = reactive(Object.fromEntries(platformSettings.detailFields.map((field) => [field.key, ''])))
+const fieldOptions = reactive({})
+
+function fieldOptionKey(field) {
+	return `${field.type || 'text'}:${field.options || field.key}`
+}
+
+function optionLabelForDoc(doc, field) {
+	const labelFields = field.labelFields || ['title', 'plan_code']
+	const label = labelFields.map((key) => doc[key]).filter(Boolean).join(' ')
+	return label && label !== doc.name ? `${label} · ${doc.name}` : doc.name
+}
+
+async function loadFieldOptions() {
+	const linkFields = platformSettings.detailFields.filter((field) => field.type === 'link' && field.options)
+	await Promise.all(linkFields.map(async (field) => {
+		const key = fieldOptionKey(field)
+		if (fieldOptions[key]) return
+		const fields = Array.from(new Set(['name', ...(field.labelFields || ['title', 'plan_code'])]))
+		const rows = await listDocs(field.options, { fields, limit: 100 }).catch(() => [])
+		fieldOptions[key] = rows.map((row) => ({ label: optionLabelForDoc(row, field), value: row.name }))
+	}))
+}
+
+function optionsForField(field) {
+	return fieldOptions[fieldOptionKey(field)] || []
+}
+
+
+function controlTypeForField(field) {
+	if (field.type === 'check') return 'checkbox'
+	if (field.type === 'textarea') return 'textarea'
+	if (field.type === 'select') return 'select'
+	if (field.type === 'link') return 'combobox'
+	return 'text'
+}
+
+function normalizedOptionsForField(field) {
+	if (field.type === 'select') {
+		const source = Array.isArray(field.options) ? field.options : String(field.options || '').split('\n')
+		const options = source.map((option) => (typeof option === 'object' ? option : { label: option, value: option })).filter((option) => option.value !== '')
+		return [{ label: 'None', value: '' }, ...options]
+	}
+	if (field.type === 'link') return [{ label: 'None', value: '' }, ...optionsForField(field)]
+	return []
+}
+
+function controlValueForField(field) {
+	return formState[field.key]
+}
+
+function fieldControlProps(field) {
+	const props = {
+		type: controlTypeForField(field),
+		label: field.label,
+		required: field.required,
+		modelValue: controlValueForField(field),
+		variant: 'subtle',
+	}
+	if (field.type !== 'check') props.placeholder = field.placeholder || field.label
+	if (field.type === 'select' || field.type === 'link') props.options = normalizedOptionsForField(field)
+	if (field.type === 'link') {
+		props.openOnFocus = true
+		props.openOnClick = true
+		props.allowCustomValue = Boolean(field.allowCreate)
+	}
+	return props
+}
+
+function canClearField(field) {
+	return ['link', 'select'].includes(field.type) && Boolean(formState[field.key])
+}
+
+function clearModelField(field) {
+	formState[field.key] = ''
+}
+
+function updateModelField(field, value) {
+	if (field.type === 'link') {
+		formState[field.key] = value || ''
+		return
+	}
+	formState[field.key] = value
+}
 
 async function load() {
 	loading.value = true
 	error.value = null
 	try {
+		await loadFieldOptions()
 		record.value = await getDoc(platformSettings.doctype, platformSettings.doctype)
 		for (const key of Object.keys(formState)) {
 			formState[key] = platformSettings.detailFields.find((field) => field.key === key)?.type === 'check' ? Boolean(record.value?.[key]) : (record.value?.[key] || '')
@@ -36,7 +120,8 @@ async function save() {
 
 	saveState.value = 'saving'
 	try {
-		const saved = await saveDoc(platformSettings.doctype, record.value.name || platformSettings.doctype, formState)
+		const payload = Object.fromEntries(platformSettings.detailFields.map((field) => [field.key, field.type === 'check' ? (formState[field.key] ? 1 : 0) : formState[field.key]]))
+		const saved = await saveDoc(platformSettings.doctype, record.value.name || platformSettings.doctype, payload)
 		record.value = saved
 		saveState.value = 'saved'
 	} catch (err) {
@@ -114,14 +199,14 @@ onMounted(load)
 					</div>
 
 					<div class="grid gap-3 sm:grid-cols-2">
-						<label v-for="field in platformSettings.detailFields" :key="field.key" class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">{{ field.label }}</span>
-							<label v-if="field.type === 'check'" class="flex h-8 items-center gap-2 rounded border border-outline-gray-2 bg-surface-gray-1 px-2.5 text-sm text-ink-gray-7">
-				<input v-model="formState[field.key]" type="checkbox" class="size-4 rounded border-outline-gray-3" />
-				Enabled
-			</label>
-			<TextInput v-else v-model="formState[field.key]" :placeholder="field.label" variant="subtle" class="w-full" />
-						</label>
+						<div v-for="field in platformSettings.detailFields" :key="field.key" class="flex items-end gap-2">
+							<FormControl
+								v-bind="fieldControlProps(field)"
+								:class="field.type === 'check' ? '' : 'min-w-0 flex-1'"
+								@update:modelValue="(value) => updateModelField(field, value)"
+							/>
+							<Button v-if="canClearField(field)" size="sm" variant="subtle" class="mb-0.5 shrink-0" @click="clearModelField(field)">Clear</Button>
+						</div>
 					</div>
 
 					<div class="flex flex-wrap items-center gap-2">

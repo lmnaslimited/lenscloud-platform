@@ -12,7 +12,10 @@
   "is_group",
   "old_parent",
   "parent_region",
-  "title"
+  "title",
+  "deployment_section",
+  "cluster",
+  "deployment_status"
  ],
  "fields": [
   {
@@ -60,6 +63,24 @@
    "fieldtype": "Data",
    "label": "Title",
    "unique": 1
+  },
+  {
+   "fieldname": "deployment_section",
+   "fieldtype": "Section Break",
+   "label": "Deployment Target"
+  },
+  {
+   "fieldname": "cluster",
+   "fieldtype": "Link",
+   "label": "Cluster",
+   "options": "Cluster"
+  },
+  {
+   "fieldname": "deployment_status",
+   "fieldtype": "Select",
+   "label": "Deployment Status",
+   "options": "Not Deployable\nActive\nMaintenance\nDisabled",
+   "default": "Active"
   }
  ],
  "grid_page_length": 50,

@@ -10,10 +10,17 @@
   "operator_namespace",
   "default_storage_class",
   "default_bench_namespace_pattern",
+  "default_plan",
   "dns_route53_section",
   "root_domain",
   "route53_hosted_zone_id",
   "route53_zone_reference",
+  "dns_provider",
+  "aws_region",
+  "dns_credential_reference",
+  "dns_automation_enabled",
+  "kubernetes_apply_enabled",
+  "route53_apply_enabled",
   "tab_break_nfns",
   "billing_system",
   "billing_integration_enabled",
@@ -29,12 +36,13 @@
   {
    "fieldname": "cluster_section",
    "fieldtype": "Section Break",
-   "label": "Cluster and Operator"
+   "label": "Global Operator Defaults"
   },
   {
    "fieldname": "active_cluster_context",
    "fieldtype": "Data",
-   "label": "Active Cluster/Context Reference"
+   "label": "Deprecated Active Cluster/Context Reference",
+   "hidden": 1
   },
   {
    "fieldname": "operator_namespace",
@@ -50,6 +58,12 @@
    "fieldname": "default_bench_namespace_pattern",
    "fieldtype": "Data",
    "label": "Default Bench Namespace Pattern"
+  },
+  {
+   "fieldname": "default_plan",
+   "fieldtype": "Link",
+   "label": "Default Plan",
+   "options": "Plan"
   },
   {
    "fieldname": "dns_route53_section",
@@ -70,6 +84,38 @@
    "fieldname": "route53_zone_reference",
    "fieldtype": "Data",
    "label": "Route53 Zone Reference"
+  },
+  {
+   "fieldname": "dns_provider",
+   "fieldtype": "Select",
+   "label": "DNS Provider",
+   "options": "Route53\nManual\nOther",
+   "default": "Route53"
+  },
+  {
+   "fieldname": "aws_region",
+   "fieldtype": "Data",
+   "label": "AWS Region"
+  },
+  {
+   "fieldname": "dns_credential_reference",
+   "fieldtype": "Data",
+   "label": "DNS Credential Reference"
+  },
+  {
+   "fieldname": "dns_automation_enabled",
+   "fieldtype": "Check",
+   "label": "DNS Automation Enabled"
+  },
+  {
+   "fieldname": "kubernetes_apply_enabled",
+   "fieldtype": "Check",
+   "label": "Kubernetes Apply Enabled"
+  },
+  {
+   "fieldname": "route53_apply_enabled",
+   "fieldtype": "Check",
+   "label": "Route53 Apply Enabled"
   },
   {
    "fieldname": "tab_break_nfns",

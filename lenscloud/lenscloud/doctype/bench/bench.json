@@ -13,6 +13,8 @@
   "next_release",
   "placement_section",
   "region",
+  "cluster",
+  "cluster_derivation_note",
   "privacy",
   "cluster_runtime_target",
   "operator_section",
@@ -71,6 +73,17 @@
    "options": "Region"
   },
   {
+   "fieldname": "cluster",
+   "fieldtype": "Link",
+   "label": "Cluster",
+   "options": "Cluster"
+  },
+  {
+   "fieldname": "cluster_derivation_note",
+   "fieldtype": "Text",
+   "label": "Cluster Derivation Note"
+  },
+  {
    "fieldname": "privacy",
    "fieldtype": "Link",
    "label": "Privacy",
@@ -79,7 +92,8 @@
   {
    "fieldname": "cluster_runtime_target",
    "fieldtype": "Data",
-   "label": "Cluster or Region Runtime Target"
+   "label": "Legacy Cluster/Runtime Target",
+   "hidden": 1
   },
   {
    "fieldname": "operator_section",
@@ -107,7 +121,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Bench Status",
-   "options": "Draft\nPending\nProvisioning\nReady\nUpgrading\nSuspended\nFailed\nRetired",
+   "options": "Draft\nPending\nAccepted\nProvisioning\nReady\nUpgrading\nSuspended\nDeleting\nFailed\nRetired\nUnknown",
    "default": "Draft"
   },
   {

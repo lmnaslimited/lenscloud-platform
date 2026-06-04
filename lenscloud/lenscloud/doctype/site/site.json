@@ -6,9 +6,12 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "title",
   "customer",
   "bench",
+  "region",
+  "cluster",
+  "plan",
+  "title",
   "domain_section",
   "subdomain",
   "domain",
@@ -17,19 +20,17 @@
   "operator_section",
   "operator_resource_name",
   "dns_status",
+  "dns_record_name",
+  "dns_record_type",
+  "dns_target",
+  "last_dns_sync",
+  "last_dns_error",
   "lifecycle_section",
   "backup_state",
   "restore_state",
   "upgrade_state"
  ],
  "fields": [
-  {
-   "fieldname": "title",
-   "fieldtype": "Data",
-   "label": "Title",
-   "unique": 1,
-   "reqd": 1
-  },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
@@ -45,6 +46,25 @@
    "options": "Bench"
   },
   {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Region",
+   "options": "Region"
+  },
+  {
+   "fieldname": "cluster",
+   "fieldtype": "Link",
+   "label": "Cluster",
+   "options": "Cluster"
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Plan"
+  },
+  {
    "fieldname": "domain_section",
    "fieldtype": "Section Break",
    "label": "Domain"
@@ -58,22 +78,23 @@
    "fieldname": "domain",
    "fieldtype": "Data",
    "in_list_view": 1,
-   "label": "Domain"
+   "label": "Domain",
+   "read_only": 1
   },
   {
+   "default": "Draft",
    "fieldname": "site_status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Site Status",
-   "options": "Draft\nRequested\nProvisioning\nActive\nSuspended\nFailed\nDeleted",
-   "default": "Draft"
+   "options": "Draft\nRequested\nAccepted\nProvisioning\nActive\nSuspended\nDeleting\nFailed\nDeleted\nUnknown"
   },
   {
+   "default": "Not Started",
    "fieldname": "provisioning_status",
    "fieldtype": "Select",
    "label": "Provisioning Status",
-   "options": "Not Started\nPending\nRunning\nReady\nFailed",
-   "default": "Not Started"
+   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nFailed\nUnknown"
   },
   {
    "fieldname": "operator_section",
@@ -86,11 +107,38 @@
    "label": "Operator Resource Name"
   },
   {
+   "default": "Not Started",
    "fieldname": "dns_status",
    "fieldtype": "Select",
    "label": "DNS Status",
-   "options": "Not Started\nPending\nCreated\nFailed",
-   "default": "Not Started"
+   "options": "Not Started\nPending\nQueued\nCreated\nVerified\nFailed"
+  },
+  {
+   "fieldname": "dns_record_name",
+   "fieldtype": "Data",
+   "label": "DNS Record Name"
+  },
+  {
+   "default": "CNAME",
+   "fieldname": "dns_record_type",
+   "fieldtype": "Select",
+   "label": "DNS Record Type",
+   "options": "A\nAAAA\nCNAME\nTXT"
+  },
+  {
+   "fieldname": "dns_target",
+   "fieldtype": "Data",
+   "label": "DNS Target"
+  },
+  {
+   "fieldname": "last_dns_sync",
+   "fieldtype": "Datetime",
+   "label": "Last DNS Sync"
+  },
+  {
+   "fieldname": "last_dns_error",
+   "fieldtype": "Text",
+   "label": "Last DNS Error"
   },
   {
    "fieldname": "lifecycle_section",
@@ -98,31 +146,38 @@
    "label": "Lifecycle State"
   },
   {
+   "default": "Not Configured",
    "fieldname": "backup_state",
    "fieldtype": "Select",
    "label": "Backup State",
-   "options": "Not Configured\nScheduled\nRunning\nSucceeded\nFailed",
-   "default": "Not Configured"
+   "options": "Not Configured\nScheduled\nRunning\nSucceeded\nFailed"
   },
   {
+   "default": "Not Requested",
    "fieldname": "restore_state",
    "fieldtype": "Select",
    "label": "Restore State",
-   "options": "Not Requested\nPending\nRunning\nSucceeded\nFailed",
-   "default": "Not Requested"
+   "options": "Not Requested\nPending\nRunning\nSucceeded\nFailed"
   },
   {
+   "default": "Not Scheduled",
    "fieldname": "upgrade_state",
    "fieldtype": "Select",
    "label": "Upgrade State",
-   "options": "Not Scheduled\nScheduled\nRunning\nVerifying\nSucceeded\nFailed",
-   "default": "Not Scheduled"
+   "options": "Not Scheduled\nScheduled\nRunning\nVerifying\nSucceeded\nFailed"
+  },
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "read_only": 1,
+   "unique": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-03 00:00:00.000000",
+ "modified": "2026-06-04 20:13:28.104126",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Site",

@@ -262,3 +262,6 @@ website_route_rules = [
 # List of apps whose translatable strings should be excluded from this app's translations.
 # ignore_translatable_strings_from = []
 
+
+# Seed LensCloud runtime reference data after doctypes are synced.
+after_migrate = "lenscloud.setup.seed_defaults"

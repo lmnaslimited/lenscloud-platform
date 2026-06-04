@@ -35,7 +35,7 @@ Release Group should hold:
 - title/name
 - registry URL
 - image repository
-- included apps, selected from `App` through `Release Group Apps`
+- included apps(Table multiselect or child table) - APP as a separate doctype
 - apps/version metadata
 - supported Frappe major version
 - release policy
@@ -124,26 +124,6 @@ The next implementation stage must connect LensCloud Platform to a real cluster 
 - Site creation must create or reconcile a `FrappeSite` resource.
 - Backup and restore actions must map to operator-supported backup/restore resources.
 - `SiteJob` must not be assumed production-ready unless the operator code proves it.
-
-## Current Implementation Status
-
-Completed in the LensCloud Platform app:
-
-- Default child redirects for `/lenscloud/platform` and `/lenscloud/customer`.
-- Guest session handling no longer treats expected unauthenticated state as a LensCloud runtime error.
-- Initial render remains independent of Socket.IO availability.
-- Frontend favicon is included in the built Frappe asset output.
-- `Release` DocType exists as the deployable transaction linked to `Release Group`.
-- `Release Group` is corrected as master data for registry URL, image repository, included `App` selections, apps metadata, Frappe major, release policy, and active/inactive status.
-- `Bench`, `Site`, and `Platform Settings` include operator-readiness fields needed before backend/operator wiring.
-- Platform UI catalog includes Release and release-level Release Group/Bench/Site/Settings surfaces.
-
-Still pending for the infra/operator phase:
-
-- Live `lenscloud-infra` dev cluster handoff.
-- Backend creation/reconciliation of `FrappeBench` and `FrappeSite`.
-- Backend dispatch for DNS, backup, restore, upgrade, and rollout jobs.
-- Transactional Bench Upgrade Plan or Release Rollout Plan execution model.
 
 ## Implementation Order
 

@@ -1,8 +1,9 @@
 # Copyright (c) 2026, LMNAs Cloud Solutions and contributors
 # For license information, please see license.txt
 
-from frappe.utils.nestedset import NestedSet
+import frappe
+from frappe.model.document import Document
 
 
-class Region(NestedSet):
-	nsm_parent_field = "parent_region"
+class Plan(Document):
+	pass
