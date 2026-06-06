@@ -1,0 +1,283 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:title",
+ "creation": "2026-06-06 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-06-06 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Database Server",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title",
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "unique": 1,
+   "reqd": 1
+  },
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Runtime Identity"
+  },
+  {
+   "fieldname": "database_engine",
+   "fieldtype": "Select",
+   "label": "Database Engine",
+   "options": "MariaDB",
+   "default": "MariaDB",
+   "reqd": 1
+  },
+  {
+   "fieldname": "provisioning_type",
+   "fieldtype": "Select",
+   "label": "Provisioning Type",
+   "options": "Operator Managed\nExternal",
+   "default": "Operator Managed",
+   "reqd": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "label": "Region",
+   "options": "Region",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cluster",
+   "fieldtype": "Link",
+   "label": "Cluster",
+   "options": "Cluster",
+   "read_only": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "privacy",
+   "fieldtype": "Link",
+   "label": "Privacy",
+   "options": "Privacy",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "owner_customer",
+   "fieldtype": "Link",
+   "label": "Owner Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "privacy_boundary",
+   "fieldtype": "Data",
+   "label": "Privacy Boundary"
+  },
+  {
+   "fieldname": "operator_section",
+   "fieldtype": "Section Break",
+   "label": "Operator Mapping"
+  },
+  {
+   "fieldname": "kubernetes_namespace",
+   "fieldtype": "Data",
+   "label": "Kubernetes Namespace",
+   "default": "default",
+   "reqd": 1
+  },
+  {
+   "fieldname": "operator_resource_name",
+   "fieldtype": "Data",
+   "label": "MariaDB Resource Name",
+   "reqd": 1
+  },
+  {
+   "fieldname": "image",
+   "fieldtype": "Data",
+   "label": "MariaDB Image",
+   "default": "mariadb:10.11"
+  },
+  {
+   "fieldname": "storage_class",
+   "fieldtype": "Data",
+   "label": "Storage Class"
+  },
+  {
+   "fieldname": "storage_size",
+   "fieldtype": "Data",
+   "label": "Storage Size",
+   "default": "8Gi"
+  },
+  {
+   "fieldname": "replica_count",
+   "fieldtype": "Int",
+   "label": "Replica Count",
+   "default": "1"
+  },
+  {
+   "fieldname": "root_credential_secret_reference",
+   "fieldtype": "Data",
+   "label": "Root Secret Reference"
+  },
+  {
+   "fieldname": "root_credential_secret_key",
+   "fieldtype": "Data",
+   "label": "Root Secret Key",
+   "default": "password"
+  },
+  {
+   "fieldname": "application_credential_policy",
+   "fieldtype": "Select",
+   "label": "Application Credential Policy",
+   "options": "Operator Managed\nExternal Secret",
+   "default": "Operator Managed"
+  },
+  {
+   "fieldname": "application_credential_secret_reference",
+   "fieldtype": "Data",
+   "label": "Application Secret Reference"
+  },
+  {
+   "fieldname": "node_placement_policy",
+   "fieldtype": "Code",
+   "label": "Node Placement Policy",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "service_section",
+   "fieldtype": "Section Break",
+   "label": "Service And Capacity"
+  },
+  {
+   "fieldname": "service_host",
+   "fieldtype": "Data",
+   "label": "Service Host"
+  },
+  {
+   "fieldname": "service_port",
+   "fieldtype": "Int",
+   "label": "Service Port",
+   "default": "3306"
+  },
+  {
+   "fieldname": "maximum_bench_count",
+   "fieldtype": "Int",
+   "label": "Maximum Bench Count",
+   "default": "0",
+   "description": "Zero means no explicit platform limit."
+  },
+  {
+   "fieldname": "attached_bench_count",
+   "fieldtype": "Int",
+   "label": "Attached Bench Count",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status_section",
+   "fieldtype": "Section Break",
+   "label": "Runtime Status"
+  },
+  {
+   "fieldname": "database_status",
+   "fieldtype": "Select",
+   "label": "Database Status",
+   "options": "Draft\nPending\nProvisioning\nReady\nMaintenance\nFailed\nUnknown",
+   "default": "Draft",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "provisioning_status",
+   "fieldtype": "Select",
+   "label": "Provisioning Status",
+   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nFailed\nUnknown",
+   "default": "Not Started"
+  },
+  {
+   "fieldname": "health_status",
+   "fieldtype": "Select",
+   "label": "Health Status",
+   "options": "Unknown\nHealthy\nDegraded\nFailed",
+   "default": "Unknown",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "backup_status",
+   "fieldtype": "Select",
+   "label": "Backup Status",
+   "options": "Not Configured\nConfigured\nRunning\nHealthy\nFailed",
+   "default": "Not Configured"
+  },
+  {
+   "fieldname": "last_sync_time",
+   "fieldtype": "Datetime",
+   "label": "Last Sync Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Text",
+   "label": "Last Error",
+   "read_only": 1
+  }
+ ],
+ "field_order": [
+  "title",
+  "identity_section",
+  "database_engine",
+  "provisioning_type",
+  "region",
+  "cluster",
+  "privacy",
+  "owner_customer",
+  "privacy_boundary",
+  "operator_section",
+  "kubernetes_namespace",
+  "operator_resource_name",
+  "image",
+  "storage_class",
+  "storage_size",
+  "replica_count",
+  "root_credential_secret_reference",
+  "root_credential_secret_key",
+  "application_credential_policy",
+  "application_credential_secret_reference",
+  "node_placement_policy",
+  "service_section",
+  "service_host",
+  "service_port",
+  "maximum_bench_count",
+  "attached_bench_count",
+  "status_section",
+  "database_status",
+  "provisioning_status",
+  "health_status",
+  "backup_status",
+  "last_sync_time",
+  "last_error"
+ ]
+}

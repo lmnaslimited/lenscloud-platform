@@ -11,7 +11,7 @@ This repo owns the product layer for the `lenscloud` app. The agent roles below 
 - subscriptions and plan logic
 - customer site requests
 - bench and site lifecycle
-- DNS and Route53 automation
+- wildcard hostname and route lifecycle
 - backup, restore, and upgrade workflows
 - customer portal and platform console
 - validate state-model alignment and mark missing backend behavior as gaps

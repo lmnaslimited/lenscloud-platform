@@ -19,12 +19,19 @@
   "provisioning_status",
   "operator_section",
   "operator_resource_name",
+  "admin_password_secret_reference",
   "dns_status",
   "dns_record_name",
   "dns_record_type",
   "dns_target",
   "last_dns_sync",
   "last_dns_error",
+  "hostname_reservation_status",
+  "route_status",
+  "tls_status",
+  "access_url",
+  "last_route_check",
+  "route_error",
   "lifecycle_section",
   "backup_state",
   "restore_state",
@@ -87,7 +94,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Site Status",
-   "options": "Draft\nRequested\nAccepted\nProvisioning\nActive\nSuspended\nDeleting\nFailed\nDeleted\nUnknown"
+   "options": "Draft\nRequested\nAccepted\nProvisioning\nReady\nActive\nSuspended\nDeleting\nFailed\nDeleted\nUnknown"
   },
   {
    "default": "Not Started",
@@ -172,6 +179,52 @@
    "label": "Title",
    "read_only": 1,
    "unique": 1
+  },
+  {
+   "fieldname": "hostname_reservation_status",
+   "fieldtype": "Select",
+   "label": "Hostname Reservation Status",
+   "options": "Pending\nReserved\nConflict\nReleased",
+   "default": "Pending"
+  },
+  {
+   "fieldname": "route_status",
+   "fieldtype": "Select",
+   "label": "Route Status",
+   "options": "Not Checked\nPending\nReady\nFailed\nUnknown",
+   "default": "Not Checked",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "tls_status",
+   "fieldtype": "Select",
+   "label": "TLS Status",
+   "options": "Inherited\nReady\nFailed\nUnknown",
+   "default": "Inherited"
+  },
+  {
+   "fieldname": "access_url",
+   "fieldtype": "Data",
+   "label": "Access URL",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_route_check",
+   "fieldtype": "Datetime",
+   "label": "Last Route Check",
+   "read_only": 1
+  },
+  {
+   "fieldname": "route_error",
+   "fieldtype": "Text",
+   "label": "Route Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "admin_password_secret_reference",
+   "fieldtype": "Data",
+   "label": "Admin Password Secret Reference",
+   "hidden": 1
   }
  ],
  "grid_page_length": 50,

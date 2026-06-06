@@ -48,18 +48,18 @@ const assistantContext = computed(() => {
 	return {
 		scope: 'customer',
 		summary: submitted.value
-			? 'Site request has been captured as a LensCloud Site record and is pending backend provisioning.'
+			? 'Site was created in LensCloud and handed to the safe reconcile path. Runtime activation depends on ready capacity and enabled cluster access.'
 			: 'Guidance for creating a site with a preferred subdomain under the platform root domain.',
 		badges: ['Create Site', rootDomainMissing.value ? 'root domain gap' : 'domain ready', submitted.value ? 'captured' : 'draft'],
 		sections: [
 			{ label: 'Domain preview', value: domainPreview.value || 'Root domain and subdomain are required' },
 			{ label: 'Selected plan', value: selectedPlanRecord.value?.title || 'No plan selected' },
 			{ label: 'Selected region', value: selectedRegion.value?.title || selectedRegion.value?.name || 'No region selected' },
-			{ label: 'Submission state', value: canSubmit.value ? 'Ready to capture UI request' : 'Waiting for required fields or root domain' },
+			{ label: 'Submission state', value: canSubmit.value ? 'Ready to create Site and reconcile' : 'Waiting for required fields or root domain' },
 		],
 		gaps,
 		nextSteps: submitted.value
-			? ['View Sites to track the requested instance.', 'Platform provisioning remains pending until backend support is connected.']
+			? ['View Sites to track operator and route status.', 'A dry-run result means Kubernetes apply is still gated by cluster credentials/settings.']
 			: ['Enter site name, company, preferred subdomain, plan, and region.', 'Configure Platform Settings root_domain before normal submission.', 'Use support path for questions; billing and CRM are summary-only for customers.'],
 	}
 })
@@ -130,7 +130,7 @@ onMounted(load)
 		subtitle="Start a new LensCloud site request from a guided customer flow."
 		inspector-kicker="Request context"
 		inspector-title="Site activation"
-		inspector-subtitle="The UI captures intent now. Backend provisioning and subscription wiring remain explicit gaps until connected."
+		inspector-subtitle="The request creates a Site, selects ready public capacity, and enters the gated operator reconcile path."
 		assistant-label="Assistant"
 		assistant-hint="The assistant will help customers choose regions, plans, DNS settings, and next steps."
 		:assistant-context="assistantContext"
@@ -155,7 +155,7 @@ onMounted(load)
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="text-base font-semibold text-ink-gray-9">Site request captured</p>
-							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ submitted.hostname || domainPreview || form.site_name }} is captured as a pending LensCloud Site request.</p>
+							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ submitted.hostname || domainPreview || form.site_name }} was created as a LensCloud Site and entered the reconcile path.</p>
 							<div class="mt-4 grid gap-2 sm:grid-cols-2">
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 									<p class="text-xs text-ink-gray-5">Company</p>
@@ -300,7 +300,7 @@ onMounted(load)
 						<p>Support: {{ platformSettings?.support_system || 'Not configured' }}</p>
 					</div>
 				</div>
-				<Alert theme="blue" title="Pending provisioning" message="This creates a LensCloud Site request under the selected plan. Kubernetes and Route53 apply remain gated until backend credentials and apply settings are enabled." />
+				<Alert theme="blue" title="Pending provisioning" message="This creates a LensCloud Site under the selected plan. Kubernetes apply remains gated by the selected Cluster credential and Platform Settings; standard Sites use shared wildcard DNS/TLS and create no Route53 record." />
 			</div>
 		</template>
 	</WorkspaceLayout>

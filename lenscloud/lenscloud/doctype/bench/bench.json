@@ -16,6 +16,9 @@
   "cluster",
   "cluster_derivation_note",
   "privacy",
+  "owner_customer",
+  "privacy_boundary",
+  "database_server",
   "cluster_runtime_target",
   "operator_section",
   "kubernetes_namespace",
@@ -147,6 +150,24 @@
    "label": "Upgrade/SOP Status",
    "options": "Draft\nScheduled\nPrecheck\nReady\nRunning\nVerifying\nCompleted\nRolled Back\nFailed",
    "default": "Draft"
+  },
+  {
+   "fieldname": "owner_customer",
+   "fieldtype": "Link",
+   "label": "Owner Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "privacy_boundary",
+   "fieldtype": "Data",
+   "label": "Privacy Boundary"
+  },
+  {
+   "fieldname": "database_server",
+   "fieldtype": "Link",
+   "label": "Database Server",
+   "options": "Database Server",
+   "in_list_view": 1
   }
  ],
  "grid_page_length": 50,

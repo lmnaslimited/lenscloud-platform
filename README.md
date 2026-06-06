@@ -9,7 +9,7 @@ This repository is intentionally focused on the product layer:
 - bench and site lifecycle workflows
 - backup and restore workflows
 - upgrade orchestration
-- DNS and Route53 automation
+- Wildcard hostname reservation and route readiness
 - customer portal and platform console UI
 - audit, policy, and permissions
 
@@ -53,11 +53,16 @@ The platform workspace follows the Frappe CRM / Frappe Docker development patter
 - `backend` as the active Frappe workspace container
 
 The workspace is pinned to Frappe v16 for now so we stay on a stable product line while the platform foundation takes shape.
-At this stage it bootstraps a bench and `dev.localhost` only; the `lenscloud` app will be added later when the app scaffold exists.
+The `lenscloud` app scaffold and its platform/customer frontend now live in this
+repository.
 
 ## Agent Handoff
 
 Repo-local agent guidance lives in [AGENTS.md](./AGENTS.md) and [docs/agent-handoff.md](./docs/agent-handoff.md).
+The current devcontainer implementation handoff is
+[docs/platform-agent-live-orchestration-prompt.md](./docs/platform-agent-live-orchestration-prompt.md).
+Frontend agents must use the repo-local
+[Frappe UI product skill](./.agents/skills/frappe-ui-product/SKILL.md).
 The broader operating model is documented in:
 - [docs/agent-matrix.md](./docs/agent-matrix.md)
 - [docs/skills.md](./docs/skills.md)

@@ -20,7 +20,7 @@ These are small but important polish gaps before the platform is used for day-to
 - Add a favicon:
   - `/favicon.ico` currently returns `404`.
 - Keep lifecycle actions UI-only until backend support exists:
-  - create, suspend, delete, backup, restore, upgrade, and DNS action surfaces must remain clearly marked as pending/locked/gap until wired to real backend/operator jobs.
+  - create, suspend, delete, backup, restore, upgrade, and route action surfaces must remain clearly marked as pending/locked/gap until wired to real backend/operator jobs.
 
 ## Release Model Correction
 
@@ -76,6 +76,7 @@ Bench should add:
 - upgrade schedule/window
 - upgrade policy
 - upgrade/SOP status
+- Database Server
 
 ### Site Fields
 
@@ -86,7 +87,7 @@ Site should add:
 - site status
 - provisioning status
 - operator resource name
-- DNS status
+- hostname reservation, route, and inherited TLS status
 - backup state
 - restore state
 - upgrade state
@@ -99,12 +100,32 @@ Platform Settings should add:
 - operator namespace
 - default storage class
 - default bench namespace pattern
-- Route53 hosted zone ID or zone reference
-- root domain
+- root domain fixed to `cloud.lmnaslens.com`
+- domain strategy `Wildcard`
+- wildcard DNS, wildcard TLS, and ingress readiness
 - integration toggles/status fields
 - billing system configuration/status
 - CRM system configuration/status
 - support system configuration/status
+
+### Database Server Fields
+
+Database Server must be added as a first-class DocType with:
+
+- Region and derived Cluster
+- privacy: Public, Private, Private Shared
+- owner Customer/privacy boundary for private modes
+- provisioning type
+- Kubernetes namespace and MariaDB operator resource name
+- MariaDB image/tag
+- storage class, storage size, and replicas
+- host and port
+- credential/Secret references without raw secret values
+- provisioning, database, health, backup, capacity, and error status
+- attached Bench count
+
+Bench must link to Database Server. The Bench manifest must map it to `spec.dbConfig.mariadbRef`. Sites inherit the Bench database by default.
+Bench must also carry an owner Customer/privacy boundary for Private and Private Shared validation. Reuse and seed the existing `Privacy` master with `Public`, `Private`, and `Private Shared`; do not create a duplicate privacy model.
 
 ## Infra And Operator Backend Gaps
 
@@ -121,9 +142,23 @@ The next implementation stage must connect LensCloud Platform to a real cluster 
   - cluster status
 - LensCloud Platform must register or reference that handoff.
 - Bench creation must create or reconcile a `FrappeBench` resource.
+- Database Server creation must create, register, or reconcile a MariaDB resource.
+- The live EU `frappe-mariadb` CR must be registerable as the first Public/shared Database Server.
+- Two Benches must be testable against the same MariaDB CR.
 - Site creation must create or reconcile a `FrappeSite` resource.
 - Backup and restore actions must map to operator-supported backup/restore resources.
 - `SiteJob` must not be assumed production-ready unless the operator code proves it.
+
+## Wildcard Domain Migration
+
+- Remove every DNS-provider apply path from the standard Site workflow.
+- Do not create DNS Record documents for `{subdomain}.cloud.lmnaslens.com`.
+- Retire/bypass `queue_or_apply_dns_record` for standard Sites.
+- Add unique subdomain reservation and route readiness.
+- Inherit wildcard TLS state from Cluster/Platform edge handoff.
+- Keep DNS Record only for a future custom-domain workflow.
+- Update customer pending copy so it refers to provisioning/routing, not DNS propagation.
+- Remove DNS provider credentials, SDKs, and API actions from the Phase 1 platform scope.
 
 ## Implementation Order
 
@@ -132,5 +167,7 @@ The next implementation stage must connect LensCloud Platform to a real cluster 
 3. Add operator-readiness fields to Bench, Site, and Platform Settings.
 4. Update platform UI catalog and views for Release and release-level tracking.
 5. Bring `lenscloud-infra` to a live dev cluster and produce a handoff artifact.
-6. Wire platform backend actions to operator-backed Bench/Site creation.
-
+6. Add Database Server model, UI, dry-run, and Bench attachment.
+7. Validate two Benches against one shared MariaDB CR.
+8. Replace standard per-Site DNS orchestration with wildcard route readiness.
+9. Wire platform backend actions to operator-backed Database Server/Bench/Site/routing creation.

@@ -72,6 +72,7 @@ function fieldControlProps(field) {
 		required: field.required,
 		modelValue: controlValueForField(field),
 		variant: 'subtle',
+		disabled: Boolean(field.readOnly),
 	}
 	if (field.type !== 'check') props.placeholder = field.placeholder || field.label
 	if (field.type === 'select' || field.type === 'link') props.options = normalizedOptionsForField(field)
@@ -120,7 +121,7 @@ async function save() {
 
 	saveState.value = 'saving'
 	try {
-		const payload = Object.fromEntries(platformSettings.detailFields.map((field) => [field.key, field.type === 'check' ? (formState[field.key] ? 1 : 0) : formState[field.key]]))
+		const payload = Object.fromEntries(platformSettings.detailFields.filter((field) => !field.readOnly).map((field) => [field.key, field.type === 'check' ? (formState[field.key] ? 1 : 0) : formState[field.key]]))
 		const saved = await saveDoc(platformSettings.doctype, record.value.name || platformSettings.doctype, payload)
 		record.value = saved
 		saveState.value = 'saved'
@@ -132,31 +133,32 @@ async function save() {
 
 const assistantContext = computed(() => {
 	const gaps = []
-	if (!formState.active_cluster_context) gaps.push('Active cluster/context is required before operator-backed Bench creation')
-	if (!formState.operator_namespace) gaps.push('Operator namespace is required before Frappe Operator integration')
-	if (!formState.default_storage_class) gaps.push('Default storage class is required before Bench creation defaults are usable')
-	if (!formState.root_domain) gaps.push('Root domain is required for customer Create Site domain previews')
-	if (!formState.route53_hosted_zone_id && !formState.route53_zone_reference) gaps.push('Route53 hosted zone ID or zone reference is required before DNS automation')
+	if (!formState.operator_namespace) gaps.push('Global operator namespace fallback is not configured')
+	if (!formState.default_storage_class) gaps.push('Global storage-class fallback is not configured')
+	if (!formState.root_domain) gaps.push('Wildcard root domain is required for standard Site hostnames')
+	if (formState.wildcard_dns_status !== 'Ready') gaps.push('Wildcard DNS readiness is not confirmed')
+	if (formState.wildcard_tls_status !== 'Ready') gaps.push('Wildcard TLS readiness is not confirmed')
+	if (formState.ingress_status !== 'Ready') gaps.push('Shared ingress readiness is not confirmed')
 	if (!formState.billing_system) gaps.push('Billing system is not configured')
 	if (!formState.crm_system) gaps.push('CRM system is not configured')
 	if (!formState.support_system) gaps.push('Support system is not configured')
 
 	return {
 		scope: 'platform',
-		summary: 'Guidance for platform-wide root domain and external system configuration.',
+		summary: 'Global defaults and shared wildcard-edge readiness. Region selects the active Cluster for each Bench and Site.',
 		badges: ['Platform Settings', record.value ? 'loaded' : 'pending', saveState.value],
 		sections: [
-			{ label: 'Active cluster/context', value: formState.active_cluster_context || 'Not configured' },
-			{ label: 'Operator namespace', value: formState.operator_namespace || 'Not configured' },
-			{ label: 'Default storage class', value: formState.default_storage_class || 'Not configured' },
+			{ label: 'Placement model', value: 'Region -> Cluster; no single active cluster' },
+			{ label: 'Operator namespace fallback', value: formState.operator_namespace || 'Not configured' },
+			{ label: 'Storage-class fallback', value: formState.default_storage_class || 'Not configured' },
 			{ label: 'Root domain', value: formState.root_domain || 'Not configured' },
-			{ label: 'Route53 zone', value: formState.route53_hosted_zone_id || formState.route53_zone_reference || 'Not configured' },
+			{ label: 'Wildcard edge', value: `${formState.wildcard_dns_status || 'Unknown'} DNS / ${formState.wildcard_tls_status || 'Unknown'} TLS / ${formState.ingress_status || 'Unknown'} ingress` },
 			{ label: 'Billing system', value: formState.billing_system || 'Not configured' },
 			{ label: 'CRM system', value: formState.crm_system || 'Not configured' },
 			{ label: 'Support system', value: formState.support_system || 'Not configured' },
 		],
 		gaps,
-		nextSteps: ['Configure cluster/operator defaults before operator-backed Bench creation.', 'Configure root_domain and Route53 zone before DNS automation.', 'Configure external systems before relying on billing, CRM, or support summaries.', 'SSO setup remains external to this frontend.'],
+		nextSteps: ['Register each runtime Cluster and map deployable Regions to it.', 'Keep Kubernetes credentials on Cluster records as mounted server-side references.', 'Use shared wildcard DNS/TLS for standard Sites; per-Site Route53 records are not part of this flow.', 'SSO setup remains external to this frontend.'],
 	}
 })
 
@@ -166,7 +168,7 @@ onMounted(load)
 <template>
 	<WorkspaceLayout
 		title="Platform Settings"
-		subtitle="Native Frappe singleton configuration for root domain and external systems."
+		subtitle="Global fallbacks, wildcard edge readiness, and external systems. Runtime placement is owned by Region and Cluster."
 		inspector-kicker="Singleton inspector"
 		inspector-title="Settings context"
 		inspector-subtitle="Keep read-only status and editable singleton fields separate."
@@ -195,7 +197,7 @@ onMounted(load)
 				<div v-else class="space-y-4">
 					<div>
 						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Settings record</p>
-						<p class="mt-1 text-sm leading-6 text-ink-gray-5">This page uses standard Frappe document save APIs. No backend customization is required for the UI to render.</p>
+						<p class="mt-1 text-sm leading-6 text-ink-gray-5">This page uses standard Frappe document save APIs. Cluster-specific runtime access stays on Cluster records; these settings provide only global fallbacks and shared edge state.</p>
 					</div>
 
 					<div class="grid gap-3 sm:grid-cols-2">

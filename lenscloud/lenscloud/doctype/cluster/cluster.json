@@ -27,6 +27,12 @@
   "default_runtime_namespace",
   "default_storage_class",
   "default_bench_namespace_pattern",
+  "domain_strategy",
+  "wildcard_dns_status",
+  "wildcard_tls_status",
+  "ingress_status",
+  "ingress_class",
+  "wildcard_hostname",
   "health_section",
   "health_status",
   "last_sync_time",
@@ -178,6 +184,45 @@
    "fieldname": "last_error",
    "fieldtype": "Text",
    "label": "Last Error"
+  },
+  {
+   "fieldname": "domain_strategy",
+   "fieldtype": "Select",
+   "label": "Domain Strategy",
+   "options": "Wildcard\nCustom Domains",
+   "default": "Wildcard"
+  },
+  {
+   "fieldname": "wildcard_dns_status",
+   "fieldtype": "Select",
+   "label": "Wildcard DNS Status",
+   "options": "Unknown\nReady\nDegraded\nFailed",
+   "default": "Unknown"
+  },
+  {
+   "fieldname": "wildcard_tls_status",
+   "fieldtype": "Select",
+   "label": "Wildcard TLS Status",
+   "options": "Unknown\nReady\nDegraded\nFailed",
+   "default": "Unknown"
+  },
+  {
+   "fieldname": "ingress_status",
+   "fieldtype": "Select",
+   "label": "Ingress Status",
+   "options": "Unknown\nReady\nDegraded\nFailed",
+   "default": "Unknown"
+  },
+  {
+   "fieldname": "ingress_class",
+   "fieldtype": "Data",
+   "label": "Ingress Class",
+   "default": "traefik"
+  },
+  {
+   "fieldname": "wildcard_hostname",
+   "fieldtype": "Data",
+   "label": "Wildcard Hostname"
   }
  ],
  "grid_page_length": 50,

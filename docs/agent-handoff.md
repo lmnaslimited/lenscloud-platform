@@ -15,19 +15,23 @@ This repository is the product layer for the `lenscloud` app. It is Frappe-first
 
 - `lenscloud-platform-sop`
 - `frappe-ui-product`
+  - repo-local implementation:
+    `.agents/skills/frappe-ui-product/SKILL.md`
 - `frappe-operator-integration`
-- `route53-automation`
+- `wildcard-edge-awareness`
 
 ## MCPs To Use
 
 - Kubernetes MCP for operator and cluster inspection
-- Route53 automation layer for DNS lifecycle work
+- Wildcard edge inspection; no GoDaddy credential access or per-Site DNS mutation
 - GitHub tooling for repo handoff and PRs
 
 ## Operator Truth
 
 - `FrappeBench`, `FrappeSite`, `SiteBackup`, and `SiteRestore` are the implemented operator workflows to rely on.
 - `SiteJob` is scaffolded and should not be treated as a production feature unless the codebase is explicitly updated to prove otherwise.
+- MariaDB Operator `MariaDB` is the database runtime resource. `FrappeBench.spec.dbConfig.mariadbRef` is the preferred Bench-level attachment contract.
+- Operator `dbConfig.mode: shared` is topology, not LensCloud privacy. Read `docs/database-server-model.md`.
 
 ## Release Strategy
 
@@ -60,7 +64,7 @@ The backlog captures:
 
 ## Platform-Wide Workitems
 
-Use `platform-workitems.md` for cross-repo LensCloud work tracking. The frontend handover tracker below remains the canonical UI-specific tracker; the platform-wide tracker covers backend integration, infra handoff, local Docker runtime, DNS automation, HA/storage, and multi-cluster operations.
+Use `platform-workitems.md` for cross-repo LensCloud work tracking. The frontend handover tracker below remains the canonical UI-specific tracker; the platform-wide tracker covers backend integration, infra handoff, local Docker runtime, wildcard routing/TLS, HA/storage, and multi-cluster operations.
 
 ## Repo Boundary
 
@@ -82,7 +86,7 @@ These decisions supersede the early generic doctype-first interpretation of the 
 - The inspector remains useful for customer context, assistant help, and technical metadata, but it is secondary to the primary site workflow.
 - Region is a native Frappe tree doctype and must support both `Tree` and `List` display modes in the platform console, using `parent_region`, `is_group`, and nested-set ordering.
 - Redundant shell/header chrome should stay removed: app name and scope live in the left pane; page headers should focus on the active page and actions.
-- Platform Settings and Customer Account use tabbed inspector models for consistency. Platform Settings is also the source of truth for `root_domain`, `billing_system`, `crm_system`, and `support_system` UI integration state.
+- Platform Settings and Customer Account use tabbed inspector models for consistency. Platform Settings is also the source of truth for root domain, wildcard edge readiness, billing, CRM, and support integration state.
 
 ## Customer Portal Product Flow
 
@@ -177,9 +181,19 @@ Status values:
 | Handover Object 5 | Update platform Release Group, Release, and Bench views for release-level tracking | UI/UX Agent + Platform Product Agent | Release doctype, Bench current/next release fields | Release Group shows Releases and bench adoption; Bench shows current/next Release and upgrade SOP context | P0 | Complete | Release-level routes and views smoke-tested |
 | Handover Object 5 | Add operator-readiness fields to Bench, Site, and Platform Settings | Data/Model Agent + Operator Integration Agent | `docs/platform-gap-backlog.md`, Frappe Operator contract, `lenscloud-infra` handoff model | Records can map to namespace, operator resource names, storage class, status, DNS, and cluster/operator defaults | P0 | Complete | Operator-readiness fields migrated and surfaced in UI |
 | Handover Object 5 | Define platform-team upgrade SOP surface for Bench movement to next Release | Automation/Workflow Agent + SOP/Docs Agent | Bench current/next Release fields; future Bench Upgrade Plan transactional model | Bench exposes upgrade window, upgrade policy, and upgrade/SOP status; transactional execution remains future backend work | P1 | Complete | First SOP status surface validated; backend job wiring remains pending |
-| Handover Object 6 | Bring `lenscloud-infra` dev cluster to live handoff state | Infra Bootstrap Agent + Operator Integration Agent | `lenscloud-infra`, Hcloud, kubectl, Frappe Operator, MariaDB Operator | Live cluster exists with operators installed and handoff values ready for Platform Settings/Region | P0 | Pending | Cluster handoff artifact reviewed before platform backend wiring |
+| Handover Object 6 | Bring `lenscloud-infra` dev cluster to live handoff state | Infra Bootstrap Agent + Operator Integration Agent | `lenscloud-infra`, Hcloud, kubectl, Frappe Operator, MariaDB Operator | Live cluster exists with operators installed and handoff values ready for Platform Settings/Region | P0 | Complete | Cluster handoff artifact reviewed before platform backend wiring |
 | Handover Object 6 | Wire Bench creation to operator-backed `FrappeBench` creation | Platform Product Agent + Operator Integration Agent | live infra handoff, Bench operator-readiness fields, current Release image data | Platform Bench action creates or reconciles a `FrappeBench` resource | P0 | Pending | One bench smoke test passes before Site wiring |
-| Handover Object 6 | Track local Docker runtime requirement with infra | Infra Bootstrap Agent + SOP/Docs Agent | `lenscloud-infra/docs/local-docker-runtime.md`, Docker Desktop, k3d/K3s, Headlamp | Standalone local runtime workstream exists for Docker-only developer setups without host CLI installs | P0 | Next | Local runtime design reviewed before implementation |
+| Handover Object 6 | Track local Docker runtime requirement with infra | Infra Bootstrap Agent + SOP/Docs Agent | `lenscloud-infra/docs/local-docker-runtime.md`, Docker Desktop, k3d/K3s, Headlamp | Standalone local runtime workstream exists for Docker-only developer setups without host CLI installs | P1 | Pending | Deferred until operator-backed platform orchestration is working |
+| Handover Object 7 | Add Database Server DocType and platform-only resource workspace | Data/Model Agent + UI/UX Agent | `docs/database-server-model.md`, live EU MariaDB handoff | Platform team can register, inspect, dry-run, and manage MariaDB capacity | P0 | Complete | Data model and platform UI validated before Bench attachment |
+| Handover Object 7 | Attach Bench to Database Server with privacy/capacity validation | Platform Product Agent + Operator Integration Agent | Database Server model, Bench model, Region/Cluster placement | Bench can select only compatible Database Servers | P0 | Complete | Validation tests pass for Public, Private Shared, and Private |
+| Handover Object 7 | Add MariaDB CR dry-run and Bench `dbConfig.mariadbRef` generation | Operator Integration Agent | MariaDB Operator CRD, Frappe Operator CRD, orchestration logs | Secret-safe manifests represent DB Server and Bench attachment | P0 | Complete | Dry-runs match installed CRDs |
+| Handover Object 7 | Validate two Benches against live EU shared MariaDB | Operator Integration Agent + Infra Bootstrap Agent | `frappe-mariadb`, live EU cluster, secure apply path | Existing shared-database operating model is proven from LensCloud | P0 | Pending | Two Benches and their Sites pass database connectivity smoke tests |
+| Handover Object 8 | Replace standard DNS queueing with wildcard hostname/route state | Platform Product Agent + Operator Integration Agent | `docs/wildcard-domain-model.md`, infra wildcard edge handoff | Site requests create no DNS Record or certificate; route readiness becomes lifecycle state | P0 | Complete | Customer and platform Site smoke tests prove no per-Site DNS/certificate actions |
+| Handover Object 8 | Surface wildcard DNS, TLS, and ingress readiness | UI/UX Agent + Infra Bootstrap Agent | Cluster/Platform Settings edge fields | Platform team can see shared edge readiness without credentials; customers see only access status | P0 | Complete | EU wildcard HTTPS acceptance evidence is consumed from Infra |
+| Handover Object 9 | Receive restricted Kubernetes credential handoff | Infra Bootstrap Agent + Operator Integration Agent | Infra restricted-access contract | Platform stores only a mounted kubeconfig reference and passes positive and negative permission checks | P0 | Complete | Delivered and verified on June 6, 2026 |
+| Handover Object 9 | Implement idempotent Database Server, Bench, Site, and route reconciliation | Operator Integration Agent + Platform Product Agent | Database Server model, wildcard model, restricted kubeconfig | LensCloud applies operator resources server-side and synchronizes runtime state | P0 | In Progress | Repeated reconcile is safe and status reflects the cluster |
+| Handover Object 9 | Prove Public, Private Shared, and Private policies | Operator Integration Agent + Platform Product Agent | Live EU cluster and privacy validation | Allowed sharing succeeds and forbidden cross-boundary or second-Bench attachment is rejected | P0 | In Progress | Three HTTPS Site scenarios and rejection tests are recorded |
+| Handover Object 9 | Complete platform-team and customer Free Plan Site creation | Platform Product Agent + UI/UX Agent | Shared orchestration backend and wildcard route readiness | Both roles can create a Site without DNS-provider or per-Site certificate operations | P0 | In Progress | Created Sites become Ready and accessible over HTTPS |
 
 ### Completed P0 Validation
 
@@ -214,7 +228,45 @@ Validated outcomes:
 
 ### Next Work Item
 
-Handover Object 5 is complete for route/runtime polish, Release data model correction, release-level platform UI, operator-readiness fields, and first Bench upgrade/SOP status surfaces. The next tracked work is Handover Object 6: keep the live `lenscloud-infra` cluster handoff current, define the local Docker runtime workstream, then wire operator-backed `FrappeBench` creation from LensCloud Platform.
+Bench and Site dry-run orchestration is available. The next implementation
+milestone spans Handover Objects 7 through 9: add Database Server, remove the
+legacy standard-Site DNS queue, receive the restricted Kubernetes credential,
+enable real reconciliation and status sync, and prove Public, Private Shared,
+and Private Site creation. Local Docker work is deferred.
+
+The concrete devcontainer execution prompt is
+`docs/platform-agent-live-orchestration-prompt.md`.
+
+## Database Server Implementation Handover
+
+The next platform agent must read:
+
+- `docs/database-server-model.md`
+- `docs/platform-workitems.md`
+- `docs/state-model.md`
+- `docs/workflows.md`
+- `/Users/arunkumar.ganesan/lensk8s/lenscloud-infra/docs/database-server-runtime-contract.md`
+  when using the current shared workspace
+
+Implementation order:
+
+1. Propose a plan against Handover Objects 7 through 9.
+2. Update workitem statuses before code changes.
+3. Add Database Server DocType, permissions, tests, and seed/import path.
+4. Add the platform-only Database Servers route, resource catalog entry, list/detail inspector, status, related Benches, and actions.
+5. Link Bench to Database Server and implement Region/Cluster/privacy/owner/capacity validation.
+6. Add secret-safe MariaDB CR dry-run and orchestration logs.
+7. Extend the Bench dry-run with `spec.dbConfig.mariadbRef`.
+8. Register the live EU `frappe-mariadb` handoff values without copying secret content.
+9. Validate Public sharing, Private Shared same-owner sharing, and Private
+   single-Bench exclusivity, including rejection cases.
+10. Receive the restricted kubeconfig reference defined by the Infra contract;
+    never copy kubeconfig content into LensCloud data or logs.
+11. Replace standard-Site DNS queueing with wildcard route readiness.
+12. Enable idempotent real apply and runtime status synchronization.
+13. Prove platform-team and customer Free Plan Site creation over HTTPS.
+
+Do not add Database Server selection to the customer portal. Customer Site creation continues to select Plan and Region; backend placement policy selects Bench and Database Server.
 
 
 ## Multi-Cluster Placement Update
@@ -225,9 +277,32 @@ This supersedes any wording that implies Platform Settings selects one active de
 - `Region.cluster` selects the cluster for deployment.
 - `Bench.region` derives `Bench.cluster`.
 - `Site.region` derives `Site.cluster`.
-- Platform Settings keeps global defaults only: root domain, default plan, default storage class fallback, operator namespace fallback, Route53 defaults, and integration toggles.
+- Platform Settings keeps global defaults only: root domain, wildcard edge readiness, default plan, storage/operator fallbacks, and integration toggles.
 - The live EU dev target is `lenscloud-eu-dev`, sourced from `lenscloud-infra` handoff docs.
-- Kubernetes and Route53 apply are backend-only and remain gated; frontend never receives kubeconfig or provider credentials.
+- Headlamp is live at `https://headlamp.cloud.lmnaslens.com`.
+- EU Traefik, wildcard DNS, wildcard TLS, and dynamic route readiness are
+  complete according to the Infra handoff.
+- Kubernetes apply is backend-only. Wildcard DNS/TLS is infrastructure-owned; the frontend never receives kubeconfig or DNS-provider credentials.
+
+## Wildcard Domain Handover
+
+Read `docs/wildcard-domain-model.md` and the infra `docs/wildcard-edge-contract.md`.
+
+The infrastructure boundary is:
+
+- GoDaddy remains authoritative for `lmnaslens.com`.
+- Infra owns wildcard DNS and ACME challenge automation.
+- LensCloud Platform does not call GoDaddy for standard Sites.
+
+- Root domain is `cloud.lmnaslens.com`.
+- Standard Sites use `{subdomain}.cloud.lmnaslens.com`.
+- Do not call any DNS provider or create per-Site DNS/certificate resources.
+- Retire/bypass the current DNS queue for standard Sites.
+- Validate unique subdomains and track route/access readiness.
+- Inherit wildcard DNS/TLS readiness from the Cluster edge.
+- Keep DNS Record only for future custom domains.
+- Customer Site creation must complete without DNS propagation waiting.
+- Do not add a DNS provider SDK, credential model, or API call to the Phase 1 platform.
 
 ## Document Lifecycle UI
 
@@ -302,4 +377,30 @@ No later phase may begin until that confirmation is recorded.
 
 ### Site Identity Handoff Update
 
-Site title is read-only derived identity. Do not ask users or operators to enter it. In this pass, default read-only `Site.domain` from `Platform Settings.root_domain`, then derive the full hostname as `subdomain + domain` and persist that value as `Site.title` and the Site document name. `FrappeSite.spec.siteName` and DNS Record `domain` must also use the full hostname. Keep `operator_resource_name` Kubernetes-safe and separate from the user-facing hostname. Future approved-domain support can replace the default root domain; customer custom-domain whitelisting is out of scope.
+Site title is read-only derived identity. Do not ask users or operators to enter it. Default read-only `Site.domain` to `cloud.lmnaslens.com`, then derive the full hostname as `subdomain + domain` and persist that value as `Site.title` and the Site document name. `FrappeSite.spec.siteName` and the ingress route must use the full hostname. Do not create a DNS Record for standard wildcard Sites. Keep `operator_resource_name` Kubernetes-safe and separate from the user-facing hostname. Customer custom domains are a separate future workflow.
+
+## Live Orchestration Validation Evidence
+
+Validated on 2026-06-06 against read-only `lenscloud-infra` main revision
+`1d5d5f3`:
+
+- `bench --site dev.localhost migrate`: passed.
+- Database Server focused tests: 5 passed, covering Public acceptance, Private Shared cross-boundary rejection, Private second-Bench rejection, Kubernetes-safe naming, and Frappe major normalization.
+- Frappe UI production build: passed.
+- MariaDB dry-run: `ORCH-2026-00023`, targeting `default/frappe-mariadb` without Secret values.
+- FrappeBench dry-run: `ORCH-2026-00024`, with Frappe major `15` and `dbConfig.mariadbRef` to `default/frappe-mariadb`.
+- FrappeSite dry-run: `ORCH-2026-00025`, using `demo2.cloud.lmnaslens.com`, Traefik `websecure`, inherited wildcard TLS, and no DNS-provider resource.
+- Served route smoke: `/lenscloud`, Database Servers, Benches, Sites, Platform Settings, and customer Create Site returned HTTP 200.
+
+Infra delivered the restricted EU service-account kubeconfig on June 6, 2026.
+It is mounted read-only at `/run/secrets/lenscloud-eu.kubeconfig`; host-side
+positive and negative RBAC checks passed, and LensCloud's
+`KubernetesClient` passed the required MariaDB, FrappeBench, and FrappeSite
+permission checks. The external credential blocker is cleared.
+
+The next Platform agent should run
+`lenscloud.api.orchestration.check_cluster_permissions`, confirm cluster
+capacity, enable `kubernetes_apply_enabled` for the controlled test window,
+and execute the Public, Private Shared, and Private live acceptance scenarios.
+Status synchronization, HTTPS verification, authenticated Playwright, evidence,
+and cleanup remain incomplete until that sequence finishes.

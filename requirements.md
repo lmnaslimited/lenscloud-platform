@@ -41,7 +41,9 @@ Build a Frappe-based platform application that serves both customer self-service
 ## 5. DNS and Domain Automation
 
 - The platform must automate customer subdomain creation.
-- The platform must automate Route53 record creation, update, and deletion.
+- Standard Sites must not create, update, or delete DNS records.
+- `cloud.lmnaslens.com` and its wildcard are infrastructure-owned GoDaddy DNS records.
+- The platform consumes only non-secret wildcard DNS/TLS/ingress readiness from the Cluster handoff.
 - The platform must surface DNS provisioning status and failures in the UI.
 - The platform must keep DNS operations auditable and retryable.
 
@@ -94,4 +96,4 @@ Build a Frappe-based platform application that serves both customer self-service
 - Primary metadata database choice.
 - Whether the first version is single-cluster or multi-cluster aware.
 - Whether upgrade orchestration is synchronous or job-based.
-- Whether Route53 status is customer-visible or platform-only in the first version.
+- How customer-owned custom domains will be verified and automated in a later phase.

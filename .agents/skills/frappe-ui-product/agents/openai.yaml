@@ -1,0 +1,4 @@
+interface:
+  display_name: "Frappe UI Product"
+  short_description: "Build polished, native Frappe UI product flows"
+  default_prompt: "Use $frappe-ui-product to implement or review this LensCloud interface using restrained Frappe UI patterns."

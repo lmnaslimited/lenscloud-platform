@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
-import { CircleHelp, CloudDownload, Globe2, LifeBuoy, Lock, Pause, RefreshCcw, RotateCcw, Server, ShieldAlert, SquareArrowOutUpRight } from 'lucide-vue-next'
+import { CircleHelp, CloudDownload, Globe2, LifeBuoy, Lock, Pause, RefreshCcw, RotateCcw, Server, SquareArrowOutUpRight } from 'lucide-vue-next'
 import { listDocs, formatFieldValue } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -27,8 +27,8 @@ const lockedActions = [
 
 const stats = computed(() => [
 	{ label: 'Sites', value: sites.value.length, note: 'Linked tenant instances' },
-	{ label: 'Ready', value: sites.value.length, note: 'Status field pending' },
-	{ label: 'Requests', value: 0, note: 'Request backend pending' },
+	{ label: 'Ready', value: sites.value.filter((site) => site.site_status === 'Ready' || site.site_status === 'Active').length, note: 'Operator runtime ready' },
+	{ label: 'Routes ready', value: sites.value.filter((site) => site.route_status === 'Ready').length, note: 'HTTPS access verified' },
 ])
 
 const assistantContext = computed(() => ({
@@ -44,13 +44,12 @@ const assistantContext = computed(() => ({
 		{ label: 'Standard action', value: 'Contact Support is the normal customer path for site help.' },
 	],
 	gaps: [
-		'Site status field/source is pending',
-		'Request backend is pending',
+		'Live status sync requires restricted cluster access',
 		'Advanced operations require qualification or platform-team handling',
 	],
 	nextSteps: sites.value.length
 		? ['Open a site card for context.', 'Use Contact Support for standard requests.', 'Ask LensCloud about qualification before backup/restore/upgrade/DNS actions.']
-		: ['Create the first site request.', 'Wait for backend provisioning support to connect the request flow.'],
+		: ['Create the first Site.', 'The platform selects ready Public capacity and uses the gated operator reconcile path.'],
 }))
 
 async function load() {
@@ -70,7 +69,7 @@ async function load() {
 		}
 
 		sites.value = await listDocs('Site', {
-			fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'dns_status', 'backup_state', 'restore_state', 'upgrade_state', 'bench', 'customer', 'modified'],
+			fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'hostname_reservation_status', 'route_status', 'tls_status', 'access_url', 'backup_state', 'restore_state', 'upgrade_state', 'bench', 'customer', 'modified'],
 			limit: 50,
 			filters: [['customer', '=', customer.value.name]],
 		})
@@ -143,7 +142,7 @@ onMounted(load)
 							<Globe2 class="size-5" />
 						</div>
 						<p class="mt-3 text-base font-semibold text-ink-gray-9">Create your first site</p>
-						<p class="mx-auto mt-1 max-w-md text-sm leading-6 text-ink-gray-5">LensCloud is ready for the customer flow. Start a site request and the platform team can wire it to provisioning when backend support lands.</p>
+						<p class="mx-auto mt-1 max-w-md text-sm leading-6 text-ink-gray-5">LensCloud is ready for the customer flow. Create a Site on the Free Plan. LensCloud selects ready Public capacity and enters the gated operator reconcile path.</p>
 						<Button class="mt-4" :as="RouterLink" to="/customer/create-site">
 							<SquareArrowOutUpRight class="size-4" />
 							Create Site
@@ -162,7 +161,7 @@ onMounted(load)
 									<p class="truncate text-base font-semibold text-ink-gray-9">{{ site.title || site.name }}</p>
 									<p class="mt-1 truncate text-xs text-ink-gray-5">{{ site.name }}</p>
 								</div>
-								<Badge class="bg-emerald-50 text-emerald-700">Visible</Badge>
+								<Badge :class="site.route_status === 'Ready' ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-gray-2 text-ink-gray-6'">{{ site.route_status || site.site_status || 'Pending' }}</Badge>
 							</div>
 
 							<div class="mt-3 grid gap-2 sm:grid-cols-2">
@@ -171,8 +170,8 @@ onMounted(load)
 									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ formatFieldValue(site.bench) }}</p>
 								</div>
 								<div class="rounded bg-surface-gray-1 px-3 py-2">
-									<p class="text-xs text-ink-gray-5">Updated</p>
-									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ formatFieldValue(site.modified) }}</p>
+									<p class="text-xs text-ink-gray-5">Provisioning / route</p>
+									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ site.provisioning_status || 'Pending' }} / {{ site.route_status || 'Not checked' }}</p>
 								</div>
 							</div>
 
@@ -204,7 +203,9 @@ onMounted(load)
 				<div v-if="selectedSite" class="rounded border border-outline-gray-2 bg-surface-white p-3">
 					<div class="space-y-2 text-sm leading-6 text-ink-gray-6">
 						<p><Server class="mr-1 inline size-4 text-ink-gray-4" /> Bench: {{ formatFieldValue(selectedSite.bench) }}</p>
-						<p>Customer: {{ formatFieldValue(selectedSite.customer) }}</p>
+						<p>Runtime: {{ selectedSite.site_status || 'Pending' }} / {{ selectedSite.provisioning_status || 'Pending' }}</p>
+						<p>Access: {{ selectedSite.route_status || 'Not checked' }} / TLS {{ selectedSite.tls_status || 'Inherited' }}</p>
+						<p v-if="selectedSite.access_url"><a class="text-ink-blue-3 hover:underline" :href="selectedSite.access_url" target="_blank" rel="noreferrer">Open site</a></p>
 						<p>Updated: {{ formatFieldValue(selectedSite.modified) }}</p>
 					</div>
 				</div>

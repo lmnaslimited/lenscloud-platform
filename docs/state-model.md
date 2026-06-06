@@ -7,9 +7,10 @@
 - Release Group
 - App
 - Release
+- Database Server
 - Bench
 - Site
-- DNS Record
+- Hostname / Route
 - Backup
 - Restore
 - Upgrade
@@ -84,6 +85,8 @@ Bench owns:
 - next release
 - region
 - privacy
+- owner Customer/privacy boundary when private database placement is used
+- database server
 - namespace
 - operator resource name
 - storage class
@@ -98,6 +101,39 @@ Bench is used to:
 - schedule upgrades
 - track SOP progress
 - create operator-backed runtime resources
+
+### Database Server
+
+Database Server is first-class runtime capacity for MariaDB.
+
+Database Server owns:
+
+- Region and derived Cluster
+- privacy level: Public, Private, or Private Shared
+- optional owner Customer/privacy boundary
+- operator-managed or external provisioning type
+- Kubernetes namespace and MariaDB operator resource name
+- image, storage class, storage size, replicas, host, and port
+- server-side credential/Secret references
+- provisioning, health, capacity, backup, and error status
+- attached Bench count
+
+Database Server is used to:
+
+- register or provision MariaDB services
+- attach one or more eligible Benches
+- enforce privacy and sharing policy
+- generate the MariaDB CR manifest
+- generate `FrappeBench.spec.dbConfig.mariadbRef`
+- track runtime health without exposing credentials
+
+Privacy semantics:
+
+- Public: may serve unrelated eligible customers/Benches.
+- Private Shared: may serve multiple Benches within one customer/privacy boundary.
+- Private: exclusive to one Bench.
+
+The operator `dbConfig.mode: shared` value means one MariaDB instance hosts multiple Site databases. It is distinct from LensCloud privacy.
 
 ### Bench Upgrade Plan
 
@@ -123,6 +159,7 @@ Bench Upgrade Plan owns:
 - Release Group is the release-family master data.
 - Release is the deployable image/version.
 - Bench is the unit of runtime grouping.
+- Database Server is the unit of database capacity and isolation policy.
 - Site is the tenant boundary.
 - DNS must be treated as lifecycle state, not manual admin work.
 
@@ -168,11 +205,18 @@ Region links to Cluster. Bench and Site deployment choose Region first, then der
 
 Plan is commercial/product master data. The Free plan must exist for first customer self-service site creation.
 
-### DNS Record
+### Hostname And Route
 
-DNS Record tracks intended and applied DNS automation state. DNS is lifecycle state, not manual-only admin work.
+Standard customer Sites use the preconfigured wildcard `*.cloud.lmnaslens.com` and shared wildcard TLS. No per-Site DNS Record is created.
 
-A Site must not be marked DNS verified unless Route53 creation and verification actually succeed.
+Site lifecycle tracks:
+
+- unique hostname reservation
+- ingress/route readiness
+- inherited wildcard TLS readiness
+- last route check and error
+
+The existing DNS Record model is retained only for compatibility and future custom-domain workflows.
 
 ### Orchestration Action Log
 
@@ -183,9 +227,15 @@ Orchestration Action Log records every Bench, Site, and DNS orchestration attemp
 Site `title` is derived control-plane identity, not user input. The platform derives it from the full hostname:
 
 - Customer/operator provides `subdomain`.
-- Platform Settings `root_domain` provides the default root domain for this pass.
+- Platform Settings `root_domain` is `cloud.lmnaslens.com`.
 - Site `domain` stores the root or approved domain only and is read-only in the Site document UI.
 - Site `title` and document name are set to the full hostname `{subdomain}.{domain}`.
 - `FrappeSite.spec.siteName` must use the same full hostname, not only the subdomain.
 - Kubernetes/operator resource names remain slug-safe and may use the subdomain/operator resource field.
-- Future approved-domain support may replace the Platform Settings root domain; customer custom-domain whitelisting is out of scope for this pass.
+- Customer custom-domain verification and certificates are out of scope for the standard wildcard flow.
+
+### Runtime Reconciliation State
+
+Database Server, Bench, and Site are control-plane documents. Their operator resource identity, selected Cluster, provisioning state, health/access state, last error, and Orchestration Action Log evidence are stored in LensCloud. Kubernetes remains the runtime source of truth and is read or reconciled only through a restricted server-side Cluster credential reference.
+
+Site does not select Database Server directly. Site inherits database placement from Bench. Region determines Cluster for Database Server, Bench, and Site.

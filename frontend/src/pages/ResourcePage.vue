@@ -281,9 +281,7 @@ const lockedOperatorActions = computed(() => [
 
 const stateModelRows = computed(() => {
 	const common = [
-		{ label: 'Approval state', value: 'Backend status source pending' },
-		{ label: 'Provisioning state', value: 'Backend status source pending' },
-		{ label: 'Audit trail', value: 'Event source pending' },
+		{ label: 'Action evidence', value: 'Orchestration Action Log' },
 	]
 
 	const byResource = {
@@ -296,7 +294,10 @@ const stateModelRows = computed(() => {
 			{ label: 'Site', value: record.value?.name || 'No site selected' },
 			{ label: 'Site status', value: record.value?.site_status || 'Draft/status source pending' },
 			{ label: 'Provisioning status', value: record.value?.provisioning_status || 'Operator status pending' },
-			{ label: 'DNS status', value: record.value?.dns_status || 'Route53 status pending' },
+			{ label: 'Hostname reservation', value: record.value?.hostname_reservation_status || 'Pending' },
+			{ label: 'Route status', value: record.value?.route_status || 'Not Checked' },
+			{ label: 'TLS status', value: record.value?.tls_status || 'Inherited from wildcard edge' },
+			{ label: 'Access URL', value: record.value?.access_url || 'Pending' },
 			{ label: 'Backup', value: record.value?.backup_state || 'Operator/request status pending' },
 			{ label: 'Restore', value: record.value?.restore_state || 'Operator/request status pending' },
 			{ label: 'Upgrade', value: record.value?.upgrade_state || 'Operator/request status pending' },
@@ -308,7 +309,15 @@ const stateModelRows = computed(() => {
 			{ label: 'Next Release', value: record.value?.next_release || 'Not scheduled' },
 			{ label: 'Bench status', value: record.value?.bench_status || 'Draft/status source pending' },
 			{ label: 'Upgrade/SOP status', value: record.value?.upgrade_sop_status || 'Draft' },
-			{ label: 'Tenant placement', value: record.value?.region || record.value?.cluster_runtime_target || 'Placement source pending' },
+			{ label: 'Region / Cluster', value: [record.value?.region, record.value?.cluster].filter(Boolean).join(' / ') || 'Placement pending' },
+			{ label: 'Database Server', value: record.value?.database_server || 'Not attached' },
+		],
+		'database-servers': [
+			{ label: 'Database Server', value: record.value?.name || 'No database selected' },
+			{ label: 'Region / Cluster', value: [record.value?.region, record.value?.cluster].filter(Boolean).join(' / ') || 'Placement pending' },
+			{ label: 'Privacy', value: record.value?.privacy || 'Not configured' },
+			{ label: 'Runtime state', value: `${record.value?.database_status || 'Draft'} / ${record.value?.health_status || 'Unknown'}` },
+			{ label: 'Bench capacity', value: `${record.value?.attached_bench_count || 0} / ${record.value?.maximum_bench_count || 'unlimited'}` },
 		],
 		'release-groups': [
 			{ label: 'Release Group', value: record.value?.name || 'No release group selected' },
@@ -345,8 +354,9 @@ const assistantContext = computed(() => {
 		gaps.push('SSO links are placeholders until configured outside LensCloud')
 	}
 	if (activeAction.value && !activeAction.value.backendSupported) gaps.push(`${activeAction.value.label} backend support is not wired`)
-	if (props.resourceKey === 'sites') gaps.push('Provisioning, DNS, backup, restore, and upgrade execution remain backend/operator gaps')
-	if (props.resourceKey === 'benches') gaps.push('FrappeBench creation/reconciliation remains a backend/operator gap')
+	if (props.resourceKey === 'sites') gaps.push('Backup, restore, and upgrade execution remain backend/operator gaps; standard DNS uses the shared wildcard edge')
+	if (props.resourceKey === 'benches') gaps.push('Live FrappeBench apply requires a verified restricted Cluster kubeconfig and Kubernetes apply enablement')
+	if (props.resourceKey === 'database-servers') gaps.push('Live MariaDB apply/status sync requires a verified restricted Cluster kubeconfig')
 	if (props.resourceKey === 'releases') gaps.push('Build pipeline and promotion execution remain backend gaps')
 	if (props.resourceKey === 'release-groups') gaps.push('Release Group is master data; create/promote Release flows are UI-only until backend support lands')
 	if (props.resourceKey === 'customers') gaps.push('Subscription, billing, CRM, and support data are integration placeholders')
@@ -362,7 +372,7 @@ const assistantContext = computed(() => {
 			{ label: 'Document status', value: documentStatusLabel.value },
 			{ label: 'Current tab set', value: inspectorTabs.value.map((tab) => tab.label).join(', ') },
 			{ label: 'Rows visible', value: `${visibleRowCount.value} of ${records.value.length}` },
-			{ label: 'Infrastructure boundary', value: 'This frontend surfaces control-plane intent only; it does not mutate infrastructure.' },
+			{ label: 'Infrastructure boundary', value: 'The platform reconciles operator resources only; cluster substrate remains owned by lenscloud-infra.' },
 		],
 		gaps,
 		nextSteps: activeAction.value

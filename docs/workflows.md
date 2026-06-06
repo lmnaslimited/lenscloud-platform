@@ -10,7 +10,8 @@
 - release create/promote/block, platform-facing only
 - bench upgrade planning, platform-facing only
 - upgrade, platform-facing or qualified-customer only
-- DNS automation, platform-facing or qualified-customer only
+- wildcard hostname reservation and route reconciliation
+- database server create/register/attach, platform-facing only
 
 ## Later
 
@@ -25,6 +26,7 @@
 - Treat operator resources as the source of truth.
 - Do not reimplement Kubernetes reconciliation logic in the app.
 - Do not treat Release Group as a deployable version; Bench must deploy a specific Release.
+- Do not treat MariaDB as an implicit side effect of Site creation; Database Server is selected and managed explicitly.
 
 ## Release And Bench Upgrade Workflow
 
@@ -208,7 +210,7 @@ Current live EU dev target from `lenscloud-infra`:
 - Manager: `lenscloud-eu-manager-1`
 - Manager public IP: `116.203.22.81`
 - Manager private IP: `10.20.1.1`
-- Headlamp URL: `http://headlamp.eu.lmnaslens.com`
+- current Headlamp URL: `https://headlamp.cloud.lmnaslens.com`
 - Kubernetes access model: SSH to manager VM and run `kubectl` there
 - Kubeconfig reference: manager VM `/etc/rancher/k3s/k3s.yaml`
 - Operator namespace: `frappe-operator-system`
@@ -223,23 +225,75 @@ Backend orchestration methods are server-side only.
 - `request_customer_site(...)` creates a LensCloud Site request under a Plan, defaults to Free plan when selected.
 - `dry_run_site_manifest(site)` generates a `FrappeSite` manifest.
 - `reconcile_site(site, dry_run=True)` records a safe dry-run unless real apply is explicitly wired later.
-- `queue_or_apply_dns_record(site)` creates/queues DNS state and does not mark DNS verified until Route53 succeeds.
+- The existing `queue_or_apply_dns_record(site)` path must be retired or bypassed for standard wildcard Sites.
 
-Real Kubernetes apply remains gated behind backend credential/reference work and Platform Settings apply flags. The frontend must not call Kubernetes or Route53 directly.
+Real Kubernetes apply remains gated behind backend credential/reference work and Platform Settings apply flags. The frontend must not call Kubernetes or any DNS provider.
 
-## Route53 DNS Automation Workflow
+## Database Server And Bench Attachment Workflow
 
-DNS automation is explicit lifecycle work.
+Database Server is a platform-only runtime resource. Customers select Region and Plan; placement policy selects the Bench and Database Server.
 
-- Platform Settings stores Route53 defaults: provider, hosted zone ID/reference, AWS region, credential reference, automation enabled flag.
-- Customer and platform Site creation derive the FQDN from `subdomain + root_domain`.
-- Site `domain` stores the root/approved domain; DNS Record uses the derived full hostname.
-- DNS starts as Pending or Queued.
-- Route53 apply and verification are future server-side integrations.
-- DNS must not be shown as Created/Verified unless the provider confirms it.
+Platform flow:
+
+1. Create or register a Database Server.
+2. Select Region; derive Cluster from `Region.cluster`.
+3. Select privacy: Public, Private, or Private Shared.
+4. For private modes, set the owner Customer/privacy boundary.
+5. Generate and review the MariaDB CR dry-run.
+6. Reconcile the MariaDB CR when Kubernetes apply is enabled.
+7. Attach an eligible Bench.
+8. Generate the `FrappeBench` manifest with `spec.dbConfig.mariadbRef`.
+9. Sync MariaDB and Bench status into LensCloud.
+
+Placement validation:
+
+- Database Server and Bench must resolve to the same Region and Cluster for operator-managed MariaDB.
+- Private permits one Bench.
+- Private Shared permits multiple Benches only in the same owner/privacy boundary.
+- Public permits multiple eligible Benches.
+- A Site inherits the Database Server attached to its Bench.
+- Customers never receive database host, CR, namespace, or secret-reference details.
+
+The detailed contract is in `database-server-model.md`.
+
+## Wildcard Domain And TLS Workflow
+
+Standard Site onboarding uses shared infrastructure:
+
+- root domain: `cloud.lmnaslens.com`
+- wildcard DNS: `*.cloud.lmnaslens.com`
+- wildcard TLS: `*.cloud.lmnaslens.com`
+- DNS provider is not part of the platform contract
+- wildcard certificate lifecycle is owned by `lenscloud-infra`
+- Traefik is the preferred target ingress
+
+Customer and platform Site creation derive the FQDN from `subdomain + root_domain`, validate uniqueness, and create only runtime/routing resources. They do not create DNS records, call a DNS provider, wait for propagation, or request certificates.
+
+Site availability requires both runtime readiness and hostname route readiness. The detailed platform contract is in `wildcard-domain-model.md`.
 
 ### Site Hostname And Operator Manifest
 
 Site creation treats the full hostname as the Site identity. Operators and customers should not type the Site title directly. The backend derives read-only `Site.domain` from Platform Settings `root_domain` in this pass, then derives `Site.title` and the document name from `subdomain + domain`.
 
-The generated `FrappeSite` manifest must set `spec.siteName` to the complete hostname such as `customer.cloud.example.com`. It must not use only `customer`/subdomain, because the operator needs the same hostname that DNS and customer-facing surfaces show.
+The generated `FrappeSite` manifest must set `spec.siteName` to the complete hostname such as `customer.cloud.lmnaslens.com`. It must not use only the subdomain.
+
+## Live Orchestration Implementation Status
+
+Implemented in the LensCloud control plane:
+
+- MariaDB, FrappeBench, and FrappeSite manifests are generated as structured data and recorded in Orchestration Action Log.
+- Database Server enforces Region, Cluster, privacy boundary, ownership, readiness, and Bench-capacity policy.
+- Bench manifests reference Database Server through `spec.dbConfig.mariadbRef`.
+- Standard Site manifests use the full hostname, Traefik `websecure`, inherited wildcard TLS, and no per-Site DNS Record.
+- Reconcile operations are idempotent server-side apply calls and remain gated by `Platform Settings.kubernetes_apply_enabled`.
+- Cluster access uses a server-side `file:` kubeconfig reference only. Credential contents are never stored in a LensCloud document or returned to the frontend.
+
+The restricted EU kubeconfig is mounted read-only at
+`/run/secrets/lenscloud-eu.kubeconfig`. Host-side positive and negative RBAC
+checks pass, and LensCloud's cluster permission preflight returns
+`all_required_allowed: true` after setting the Cluster default runtime namespace
+to `lenscloud-runtime-eu`.
+
+The remaining work is controlled live apply, status synchronization,
+two-Bench shared-MariaDB validation, the three privacy acceptance scenarios,
+and end-to-end HTTPS Site creation.

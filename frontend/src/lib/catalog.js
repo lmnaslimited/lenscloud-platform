@@ -36,17 +36,22 @@ const healthStatusOptions = ['Unknown', 'Healthy', 'Degraded', 'Failed']
 const benchStatusOptions = ['Draft', 'Pending', 'Accepted', 'Provisioning', 'Ready', 'Upgrading', 'Suspended', 'Deleting', 'Failed', 'Retired', 'Unknown']
 const upgradePolicyOptions = ['Manual', 'Scheduled', 'Auto Quality', 'Auto Production Eligible']
 const upgradeSopStatusOptions = ['Draft', 'Scheduled', 'Precheck', 'Ready', 'Running', 'Verifying', 'Completed', 'Rolled Back', 'Failed']
-const siteStatusOptions = ['Draft', 'Requested', 'Accepted', 'Provisioning', 'Active', 'Suspended', 'Deleting', 'Failed', 'Deleted', 'Unknown']
+const siteStatusOptions = ['Draft', 'Requested', 'Accepted', 'Provisioning', 'Ready', 'Active', 'Suspended', 'Deleting', 'Failed', 'Deleted', 'Unknown']
 const provisioningStatusOptions = ['Not Started', 'Pending', 'Accepted', 'Running', 'Ready', 'Failed', 'Unknown']
-const dnsStatusOptions = ['Not Started', 'Pending', 'Queued', 'Created', 'Verified', 'Failed']
 const backupStateOptions = ['Not Configured', 'Scheduled', 'Running', 'Succeeded', 'Failed']
 const restoreStateOptions = ['Not Requested', 'Pending', 'Running', 'Succeeded', 'Failed']
 const upgradeStateOptions = ['Not Scheduled', 'Scheduled', 'Running', 'Verifying', 'Succeeded', 'Failed']
 const regionDeploymentOptions = ['Not Deployable', 'Active', 'Maintenance', 'Disabled']
 const planStatusOptions = ['Active', 'Inactive', 'Retired']
 const benchPolicyOptions = ['Shared Bench', 'Dedicated Bench', 'Manual Placement']
-const dnsProviderOptions = ['Route53', 'Manual', 'Other']
 const integrationStatusOptions = ['Not Configured', 'Configured', 'Healthy', 'Degraded', 'Disabled']
+const databaseStatusOptions = ['Draft', 'Pending', 'Provisioning', 'Ready', 'Maintenance', 'Failed', 'Unknown']
+const databaseProvisioningOptions = ['Not Started', 'Pending', 'Accepted', 'Running', 'Ready', 'Failed', 'Unknown']
+const databaseProvisioningTypeOptions = ['Operator Managed', 'External']
+const routeStatusOptions = ['Not Checked', 'Pending', 'Ready', 'Failed', 'Unknown']
+const tlsStatusOptions = ['Inherited', 'Ready', 'Failed', 'Unknown']
+const hostnameStatusOptions = ['Pending', 'Reserved', 'Conflict', 'Released']
+const edgeStatusOptions = ['Unknown', 'Ready', 'Degraded', 'Failed']
 
 export const platformResources = [
 	{
@@ -299,6 +304,9 @@ export const platformResources = [
 			{ key: 'default_bench_namespace_pattern', label: 'Default bench namespace pattern', default: 'bench-{bench}' },
 			{ key: 'kubeconfig_reference', label: 'Kubeconfig reference' },
 			{ key: 'credential_reference', label: 'Credential reference' },
+			{ key: 'domain_strategy', label: 'Domain strategy', default: 'Wildcard', ...selectField(['Wildcard', 'Custom Domains']) },
+			{ key: 'ingress_class', label: 'Ingress class', default: 'traefik' },
+			{ key: 'wildcard_hostname', label: 'Wildcard hostname' },
 		],
 		summaryFields: [
 			{ key: 'cluster_name', label: 'Cluster name' },
@@ -325,6 +333,12 @@ export const platformResources = [
 			{ key: 'default_bench_namespace_pattern', label: 'Default bench namespace pattern' },
 			{ key: 'kubeconfig_reference', label: 'Kubeconfig reference' },
 			{ key: 'credential_reference', label: 'Credential reference' },
+			{ key: 'domain_strategy', label: 'Domain strategy', ...selectField(['Wildcard', 'Custom Domains']) },
+			{ key: 'wildcard_hostname', label: 'Wildcard hostname' },
+			{ key: 'wildcard_dns_status', label: 'Wildcard DNS', readOnly: true, ...selectField(edgeStatusOptions) },
+			{ key: 'wildcard_tls_status', label: 'Wildcard TLS', readOnly: true, ...selectField(edgeStatusOptions) },
+			{ key: 'ingress_status', label: 'Ingress', readOnly: true, ...selectField(edgeStatusOptions) },
+			{ key: 'ingress_class', label: 'Ingress class' },
 			{ key: 'health_status', label: 'Health status', ...selectField(healthStatusOptions) },
 			{ key: 'last_sync_time', label: 'Last sync' },
 			{ key: 'last_error', label: 'Last error' },
@@ -335,6 +349,75 @@ export const platformResources = [
 			{ label: 'Sites', doctype: 'Site', linkField: 'cluster', sourceField: 'name', fields: ['name', 'title', 'site_status', 'dns_status'], route: (name) => `/platform/sites/${encodeURIComponent(name)}` },
 		],
 		actions: [],
+	},
+	{
+		key: 'database-servers',
+		scope: 'platform',
+		label: 'Database Servers',
+		doctype: 'Database Server',
+		route: '/platform/database-servers',
+		detailRoute: (name) => `/platform/database-servers/${encodeURIComponent(name)}`,
+		icon: Database,
+		listHelp: 'MariaDB runtime capacity with Region, privacy, ownership, readiness, and Bench attachment policy.',
+		creatable: true,
+		editable: true,
+		lifecycleFields: [
+			{ key: 'title', label: 'Title', required: true },
+			{ key: 'database_engine', label: 'Database engine', default: 'MariaDB', ...selectField(['MariaDB']) },
+			{ key: 'provisioning_type', label: 'Provisioning type', default: 'Operator Managed', ...selectField(databaseProvisioningTypeOptions) },
+			{ key: 'region', label: 'Region', required: true, ...linkField('Region') },
+			{ key: 'privacy', label: 'Privacy', required: true, ...linkField('Privacy') },
+			{ key: 'owner_customer', label: 'Owner Customer', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'privacy_boundary', label: 'Privacy boundary' },
+			{ key: 'kubernetes_namespace', label: 'Kubernetes namespace', default: 'default' },
+			{ key: 'operator_resource_name', label: 'MariaDB resource name', required: true },
+			{ key: 'image', label: 'MariaDB image', default: 'mariadb:10.11' },
+			{ key: 'storage_class', label: 'Storage class', default: 'local-path' },
+			{ key: 'storage_size', label: 'Storage size', default: '8Gi' },
+			{ key: 'replica_count', label: 'Replica count', default: 1, type: 'number' },
+			{ key: 'root_credential_secret_reference', label: 'Root Secret reference' },
+			{ key: 'maximum_bench_count', label: 'Maximum Bench count', default: 0, type: 'number' },
+		],
+		summaryFields: [
+			{ key: 'region', label: 'Region', linkPrefix: '/platform/regions/', ...linkField('Region') },
+			{ key: 'privacy', label: 'Privacy', ...linkField('Privacy') },
+			{ key: 'database_status', label: 'Database status', ...selectField(databaseStatusOptions) },
+			{ key: 'health_status', label: 'Health', ...selectField(healthStatusOptions) },
+			{ key: 'attached_bench_count', label: 'Benches' },
+		],
+		detailFields: [
+			{ key: 'name', label: 'Database Server ID' },
+			{ key: 'title', label: 'Title' },
+			{ key: 'database_engine', label: 'Database engine', ...selectField(['MariaDB']) },
+			{ key: 'provisioning_type', label: 'Provisioning type', ...selectField(databaseProvisioningTypeOptions) },
+			{ key: 'region', label: 'Region', linkPrefix: '/platform/regions/', ...linkField('Region') },
+			{ key: 'cluster', label: 'Cluster', readOnly: true, linkPrefix: '/platform/clusters/', ...linkField('Cluster') },
+			{ key: 'privacy', label: 'Privacy', ...linkField('Privacy') },
+			{ key: 'owner_customer', label: 'Owner Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'privacy_boundary', label: 'Privacy boundary' },
+			{ key: 'kubernetes_namespace', label: 'Kubernetes namespace' },
+			{ key: 'operator_resource_name', label: 'MariaDB resource name' },
+			{ key: 'image', label: 'MariaDB image' },
+			{ key: 'storage_class', label: 'Storage class' },
+			{ key: 'storage_size', label: 'Storage size' },
+			{ key: 'replica_count', label: 'Replica count', type: 'number' },
+			{ key: 'root_credential_secret_reference', label: 'Root Secret reference' },
+			{ key: 'maximum_bench_count', label: 'Maximum Bench count', type: 'number' },
+			{ key: 'attached_bench_count', label: 'Attached Benches', readOnly: true },
+			{ key: 'database_status', label: 'Database status', readOnly: true, ...selectField(databaseStatusOptions) },
+			{ key: 'provisioning_status', label: 'Provisioning status', readOnly: true, ...selectField(databaseProvisioningOptions) },
+			{ key: 'health_status', label: 'Health status', readOnly: true, ...selectField(healthStatusOptions) },
+			{ key: 'last_sync_time', label: 'Last sync', readOnly: true },
+			{ key: 'last_error', label: 'Last error', readOnly: true },
+		],
+		relations: [
+			{ label: 'Benches', doctype: 'Bench', linkField: 'database_server', sourceField: 'name', fields: ['name', 'title', 'owner_customer', 'privacy', 'bench_status'], route: (name) => `/platform/benches/${encodeURIComponent(name)}` },
+		],
+		actions: [
+			{ key: 'dry-run-database-server', label: 'Preview MariaDB manifest', icon: SquareArrowOutUpRight, description: 'Generate a secret-safe MariaDB Operator manifest.', backendSupported: true, method: 'lenscloud.api.orchestration.dry_run_database_server_manifest', paramsFromRecord: { database_server: 'name' }, fields: [] },
+			{ key: 'reconcile-database-server', label: 'Reconcile Database Server', icon: RefreshCcw, description: 'Idempotently apply when restricted Kubernetes access and apply are enabled; otherwise returns a dry-run.', backendSupported: true, method: 'lenscloud.api.orchestration.reconcile_database_server', paramsFromRecord: { database_server: 'name' }, fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }] },
+			{ key: 'sync-database-server', label: 'Sync runtime status', icon: RefreshCcw, description: 'Read MariaDB runtime readiness from Kubernetes.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_database_server_status', paramsFromRecord: { database_server: 'name' }, fields: [] },
+		],
 	},
 	{
 		key: 'benches',
@@ -354,6 +437,9 @@ export const platformResources = [
 			{ key: 'next_release', label: 'Next Release', ...linkField('Release', ['image_tag', 'release_group']) },
 			{ key: 'region', label: 'Region', required: true, ...linkField('Region') },
 			{ key: 'privacy', label: 'Privacy', ...linkField('Privacy') },
+			{ key: 'owner_customer', label: 'Owner Customer', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'privacy_boundary', label: 'Privacy boundary' },
+			{ key: 'database_server', label: 'Database Server', required: true, ...linkField('Database Server', ['title', 'privacy', 'region']) },
 			{ key: 'kubernetes_namespace', label: 'Kubernetes namespace' },
 			{ key: 'operator_resource_name', label: 'Operator resource name' },
 			{ key: 'storage_class', label: 'Storage class' },
@@ -378,6 +464,9 @@ export const platformResources = [
 			{ key: 'region', label: 'Region', linkPrefix: '/platform/regions/', ...linkField('Region') },
 			{ key: 'cluster', label: 'Cluster', linkPrefix: '/platform/clusters/', ...linkField('Cluster', ['title', 'cluster_name']) },
 			{ key: 'privacy', label: 'Privacy', ...linkField('Privacy') },
+			{ key: 'owner_customer', label: 'Owner Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'privacy_boundary', label: 'Privacy boundary' },
+			{ key: 'database_server', label: 'Database Server', linkPrefix: '/platform/database-servers/', ...linkField('Database Server', ['title', 'privacy', 'region']) },
 			{ key: 'cluster_runtime_target', label: 'Cluster/runtime target' },
 			{ key: 'kubernetes_namespace', label: 'Kubernetes namespace' },
 			{ key: 'operator_resource_name', label: 'Operator resource name' },
@@ -417,6 +506,7 @@ export const platformResources = [
 				paramsFromRecord: { bench: 'name' },
 				fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }],
 			},
+			{ key: 'sync-bench', label: 'Sync runtime status', icon: RefreshCcw, description: 'Read FrappeBench status from the selected Cluster.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_bench_status', paramsFromRecord: { bench: 'name' }, fields: [] },
 			{
 				key: 'upgrade-bench',
 				label: 'Upgrade bench',
@@ -460,8 +550,7 @@ export const platformResources = [
 			{ key: 'site_status', label: 'Site status', default: 'Draft', ...selectField(siteStatusOptions) },
 			{ key: 'provisioning_status', label: 'Provisioning status', default: 'Not Started', ...selectField(provisioningStatusOptions) },
 			{ key: 'operator_resource_name', label: 'Operator resource name' },
-			{ key: 'dns_status', label: 'DNS status', default: 'Not Started', ...selectField(dnsStatusOptions) },
-			{ key: 'dns_target', label: 'DNS target' },
+			{ key: 'hostname_reservation_status', label: 'Hostname reservation', default: 'Pending', ...selectField(hostnameStatusOptions) },
 		],
 		summaryFields: [
 			{ key: 'title', label: 'Title' },
@@ -469,7 +558,7 @@ export const platformResources = [
 			{ key: 'site_status', label: 'Site status', ...selectField(siteStatusOptions) },
 			{ key: 'cluster', label: 'Cluster', linkPrefix: '/platform/clusters/', ...linkField('Cluster', ['title', 'cluster_name']) },
 			{ key: 'provisioning_status', label: 'Provisioning', ...selectField(provisioningStatusOptions) },
-			{ key: 'bench', label: 'Bench', linkPrefix: '/platform/benches/', ...linkField('Bench') },
+			{ key: 'route_status', label: 'Access route', ...selectField(routeStatusOptions) },
 		],
 		detailFields: [
 			{ key: 'name', label: 'Site ID' },
@@ -484,9 +573,12 @@ export const platformResources = [
 			{ key: 'site_status', label: 'Site status', ...selectField(siteStatusOptions) },
 			{ key: 'provisioning_status', label: 'Provisioning status', ...selectField(provisioningStatusOptions) },
 			{ key: 'operator_resource_name', label: 'Operator resource name' },
-			{ key: 'dns_status', label: 'DNS status', ...selectField(dnsStatusOptions) },
-			{ key: 'dns_record_name', label: 'DNS record' },
-			{ key: 'dns_target', label: 'DNS target' },
+			{ key: 'hostname_reservation_status', label: 'Hostname reservation', readOnly: true, ...selectField(hostnameStatusOptions) },
+			{ key: 'route_status', label: 'Route status', readOnly: true, ...selectField(routeStatusOptions) },
+			{ key: 'tls_status', label: 'TLS status', readOnly: true, ...selectField(tlsStatusOptions) },
+			{ key: 'access_url', label: 'Access URL', readOnly: true },
+			{ key: 'last_route_check', label: 'Last route check', readOnly: true },
+			{ key: 'route_error', label: 'Route error', readOnly: true },
 			{ key: 'backup_state', label: 'Backup state', ...selectField(backupStateOptions) },
 			{ key: 'restore_state', label: 'Restore state', ...selectField(restoreStateOptions) },
 			{ key: 'upgrade_state', label: 'Upgrade state', ...selectField(upgradeStateOptions) },
@@ -512,16 +604,8 @@ export const platformResources = [
 				paramsFromRecord: { site: 'name' },
 				fields: [],
 			},
-			{
-				key: 'queue-dns',
-				label: 'Queue DNS record',
-				icon: CircleHelp,
-				description: 'Create or queue the Route53 DNS record state. DNS is not marked verified until Route53 apply/verification is implemented.',
-				backendSupported: true,
-				method: 'lenscloud.api.orchestration.queue_or_apply_dns_record',
-				paramsFromRecord: { site: 'name' },
-				fields: [],
-			},
+			{ key: 'reconcile-site', label: 'Reconcile Site', icon: RefreshCcw, description: 'Idempotently apply the FrappeSite and Traefik wildcard route when restricted access is enabled.', backendSupported: true, method: 'lenscloud.api.orchestration.reconcile_site', paramsFromRecord: { site: 'name' }, fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }] },
+			{ key: 'sync-site', label: 'Sync provisioning and access', icon: RefreshCcw, description: 'Read operator status and verify the HTTPS route.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_site_status', paramsFromRecord: { site: 'name' }, fields: [] },
 			{
 				key: 'create-site',
 				label: 'Create site',
@@ -588,17 +672,6 @@ export const platformResources = [
 				fields: [
 					{ key: 'target_release', label: 'Target Release', placeholder: 'Release document name', ...linkField('Release', ['image_tag', 'release_group']) },
 					{ key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Expected impact and timing.' },
-				],
-			},
-			{
-				key: 'dns-site',
-				label: 'DNS automation',
-				icon: CircleHelp,
-				description: 'DNS automation is surfaced in the UI, but the workflow backend is a planned gap.',
-				backendSupported: false,
-				fields: [
-					{ key: 'record', label: 'Requested record', type: 'text', placeholder: 'subdomain.example.com' },
-					{ key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'DNS lifecycle details.' },
 				],
 			},
 		],
@@ -718,6 +791,7 @@ export const platformResources = [
 			{ key: 'status', label: 'Status' },
 			{ key: 'bench', label: 'Bench', linkPrefix: '/platform/benches/', ...linkField('Bench') },
 			{ key: 'site', label: 'Site', linkPrefix: '/platform/sites/', ...linkField('Site') },
+			{ key: 'database_server', label: 'Database Server', linkPrefix: '/platform/database-servers/', ...linkField('Database Server', ['title']) },
 			{ key: 'cluster', label: 'Cluster', linkPrefix: '/platform/clusters/', ...linkField('Cluster', ['title', 'cluster_name']) },
 			{ key: 'creation', label: 'Created' },
 		],
@@ -726,6 +800,7 @@ export const platformResources = [
 			{ key: 'action_type', label: 'Action type' },
 			{ key: 'status', label: 'Status' },
 			{ key: 'dry_run', label: 'Dry run' },
+			{ key: 'database_server', label: 'Database Server', linkPrefix: '/platform/database-servers/', ...linkField('Database Server', ['title']) },
 			{ key: 'bench', label: 'Bench', linkPrefix: '/platform/benches/', ...linkField('Bench') },
 			{ key: 'site', label: 'Site', linkPrefix: '/platform/sites/', ...linkField('Site') },
 			{ key: 'release', label: 'Release', linkPrefix: '/platform/releases/', ...linkField('Release', ['image_tag', 'release_group']) },
@@ -756,7 +831,10 @@ export const platformSettings = {
 		{ key: 'operator_namespace', label: 'Operator namespace' },
 		{ key: 'default_storage_class', label: 'Default storage class' },
 		{ key: 'root_domain', label: 'Root domain' },
-		{ key: 'route53_hosted_zone_id', label: 'Route53 hosted zone ID' },
+		{ key: 'domain_strategy', label: 'Domain strategy' },
+		{ key: 'wildcard_dns_status', label: 'Wildcard DNS' },
+		{ key: 'wildcard_tls_status', label: 'Wildcard TLS' },
+		{ key: 'ingress_status', label: 'Ingress' },
 		{ key: 'billing_integration_status', label: 'Billing status' },
 		{ key: 'crm_integration_status', label: 'CRM status' },
 		{ key: 'support_integration_status', label: 'Support status' },
@@ -767,14 +845,11 @@ export const platformSettings = {
 		{ key: 'default_storage_class', label: 'Default storage class' },
 		{ key: 'default_bench_namespace_pattern', label: 'Default bench namespace pattern' },
 		{ key: 'root_domain', label: 'Root domain' },
-		{ key: 'route53_hosted_zone_id', label: 'Route53 hosted zone ID' },
-		{ key: 'route53_zone_reference', label: 'Route53 zone reference' },
-		{ key: 'dns_provider', label: 'DNS provider', ...selectField(dnsProviderOptions) },
-		{ key: 'aws_region', label: 'AWS region' },
-		{ key: 'dns_credential_reference', label: 'DNS credential reference' },
-		{ key: 'dns_automation_enabled', label: 'DNS automation enabled', type: 'check' },
+		{ key: 'domain_strategy', label: 'Domain strategy', ...selectField(['Wildcard', 'Custom Domains']) },
+		{ key: 'wildcard_dns_status', label: 'Wildcard DNS status', readOnly: true, ...selectField(edgeStatusOptions) },
+		{ key: 'wildcard_tls_status', label: 'Wildcard TLS status', readOnly: true, ...selectField(edgeStatusOptions) },
+		{ key: 'ingress_status', label: 'Ingress status', readOnly: true, ...selectField(edgeStatusOptions) },
 		{ key: 'kubernetes_apply_enabled', label: 'Kubernetes apply enabled', type: 'check' },
-		{ key: 'route53_apply_enabled', label: 'Route53 apply enabled', type: 'check' },
 		{ key: 'billing_system', label: 'Billing system' },
 		{ key: 'billing_integration_enabled', label: 'Billing integration enabled', type: 'check' },
 		{ key: 'billing_integration_status', label: 'Billing integration status', ...selectField(integrationStatusOptions) },
@@ -848,7 +923,10 @@ export const customerResources = [
 			{ key: 'domain', label: 'Domain' },
 			{ key: 'site_status', label: 'Site status', ...selectField(siteStatusOptions) },
 			{ key: 'provisioning_status', label: 'Provisioning status', ...selectField(provisioningStatusOptions) },
-			{ key: 'dns_status', label: 'DNS status', ...selectField(dnsStatusOptions) },
+			{ key: 'hostname_reservation_status', label: 'Hostname reservation', ...selectField(hostnameStatusOptions) },
+			{ key: 'route_status', label: 'Access route', ...selectField(routeStatusOptions) },
+			{ key: 'tls_status', label: 'TLS', ...selectField(tlsStatusOptions) },
+			{ key: 'access_url', label: 'Access URL' },
 			{ key: 'backup_state', label: 'Backup state', ...selectField(backupStateOptions) },
 			{ key: 'restore_state', label: 'Restore state', ...selectField(restoreStateOptions) },
 			{ key: 'upgrade_state', label: 'Upgrade state', ...selectField(upgradeStateOptions) },
@@ -891,12 +969,13 @@ export const platformNav = [
 			{ key: 'platform-apps', label: 'Apps', note: 'Included app master data', route: '/platform/apps', icon: Package },
 			{ key: 'platform-releases', label: 'Releases', note: 'Deployable versions', route: '/platform/releases', icon: GitBranch },
 			{ key: 'platform-clusters', label: 'Clusters', note: 'Runtime targets', route: '/platform/clusters', icon: Server },
+			{ key: 'platform-database-servers', label: 'Database Servers', note: 'MariaDB capacity and isolation', route: '/platform/database-servers', icon: Database },
 			{ key: 'platform-benches', label: 'Benches', note: 'Runtime grouping', route: '/platform/benches', icon: Server },
 			{ key: 'platform-sites', label: 'Sites', note: 'Tenant instances', route: '/platform/sites', icon: Globe2 },
 			{ key: 'platform-regions', label: 'Regions', note: 'Placement hierarchy', route: '/platform/regions', icon: Globe2 },
 			{ key: 'platform-plans', label: 'Plans', note: 'Commercial tiers', route: '/platform/plans', icon: Package },
 			{ key: 'platform-orchestration-logs', label: 'Orchestration Logs', note: 'Dry-run and action evidence', route: '/platform/orchestration-logs', icon: ScrollText },
-			{ key: 'platform-settings', label: 'Platform Settings', note: 'DNS and integrations', route: '/platform/settings', icon: Settings2 },
+			{ key: 'platform-settings', label: 'Platform Settings', note: 'Wildcard edge and integrations', route: '/platform/settings', icon: Settings2 },
 		],
 	},
 ]

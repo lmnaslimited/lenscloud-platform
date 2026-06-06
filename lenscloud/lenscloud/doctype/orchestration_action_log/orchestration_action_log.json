@@ -15,6 +15,10 @@
   "bench",
   "site",
   "release",
+  "database_server",
+  "resource_kind",
+  "operation",
+  "last_transition_time",
   "operator_namespace",
   "operator_resource_name",
   "manifest",
@@ -32,7 +36,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Action Type",
-   "options": "Bench Dry Run\nBench Reconcile\nSite Request\nSite Dry Run\nSite Reconcile\nDNS Queue\nDNS Apply"
+   "options": "Database Server Dry Run\nDatabase Server Reconcile\nDatabase Server Status Sync\nBench Dry Run\nBench Reconcile\nBench Status Sync\nSite Request\nSite Dry Run\nSite Reconcile\nSite Status Sync\nRoute Check\nValidation Failure\nDNS Queue\nDNS Apply"
   },
   {
    "default": "Pending",
@@ -103,6 +107,27 @@
    "fieldname": "error",
    "fieldtype": "Text",
    "label": "Error"
+  },
+  {
+   "fieldname": "database_server",
+   "fieldtype": "Link",
+   "label": "Database Server",
+   "options": "Database Server"
+  },
+  {
+   "fieldname": "resource_kind",
+   "fieldtype": "Data",
+   "label": "Resource Kind"
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Data",
+   "label": "Operation"
+  },
+  {
+   "fieldname": "last_transition_time",
+   "fieldtype": "Datetime",
+   "label": "Last Transition Time"
   }
  ],
  "grid_page_length": 50,

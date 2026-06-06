@@ -13,6 +13,10 @@
   "default_plan",
   "dns_route53_section",
   "root_domain",
+  "domain_strategy",
+  "wildcard_dns_status",
+  "wildcard_tls_status",
+  "ingress_status",
   "route53_hosted_zone_id",
   "route53_zone_reference",
   "dns_provider",
@@ -68,7 +72,7 @@
   {
    "fieldname": "dns_route53_section",
    "fieldtype": "Section Break",
-   "label": "DNS Route53"
+   "label": "Wildcard Domain And Legacy Custom DNS"
   },
   {
    "fieldname": "root_domain",
@@ -78,34 +82,40 @@
   {
    "fieldname": "route53_hosted_zone_id",
    "fieldtype": "Data",
-   "label": "Route53 Hosted Zone ID"
+   "label": "Route53 Hosted Zone ID",
+   "hidden": 1
   },
   {
    "fieldname": "route53_zone_reference",
    "fieldtype": "Data",
-   "label": "Route53 Zone Reference"
+   "label": "Route53 Zone Reference",
+   "hidden": 1
   },
   {
    "fieldname": "dns_provider",
    "fieldtype": "Select",
    "label": "DNS Provider",
    "options": "Route53\nManual\nOther",
-   "default": "Route53"
+   "default": "Route53",
+   "hidden": 1
   },
   {
    "fieldname": "aws_region",
    "fieldtype": "Data",
-   "label": "AWS Region"
+   "label": "AWS Region",
+   "hidden": 1
   },
   {
    "fieldname": "dns_credential_reference",
    "fieldtype": "Data",
-   "label": "DNS Credential Reference"
+   "label": "DNS Credential Reference",
+   "hidden": 1
   },
   {
    "fieldname": "dns_automation_enabled",
    "fieldtype": "Check",
-   "label": "DNS Automation Enabled"
+   "label": "DNS Automation Enabled",
+   "hidden": 1
   },
   {
    "fieldname": "kubernetes_apply_enabled",
@@ -115,7 +125,8 @@
   {
    "fieldname": "route53_apply_enabled",
    "fieldtype": "Check",
-   "label": "Route53 Apply Enabled"
+   "label": "Route53 Apply Enabled",
+   "hidden": 1
   },
   {
    "fieldname": "tab_break_nfns",
@@ -172,6 +183,34 @@
    "label": "Support Integration Status",
    "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled",
    "default": "Not Configured"
+  },
+  {
+   "fieldname": "domain_strategy",
+   "fieldtype": "Select",
+   "label": "Domain Strategy",
+   "options": "Wildcard\nCustom Domains",
+   "default": "Wildcard"
+  },
+  {
+   "fieldname": "wildcard_dns_status",
+   "fieldtype": "Select",
+   "label": "Wildcard DNS Status",
+   "options": "Unknown\nReady\nDegraded\nFailed",
+   "default": "Unknown"
+  },
+  {
+   "fieldname": "wildcard_tls_status",
+   "fieldtype": "Select",
+   "label": "Wildcard TLS Status",
+   "options": "Unknown\nReady\nDegraded\nFailed",
+   "default": "Unknown"
+  },
+  {
+   "fieldname": "ingress_status",
+   "fieldtype": "Select",
+   "label": "Ingress Status",
+   "options": "Unknown\nReady\nDegraded\nFailed",
+   "default": "Unknown"
   }
  ],
  "grid_page_length": 50,
