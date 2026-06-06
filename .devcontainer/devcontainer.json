@@ -1,22 +1,38 @@
 {
   "name": "lenscloud-platform",
-  "dockerComposeFile": [
-    "docker-compose.yml"
-  ],
-  "service": "workspace",
-  "workspaceFolder": "/workspace/lenscloud",
+  "dockerComposeFile": "./docker-compose.yml",
+  "service": "frappe",
+  "workspaceFolder": "/workspace/frappe-bench",
+  "initializeCommand": "mkdir -p .devcontainer-data/codex .devcontainer-data/vscode-data .devcontainer-data/vscode-extensions",
   "remoteUser": "frappe",
-  "postCreateCommand": "bash .devcontainer/init.sh",
-  "postStartCommand": "bash .devcontainer/start.sh",
+  "updateRemoteUserUID": false,
+  "forwardPorts": [
+    8000,
+    9000,
+    6787
+  ],
+  "postCreateCommand": "bash /workspace/scripts/init.sh",
+  "postStartCommand": "bash /workspace/scripts/start.sh",
+  "shutdownAction": "stopCompose",
   "customizations": {
     "vscode": {
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "terminal.integrated.cwd": "/workspace/frappe-bench",
+        "terminal.integrated.env.linux": {
+          "PATH": "/workspace/frappe-bench/env/bin:/home/frappe/.nvm/versions/node/v24.16.0/bin:/home/frappe/.local/bin:/home/frappe/.pyenv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+        },
+        "python.defaultInterpreterPath": "/workspace/frappe-bench/env/bin/python",
+        "debug.node.autoAttach": "disabled"
+      },
       "extensions": [
+        "openai.chatgpt",
         "ms-python.python",
-        "ms-python.vscode-pylance",
-        "dbaeumer.vscode-eslint",
-        "ms-azuretools.vscode-docker"
+        "ms-vscode.live-server",
+        "grapecity.gc-excelviewer",
+        "mtxr.sqltools",
+        "visualstudioexptteam.vscodeintellicode"
       ]
     }
-  },
-  "shutdownAction": "stopCompose"
+  }
 }
