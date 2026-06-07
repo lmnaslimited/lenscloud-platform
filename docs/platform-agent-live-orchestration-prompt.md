@@ -21,16 +21,17 @@ Read in order:
 7. docs/wildcard-domain-model.md
 8. docs/state-model.md
 9. docs/workflows.md
-10. .agents/skills/frappe-ui-product/SKILL.md
-11. lenscloud-infra/docs/platform-handoff-contract.md
-12. lenscloud-infra/docs/platform-live-orchestration-readiness.md
-13. lenscloud-infra/docs/platform-restricted-access-contract.md
-14. lenscloud-infra/docs/database-server-runtime-contract.md
-15. lenscloud-infra/docs/wildcard-edge-contract.md
+10. docs/platform-runtime-lifecycle.md
+11. .agents/skills/frappe-ui-product/SKILL.md
+12. lenscloud-infra/docs/platform-handoff-contract.md
+13. lenscloud-infra/docs/platform-live-orchestration-readiness.md
+14. lenscloud-infra/docs/platform-restricted-access-contract.md
+15. lenscloud-infra/docs/database-server-runtime-contract.md
+16. lenscloud-infra/docs/wildcard-edge-contract.md
 
 GOAL
 
-Complete live EU orchestration for Public, Private Shared, and Private database
+First complete first-class Platform runtime lifecycle management from `docs/platform-runtime-lifecycle.md`, then complete live EU orchestration for Public, Private Shared, and Private database
 policies. Both a platform operator and a customer using the Free Plan must
 create real HTTPS Sites through the same server-side orchestration service.
 
@@ -42,7 +43,7 @@ names:
 
 - records and resources to retain or retire;
 - migrations or code changes still required;
-- exact live scenario sequence;
+- exact lifecycle-management and live scenario sequence;
 - validation and cleanup steps;
 - any genuine external blocker.
 
@@ -125,6 +126,16 @@ PLATFORM AND CUSTOMER FLOWS
 - Customer never sees Cluster credentials, Database Server internals, or raw
   operator fields.
 - Both flows call the same policy and orchestration service.
+
+LIFECYCLE MANAGEMENT
+
+- Treat `docs/platform-runtime-lifecycle.md` as mandatory.
+- Add stable Platform/document/customer ownership labels to every generated runtime resource.
+- Implement secret-safe runtime inventory for CR conditions, workloads, Jobs, PVCs, routes, warning events, and finalizers.
+- Implement asynchronous, audited, dependency-aware Site, Bench, and platform-managed Database Server deletion.
+- Enforce exact identity, ownership, protected-resource, role, confirmation, and retry rules server-side.
+- Do not use name prefixes as the sole ownership boundary.
+- Prove create, inspect, and delete through Platform without manager intervention before resuming Private Shared and Private live acceptance.
 
 RUNTIME RULES
 

@@ -64,12 +64,20 @@ Build a Frappe-based platform application that serves both customer self-service
 
 ## 8. Observability and Audit
 
+- Platform resource pages must expose secret-safe runtime inventory: CR conditions, related workloads and Jobs, PVC summaries, routes, warning events, and deletion/finalizer progress.
+
 - The platform must surface action history.
 - The platform must surface job and provisioning status.
 - The platform must surface operational logs and traceability.
 - The platform must maintain an auditable history of all lifecycle actions.
 
 ## 9. Operator Integration
+
+- After Infra registers a Cluster, the platform must own normal lifecycle management for Platform-created Database Servers, Benches, and Sites.
+- Platform-created runtime resources must carry stable ownership labels linking them to the Platform document and customer boundary.
+- Platform deletion must verify exact Cluster, namespace, kind, resource name, ownership labels, dependency state, protected-resource denylist, user permission, confirmation, and audit.
+- Site, Bench, and platform-managed Database Server deletion must be asynchronous, observable, retryable, and confirmed against runtime absence before documents are marked Deleted or Retired.
+- `default/frappe-mariadb`, unlabelled resources, namespaces, Nodes, CRDs, operators, Traefik, wildcard TLS, RBAC, and infrastructure Secrets must remain protected.
 
 - The platform must use Frappe Operator resources for bench and site lifecycle.
 - The platform must not reimplement Kubernetes runtime reconciliation.

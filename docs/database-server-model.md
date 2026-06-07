@@ -166,6 +166,12 @@ If Bench does not yet have an owner Customer/privacy-boundary field, add one as 
 
 Customers should see only a friendly database isolation description derived from their Plan or service level. They must not see database hosts, secret references, MariaDB CR names, or other customers sharing infrastructure.
 
+## Runtime Visibility And Deletion
+
+Database Server pages must show secret-safe MariaDB conditions, related workloads, PVC summaries, warning events, attached Benches, finalizer/deletion progress, and orchestration history.
+
+A platform-managed Database Server may be deleted only when it has no active attached Benches and its exact runtime resource carries matching Platform ownership metadata. `default/frappe-mariadb`, external Database Servers, unlabelled resources, and protected infrastructure are never eligible for Platform deletion. Deletion is asynchronous and follows `docs/platform-runtime-lifecycle.md`.
+
 ## First Acceptance Scenario
 
 1. Register the live EU `frappe-mariadb` MariaDB CR as a Database Server.

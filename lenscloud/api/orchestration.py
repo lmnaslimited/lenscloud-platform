@@ -1,7 +1,7 @@
 import json
 import re
 import secrets
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import frappe
 import requests
@@ -131,11 +131,6 @@ def validate_database_server_placement_doc(bench, database_server, allow_pending
 	filters = {"database_server": database_server.name}
 	attached = frappe.get_all("Bench", filters=filters, fields=["name", "owner_customer", "privacy_boundary"])
 	attached = [row for row in attached if row.name != bench.name]
-	maximum = int(database_server.maximum_bench_count or 0)
-	if maximum and len(attached) + 1 > maximum:
-		frappe.throw(_("Database Server capacity limit of {0} Benches is reached.").format(maximum))
-	if database_server.privacy == "Private" and attached:
-		frappe.throw(_("Private Database Server permits exactly one Bench."))
 	if database_server.privacy in {"Private", "Private Shared"}:
 		boundary = bench_boundary(bench)
 		expected = database_boundary(database_server)
@@ -144,6 +139,11 @@ def validate_database_server_placement_doc(bench, database_server, allow_pending
 		for existing in attached:
 			if (existing.privacy_boundary or existing.owner_customer or "").strip() != expected:
 				frappe.throw(_("Private Shared Database Server cannot cross customer/privacy boundaries."))
+	if database_server.privacy == "Private" and attached:
+		frappe.throw(_("Private Database Server permits exactly one Bench."))
+	maximum = int(database_server.maximum_bench_count or 0)
+	if maximum and len(attached) + 1 > maximum:
+		frappe.throw(_("Database Server capacity limit of {0} Benches is reached.").format(maximum))
 	return True
 
 
@@ -211,6 +211,22 @@ def build_frappebench_manifest_data(bench, allow_pending_database=False):
 		"podConfig": {"nodeSelector": {"lenscloud.io/node-role": "worker"}},
 		"imageConfig": {"repository": repository, "tag": release.image_tag, "pullPolicy": "IfNotPresent"},
 		"apps": release_group_apps(release_group),
+		"componentAutoscaling": {
+			"gunicorn": {"enabled": False, "staticReplicas": 1},
+			"scheduler": {"enabled": False, "staticReplicas": 0},
+			"worker-default": {"enabled": False, "staticReplicas": 0},
+			"worker-short": {"enabled": False, "staticReplicas": 0},
+			"worker-long": {"enabled": False, "staticReplicas": 0},
+		},
+		"componentResources": {
+			"nginx": {"requests": {"cpu": "25m", "memory": "64Mi"}},
+			"gunicorn": {"requests": {"cpu": "50m", "memory": "128Mi"}},
+			"socketio": {"requests": {"cpu": "25m", "memory": "64Mi"}},
+			"scheduler": {"requests": {"cpu": "25m", "memory": "64Mi"}},
+			"workerDefault": {"requests": {"cpu": "25m", "memory": "64Mi"}},
+			"workerShort": {"requests": {"cpu": "25m", "memory": "64Mi"}},
+			"workerLong": {"requests": {"cpu": "25m", "memory": "64Mi"}},
+		},
 		"storageSize": "3Gi",
 		"storageClassName": bench.storage_class or default_storage_class(cluster),
 		"dbConfig": {"provider": "mariadb", "mode": "shared", "mariadbRef": {"name": database_server.operator_resource_name, "namespace": database_server.kubernetes_namespace}},
@@ -245,6 +261,7 @@ def build_frappesite_manifest_data(site):
 		"siteName": hostname,
 		"domain": hostname,
 		"adminPasswordSecretRef": {"name": site.admin_password_secret_reference or f"{site.operator_resource_name}-admin-password"},
+		"encryptionKeySecretRef": {"name": f"{site.operator_resource_name}-encryption-key", "key": "encryption_key"},
 		"ingressClassName": cluster.ingress_class or "traefik",
 		"ingress": {
 			"enabled": True,
@@ -267,7 +284,7 @@ def create_action_log(action_type, status="Pending", database_server=None, bench
 		"error": sanitize_error(error), "resource_kind": resource_kind, "operation": operation,
 		"last_transition_time": now_datetime(),
 	})
-	doc.insert(ignore_permissions=False)
+	doc.insert(ignore_permissions=True)
 	return doc
 
 
@@ -276,7 +293,7 @@ def finish_action_log(log, status, message=None, error=None):
 	log.message = message or log.message
 	log.error = sanitize_error(error)
 	log.last_transition_time = now_datetime()
-	log.save(ignore_permissions=False)
+	log.save(ignore_permissions=True)
 	return log
 
 
@@ -305,6 +322,26 @@ def ensure_site_admin_secret(cluster, site, namespace):
 			if " 404:" not in str(exc):
 				raise
 			client.create_secret(namespace, name, {"password": secrets.token_urlsafe(30)})
+		encryption_name = f"{site.operator_resource_name}-encryption-key"
+		try:
+			client.get_secret(namespace, encryption_name)
+		except KubernetesClientError as exc:
+			if " 404:" not in str(exc):
+				raise
+			client.create_secret(namespace, encryption_name, {"encryption_key": secrets.token_urlsafe(36)})
+	return name
+
+
+def ensure_database_root_secret(cluster, database_server):
+	name = database_server.root_credential_secret_reference
+	key = database_server.root_credential_secret_key or "password"
+	with get_cluster_client(cluster) as client:
+		try:
+			client.get_secret(database_server.kubernetes_namespace, name)
+		except KubernetesClientError as exc:
+			if " 404:" not in str(exc):
+				raise
+			client.create_secret(database_server.kubernetes_namespace, name, {key: secrets.token_urlsafe(36)})
 	return name
 
 
@@ -331,6 +368,7 @@ def reconcile_database_server(database_server, dry_run=True):
 			doc.provisioning_status = "Pending"; doc.database_status = "Pending"; doc.save()
 			finish_action_log(log, "Dry Run", "Kubernetes apply is disabled; MariaDB manifest generated.")
 			return {"status": "dry_run", "manifest": text, "cluster": cluster.name, "action_log": log.name}
+		ensure_database_root_secret(cluster, doc)
 		resource = reconcile_manifest(cluster, manifest)
 		doc.provisioning_status = "Accepted"; doc.database_status = phase_from_resource(resource); doc.last_error = None; doc.save()
 		finish_action_log(log, "Succeeded", "MariaDB resource accepted by Kubernetes API.")
@@ -383,13 +421,13 @@ def reconcile_site(site, dry_run=True):
 	log = create_action_log("Site Reconcile", "Pending", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, manifest=text, dry_run=dry_run, resource_kind="FrappeSite", operation="apply")
 	try:
 		if dry_run or not get_platform_settings().kubernetes_apply_enabled:
-			doc.provisioning_status = "Pending"; doc.site_status = "Requested"; doc.route_status = "Pending"; doc.save()
+			doc.provisioning_status = "Pending"; doc.site_status = "Requested"; doc.route_status = "Pending"; doc.save(ignore_permissions=True)
 			finish_action_log(log, "Dry Run", "Kubernetes apply is disabled; FrappeSite manifest generated.")
 			return {"status": "dry_run", "manifest": text, "cluster": cluster.name, "action_log": log.name}
 		namespace = manifest["metadata"]["namespace"]
 		ensure_site_admin_secret(cluster, doc, namespace)
 		resource = reconcile_manifest(cluster, manifest)
-		doc.provisioning_status = "Accepted"; doc.site_status = phase_from_resource(resource); doc.route_status = "Pending"; doc.save()
+		doc.provisioning_status = "Accepted"; doc.site_status = phase_from_resource(resource); doc.route_status = "Pending"; doc.save(ignore_permissions=True)
 		finish_action_log(log, "Succeeded", "FrappeSite accepted by Kubernetes API.")
 		return {"status": "accepted", "phase": doc.site_status, "cluster": cluster.name, "action_log": log.name}
 	except Exception as exc:
@@ -426,12 +464,28 @@ def sync_bench_status(bench):
 		doc.bench_status = "Failed"; doc.save(ignore_permissions=True); finish_action_log(log, "Failed", error=exc); raise
 
 
+def get_route_response(url, timeout):
+	for attempt in range(3):
+		try:
+			return requests.get(url, timeout=timeout, allow_redirects=True)
+		except requests.RequestException:
+			if attempt == 2:
+				raise
+
+
 def check_site_route(doc, timeout=15):
 	url = doc.access_url or f"https://{get_site_hostname(doc)}"
-	response = requests.get(url, timeout=timeout, allow_redirects=True)
-	if response.status_code >= 500:
+	response = get_route_response(url, timeout)
+	if not 200 <= response.status_code < 300:
 		raise RuntimeError(f"Route returned HTTP {response.status_code}.")
-	return {"url": url, "status_code": response.status_code}
+	asset_match = re.search(r"(?:href|src)=[\"\x27]([^\"\x27]*/assets/[^\"\x27]+\.(?:css|js)(?:\?[^\"\x27]*)?)[\"\x27]", response.text or "", re.IGNORECASE)
+	if not asset_match:
+		raise RuntimeError("Route returned no generated static asset reference.")
+	asset_url = urljoin(response.url or url, asset_match.group(1))
+	asset_response = get_route_response(asset_url, timeout)
+	if not 200 <= asset_response.status_code < 300:
+		raise RuntimeError(f"Static asset returned HTTP {asset_response.status_code}.")
+	return {"url": response.url or url, "status_code": response.status_code, "asset_url": asset_response.url or asset_url, "asset_status_code": asset_response.status_code}
 
 
 @frappe.whitelist()
@@ -442,7 +496,7 @@ def sync_site_status(site, check_route=True):
 		resource = sync_custom_resource(cluster, "FrappeSite", bench.kubernetes_namespace, doc.operator_resource_name)
 		phase = phase_from_resource(resource); status = resource.get("status") or {}
 		doc.site_status = phase; doc.provisioning_status = "Ready" if phase.lower() == "ready" else "Running"
-		doc.access_url = status.get("siteURL") or f"https://{get_site_hostname(doc)}"; doc.hostname_reservation_status = "Reserved"
+		doc.access_url = f"https://{get_site_hostname(doc)}"; doc.hostname_reservation_status = "Reserved"
 		if as_bool(check_route) and phase.lower() == "ready":
 			result = check_site_route(doc); doc.route_status = "Ready"; doc.tls_status = "Ready"; doc.last_route_check = now_datetime(); doc.route_error = None
 		else:
@@ -462,7 +516,33 @@ def check_cluster_permissions(cluster):
 			for verb in ("get", "patch"):
 				allowed, reason = client.can_i(verb, group, plural, doc.default_runtime_namespace or "default")
 				checks.append({"kind": kind, "verb": verb, "allowed": allowed, "reason": reason})
+		for verb in ("get", "create"):
+			allowed, reason = client.can_i(verb, "", "secrets", doc.default_runtime_namespace or "default")
+			checks.append({"kind": "Secret", "verb": verb, "allowed": allowed, "reason": reason})
 	return {"cluster": doc.name, "checks": checks, "all_required_allowed": all(item["allowed"] for item in checks)}
+
+
+@frappe.whitelist()
+def get_customer_portal_context():
+	settings = get_platform_settings()
+	user = frappe.session.user
+	if user == "Guest":
+		frappe.throw(_("Authentication is required."), frappe.PermissionError)
+	customer_name = frappe.db.get_value("Customer", {"user": user}, "name")
+	customer = frappe.db.get_value("Customer", customer_name, ["name", "first_name", "last_name", "region"], as_dict=True) if customer_name else None
+	regions = frappe.get_all("Region", filters={"deployment_status": "Active", "cluster": ["!=", ""]}, fields=["name", "title", "cluster"], order_by="lft asc")
+	plans = frappe.get_all("Plan", filters={"status": "Active"}, fields=["name", "title", "plan_code", "is_default", "is_free", "monthly_price", "site_limit", "bench_policy", "description"])
+	return {
+		"customer": customer,
+		"regions": regions,
+		"plans": plans,
+		"settings": {
+			"root_domain": settings.root_domain,
+			"billing_system": settings.billing_system,
+			"crm_system": settings.crm_system,
+			"support_system": settings.support_system,
+		},
+	}
 
 
 def eligible_customer_bench(region, customer):
@@ -493,9 +573,9 @@ def request_customer_site(site_name, company_name=None, subdomain=None, region=N
 		frappe.throw(_("A default or Free Plan is required."))
 	user = frappe.session.user; customer = frappe.db.get_value("Customer", {"user": user}, "name")
 	if not customer:
-		customer_doc = frappe.get_doc({"doctype": "Customer", "first_name": frappe.db.get_value("User", user, "first_name") or user, "user": user, "region": region}); customer_doc.insert(); customer = customer_doc.name
+		customer_doc = frappe.get_doc({"doctype": "Customer", "first_name": frappe.db.get_value("User", user, "first_name") or user, "user": user, "region": region}); customer_doc.insert(ignore_permissions=True); customer = customer_doc.name
 	plan_doc = frappe.get_doc("Plan", plan); limit = int(plan_doc.site_limit or 0)
-	if limit and frappe.db.count("Site", {"customer": customer, "plan": plan}) >= limit:
+	if limit and frappe.db.count("Site", {"customer": customer, "plan": plan, "site_status": ["!=", "Deleted"]}) >= limit:
 		frappe.throw(_("The {0} Plan Site limit has been reached.").format(plan_doc.title))
 	subdomain = slugify(subdomain or site_name or company_name)
 	if not subdomain:
@@ -505,8 +585,8 @@ def request_customer_site(site_name, company_name=None, subdomain=None, region=N
 		frappe.throw(_("Hostname {0} is already reserved.").format(title))
 	bench = eligible_customer_bench(region, customer)
 	site_doc = frappe.get_doc({"doctype": "Site", "customer": customer, "bench": bench.name, "region": region, "cluster": cluster.name, "plan": plan, "subdomain": subdomain, "domain": domain, "site_status": "Requested", "provisioning_status": "Pending", "hostname_reservation_status": "Reserved", "route_status": "Pending", "tls_status": "Inherited", "operator_resource_name": subdomain, "access_url": f"https://{title}"})
-	site_doc.insert()
-	request_log = create_action_log("Site Request", "Succeeded", site=site_doc.name, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan Site request captured and hostname reserved.", resource_kind="Site", operation="request")
+	site_doc.insert(ignore_permissions=True)
+	request_log = create_action_log("Site Request", "Succeeded", site=site_doc.name, dry_run=False, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan Site request captured and hostname reserved.", resource_kind="Site", operation="request")
 	reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
 	return {"site": site_doc.name, "domain": domain, "hostname": title, "access_url": site_doc.access_url, "cluster": cluster.name, "bench": bench.name, "plan": plan, "action_log": request_log.name, "reconcile": reconcile}
 

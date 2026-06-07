@@ -3,11 +3,9 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Alert, Badge, Button, TextInput, Textarea } from 'frappe-ui'
 import { Check, ChevronRight, Globe2, MapPin, Package, Send, Settings2 } from 'lucide-vue-next'
-import { callMethod, getDoc, listDocs } from '@/lib/api'
-import { useSessionStore } from '@/lib/session'
+import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
-const session = useSessionStore()
 const loading = ref(true)
 const submitted = ref(false)
 const error = ref(null)
@@ -68,33 +66,20 @@ async function load() {
 	loading.value = true
 	error.value = null
 	try {
-		const customers = await listDocs('Customer', {
-			fields: ['name', 'first_name', 'last_name', 'region', 'external_customer_id'],
-			limit: 1,
-			filters: [['user', '=', session.user]],
-		})
-		customer.value = customers[0] || null
-
-		platformSettings.value = await getDoc('Platform Settings', 'Platform Settings').catch(() => null)
-
-		regions.value = await listDocs('Region', {
-			fields: ['name', 'title', 'parent_region', 'is_group', 'lft', 'rgt', 'cluster', 'deployment_status'],
-			limit: 200,
-			orderBy: 'lft asc',
-		})
-
-		plans.value = await listDocs('Plan', {
-			fields: ['name', 'title', 'plan_code', 'is_default', 'is_free', 'monthly_price', 'site_limit', 'bench_policy', 'status', 'description'],
-			filters: [['status', '=', 'Active']],
-			limit: 20,
-		})
+		const response = await callMethod('lenscloud.api.orchestration.get_customer_portal_context')
+		const context = response.message || response.data || response
+		customer.value = context.customer || null
+		platformSettings.value = context.settings || null
+		regions.value = context.regions || []
+		plans.value = context.plans || []
 
 		if (!selectedPlan.value) {
 			selectedPlan.value = plans.value.find((plan) => plan.is_default)?.name || plans.value.find((plan) => plan.is_free)?.name || plans.value[0]?.name || ''
 		}
 
 		if (!form.region) {
-			form.region = customer.value?.region || regions.value.find((region) => !region.is_group)?.name || regions.value[0]?.name || ''
+			const customerRegion = regions.value.find((region) => region.name === customer.value?.region)?.name
+			form.region = customerRegion || regions.value[0]?.name || ''
 		}
 	} catch (err) {
 		error.value = err?.message || 'Unable to load create site context.'
@@ -107,7 +92,7 @@ async function submitRequest() {
 	if (!canSubmit.value) return
 	error.value = null
 	try {
-		const result = await callMethod('lenscloud.api.orchestration.request_customer_site', {
+		const response = await callMethod('lenscloud.api.orchestration.request_customer_site', {
 			site_name: form.site_name,
 			company_name: form.company_name,
 			subdomain: normalizedSubdomain.value,
@@ -115,6 +100,7 @@ async function submitRequest() {
 			plan: selectedPlan.value,
 			notes: form.notes,
 		}, 'POST')
+		const result = response.message || response.data || response
 		submitted.value = result
 	} catch (err) {
 		error.value = err?.message || 'Unable to submit site request.'

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "test:auth": "node tests/live-auth.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

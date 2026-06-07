@@ -234,6 +234,14 @@ Site `title` is derived control-plane identity, not user input. The platform der
 - Kubernetes/operator resource names remain slug-safe and may use the subdomain/operator resource field.
 - Customer custom-domain verification and certificates are out of scope for the standard wildcard flow.
 
+### Runtime Ownership And Lifecycle State
+
+Platform-managed MariaDB, FrappeBench, and FrappeSite resources carry stable `lenscloud.io/managed-by`, resource-kind, platform-document, and customer-boundary metadata. These fields bind a control-plane document to its exact runtime resource and are required before destructive actions.
+
+Deletion state is asynchronous: `Deletion Requested`, `Quiescing`, `Deleting`, `Deleted`, or `Deletion Failed`. Runtime absence and dependent cleanup must be confirmed before the control-plane document reaches its terminal state.
+
+Platform runtime views summarize CR conditions, related workloads/Jobs, PVCs, Services/Ingresses, warning Events, finalizers, and action history without exposing Secret values. The complete contract is `docs/platform-runtime-lifecycle.md`.
+
 ### Runtime Reconciliation State
 
 Database Server, Bench, and Site are control-plane documents. Their operator resource identity, selected Cluster, provisioning state, health/access state, last error, and Orchestration Action Log evidence are stored in LensCloud. Kubernetes remains the runtime source of truth and is read or reconciled only through a restricted server-side Cluster credential reference.

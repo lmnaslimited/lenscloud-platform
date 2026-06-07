@@ -22,6 +22,9 @@
 
 ## Operational Rules
 
+- Once Infra provisions and registers a Cluster, Platform owns routine lifecycle management of the tenant resources it creates.
+- Runtime mutation and deletion require exact ownership metadata and protected-resource checks; name prefixes alone are insufficient.
+
 - Keep lifecycle operations idempotent where possible.
 - Treat operator resources as the source of truth.
 - Do not reimplement Kubernetes reconciliation logic in the app.
@@ -148,6 +151,24 @@ Customer-created sites use the platform root domain in this pass.
 - If `root_domain` is missing, Create Site must clearly show a Platform Settings gap and prevent normal submission.
 - Subdomain validation is frontend-only in this pass and must not imply backend reservation has happened.
 - Customer custom-domain whitelisting is out of scope until approved-domain support is designed.
+
+## Platform Runtime Lifecycle Workflow
+
+The canonical contract is `docs/platform-runtime-lifecycle.md`.
+
+Platform operators must be able to inspect and manage Platform-owned Database Servers, Benches, and Sites without manager access. Resource pages expose secret-safe CR conditions, related workloads, Jobs, PVCs, routes, warning events, finalizer state, and orchestration history.
+
+Deletion sequence:
+
+1. Validate role, Cluster, namespace, exact runtime identity, ownership labels, customer/privacy boundary, dependencies, and protected-resource denylist.
+2. Record `Deletion Requested` and an Orchestration Action Log.
+3. Quiesce or reject when dependent resources prevent safe deletion.
+4. Delete the owner CR and observe operator finalizers.
+5. Clean only explicitly owned dependents when required by the operator contract.
+6. Mark the platform document Deleted or Retired only after exact runtime absence is confirmed.
+7. Surface `Deletion Failed` with safe error details and retry.
+
+Infra owns cluster provisioning and protected infrastructure. Platform owns routine tenant lifecycle after handoff. Customers see friendly Site lifecycle state only; they never receive raw runtime or credential details.
 
 ## Locked Advanced Operations
 

@@ -8,14 +8,13 @@ evidence belongs in dated evidence records.
 
 ## Current Objective
 
-Complete live EU orchestration for three database privacy policies:
+Complete first-class Platform runtime lifecycle management, then finish live EU orchestration for three database privacy policies:
 
 1. Public
 2. Private Shared
 3. Private
 
-Both platform operators and customers using the Free Plan must create real
-Sites through the same server-side orchestration service.
+Platform operators must inspect and delete Platform-owned runtime resources without manager access. Both platform operators and customers using the Free Plan must create real Sites through the same server-side orchestration service.
 
 ## Runtime Truth
 
@@ -81,11 +80,11 @@ The current code already includes:
 
 Inspect and reuse this implementation. Do not rebuild it from scratch.
 
-## Cleanup Authority
+## Runtime Lifecycle Authority
 
-Old LensCloud Bench and Site records are no longer required for this milestone.
-The Platform agent may retire them and their matched FrappeBench/FrappeSite
-resources after producing an inventory.
+The canonical Platform contract is `docs/platform-runtime-lifecycle.md`. After Infra provisions and registers a Cluster, Platform owns routine inspection, reconciliation, suspension, retirement, and deletion of Platform-created Database Servers, Benches, Sites, and explicitly owned dependents. Manager cleanup is an interim blocker, not the intended operating model.
+
+Old LensCloud Bench and Site records may be retired with their exactly matched runtime resources only after ownership and dependency validation.
 
 Preserve:
 
@@ -96,6 +95,17 @@ Preserve:
 
 Never delete a namespace or use a broad label/name pattern without first
 showing the exact matched resources.
+
+## Lifecycle Milestone Gate
+
+Before resuming Private Shared and Private live acceptance:
+
+- Infra must publish namespace-scoped delete/read RBAC with positive and negative evidence;
+- Platform manifests must carry stable ownership labels;
+- Platform must implement secret-safe runtime inventory;
+- Site, Bench, and platform-managed Database Server deletion must be asynchronous, audited, dependency-aware, protected-resource-safe, and retryable;
+- platform UI must expose inspect/delete/progress/retry actions;
+- create/inspect/delete acceptance must complete without manager intervention.
 
 ## Acceptance Scenarios
 
@@ -151,7 +161,39 @@ The milestone is complete only when:
 8. `docs/state-model.md`
 9. `docs/workflows.md`
 10. `.agents/skills/frappe-ui-product/SKILL.md`
-11. the Infra contracts listed under Runtime Truth
+11. `docs/platform-runtime-lifecycle.md`
+12. the Infra contracts listed under Runtime Truth
 
 Use `docs/platform-agent-live-orchestration-prompt.md` as the executable agent
 prompt.
+
+
+## June 7 Live Run Handoff
+
+Canonical evidence: `docs/live-orchestration-evidence-20260607.md`.
+
+Completed:
+
+- exact revisions verified: Platform `d422323`, Infra `60158e5`;
+- migrations, 7/7 backend tests, production build, positive/negative RBAC;
+- submitted `lens-pure` / `v16.14.1` Release with approved digest;
+- stale prior run records retired only after exact CR 404 matches;
+- Public live acceptance with two unrelated customers sharing `default/frappe-mariadb`;
+- three live HTTPS Sites, including authenticated customer Free Plan creation;
+- page and generated CSS HTTP 200 for every live Site;
+- desktop and mobile authenticated Playwright;
+- idempotent reapply and action-log evidence;
+- Private Shared and Private dry-run manifests and explicit rejection evidence.
+
+Apply is disabled.
+
+Current live resources requiring manager cleanup before the sequential Private Shared run:
+
+- FrappeBench `run-20260607-0623-pub-a`
+- FrappeBench `run-20260607-0623-pub-b`
+- FrappeSite `run-20260607-0623-platform`
+- FrappeSite `run-20260607-0623-customer`
+- FrappeSite `run-20260607-0623-free`
+- their exact-prefix Jobs, Secrets, and PVCs in `lenscloud-runtime-eu`
+
+The restricted Platform identity currently has no delete permission. Infra may perform the one-time exact-prefix cleanup to restore capacity, but routine manager cleanup must not become the operating model. The next milestone is the RBAC plus Platform lifecycle implementation defined above. Private Shared and Private live acceptance resume only after Platform can create, inspect, and delete its owned resources directly.
