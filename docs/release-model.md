@@ -110,7 +110,19 @@ The first LensCloud Platform implementation pass now reflects this model:
 - `Bench` links to `release_group`, `current_release`, and `next_release`, and carries upgrade window, policy, and SOP status fields.
 - Frontend platform resources include `Release` and expose Release Group adoption, Release affected benches, Bench current/next release, and operator-readiness metadata.
 
-Backend build/promotion, rollout, and operator reconciliation remain explicit gaps until the infra/operator phase is wired.
+Build/promotion and rollout planning remain future workflow work. Bench and
+Site operator reconciliation is implemented and must now be live-accepted
+through the approved `lens-pure` Release.
+
+Approved Phase 1 release data:
+
+- Release Group: `lens-pure`
+- repository: `ghcr.io/lmnaslimited/lensdocker/lens-pure`
+- Release tag: `v16.14.1`
+- digest:
+  `sha256:86dd9bec4ef7ef255bff6596b15480e88b3fb27751e1c88b22167ff69fb4a2a2`
+- Frappe: `16.14.0`
+- ERPNext: `16.13.1`
 
 ## Release Document Lifecycle
 
@@ -128,4 +140,3 @@ Backend build/promotion, rollout, and operator reconciliation remain explicit ga
 - Bench upgrades should move from current Release to next/target Release through an explicit SOP workflow.
 - Frontend pages must distinguish master data, deployable release, and runtime bench state.
 - Operator integration must use Bench current Release to derive the image deployed by `FrappeBench`.
-
