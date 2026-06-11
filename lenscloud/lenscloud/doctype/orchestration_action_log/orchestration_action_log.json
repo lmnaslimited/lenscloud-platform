@@ -36,7 +36,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Action Type",
-   "options": "Database Server Dry Run\nDatabase Server Reconcile\nDatabase Server Status Sync\nBench Dry Run\nBench Reconcile\nBench Status Sync\nSite Request\nSite Dry Run\nSite Reconcile\nSite Status Sync\nRoute Check\nValidation Failure\nDNS Queue\nDNS Apply"
+   "options": "Database Server Dry Run\nDatabase Server Reconcile\nDatabase Server Status Sync\nDatabase Server Delete\nBench Dry Run\nBench Reconcile\nBench Status Sync\nBench Delete\nSite Request\nSite Dry Run\nSite Reconcile\nSite Status Sync\nSite Delete\nRuntime Inventory\nRoute Check\nValidation Failure\nDNS Queue\nDNS Apply"
   },
   {
    "default": "Pending",
@@ -44,7 +44,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nPending\nDry Run\nQueued\nSucceeded\nFailed\nSkipped"
+   "options": "Draft\nPending\nDry Run\nQueued\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nSucceeded\nFailed\nSkipped"
   },
   {
    "fieldname": "dry_run",

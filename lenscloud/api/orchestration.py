@@ -1,3 +1,4 @@
+import hashlib
 import json
 import re
 import secrets
@@ -14,6 +15,21 @@ from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientEr
 
 SAFE_NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
 READY_DATABASE_STATES = {"Ready", "Healthy"}
+PLATFORM_MANAGER_LABEL = "lenscloud.io/managed-by"
+RESOURCE_KIND_LABEL = "lenscloud.io/resource-kind"
+RESOURCE_ID_LABEL = "lenscloud.io/resource-id"
+CUSTOMER_LABEL = "lenscloud.io/customer"
+PLATFORM_MANAGER_VALUE = "platform"
+RUNTIME_NAMESPACE_RESOURCE_KINDS = {"MariaDB", "FrappeBench", "FrappeSite"}
+DELETE_STATES = {"Deletion Requested", "Quiescing", "Deleting", "Deleted", "Deletion Failed"}
+PROTECTED_RUNTIME_RESOURCES = {("MariaDB", "default", "frappe-mariadb")}
+RELATED_RUNTIME_RESOURCES = (
+	("pods", "Pod", "", "v1"),
+	("jobs", "Job", "batch", "v1"),
+	("persistentvolumeclaims", "PersistentVolumeClaim", "", "v1"),
+	("services", "Service", "", "v1"),
+	("ingresses", "Ingress", "networking.k8s.io", "v1"),
+)
 
 
 def slugify(value):
@@ -24,6 +40,47 @@ def slugify(value):
 
 def as_bool(value):
 	return str(value).lower() not in {"false", "0", "no", "none", ""}
+
+
+def label_value(value):
+	value = slugify(value)
+	if len(value) <= 63:
+		return value
+	digest = hashlib.sha256(value.encode()).hexdigest()[:12]
+	return f"{value[:50].rstrip('-')}-{digest}"
+
+
+def resource_id_label(doc):
+	return label_value(doc.name)
+
+
+def owner_customer_value(doc):
+	return getattr(doc, "owner_customer", None) or getattr(doc, "customer", None) or None
+
+
+def platform_owner_labels(resource_kind, doc):
+	labels = {
+		PLATFORM_MANAGER_LABEL: PLATFORM_MANAGER_VALUE,
+		RESOURCE_KIND_LABEL: label_value(resource_kind),
+		RESOURCE_ID_LABEL: resource_id_label(doc),
+	}
+	customer = owner_customer_value(doc)
+	if customer:
+		labels[CUSTOMER_LABEL] = label_value(customer)
+	return labels
+
+
+def merge_metadata_labels(manifest, labels):
+	metadata = manifest.setdefault("metadata", {})
+	metadata["labels"] = {**(metadata.get("labels") or {}), **labels}
+	return manifest
+
+
+def runtime_label_selector(doc):
+	return ",".join([
+		f"{PLATFORM_MANAGER_LABEL}={PLATFORM_MANAGER_VALUE}",
+		f"{RESOURCE_ID_LABEL}={resource_id_label(doc)}",
+	])
 
 
 def manifest_yaml(manifest):
@@ -195,7 +252,8 @@ def build_database_server_manifest_data(database_server):
 			frappe.throw(_("Node Placement Policy must be valid JSON."))
 		if placement:
 			spec.update(placement)
-	return {"apiVersion": "k8s.mariadb.com/v1alpha1", "kind": "MariaDB", "metadata": {"name": database_server.operator_resource_name, "namespace": database_server.kubernetes_namespace, "labels": {"lenscloud.io/database-server": slugify(database_server.name), "lenscloud.io/privacy": slugify(database_server.privacy)}}, "spec": spec}
+	manifest = {"apiVersion": "k8s.mariadb.com/v1alpha1", "kind": "MariaDB", "metadata": {"name": database_server.operator_resource_name, "namespace": database_server.kubernetes_namespace, "labels": {"lenscloud.io/database-server": slugify(database_server.name), "lenscloud.io/privacy": slugify(database_server.privacy)}}, "spec": spec}
+	return merge_metadata_labels(manifest, platform_owner_labels("database-server", database_server))
 
 
 def build_frappebench_manifest_data(bench, allow_pending_database=False):
@@ -231,7 +289,8 @@ def build_frappebench_manifest_data(bench, allow_pending_database=False):
 		"storageClassName": bench.storage_class or default_storage_class(cluster),
 		"dbConfig": {"provider": "mariadb", "mode": "shared", "mariadbRef": {"name": database_server.operator_resource_name, "namespace": database_server.kubernetes_namespace}},
 	}
-	return {"apiVersion": "vyogo.tech/v1", "kind": "FrappeBench", "metadata": {"name": bench.operator_resource_name, "namespace": bench.kubernetes_namespace or default_runtime_namespace(cluster)}, "spec": spec}
+	manifest = {"apiVersion": "vyogo.tech/v1", "kind": "FrappeBench", "metadata": {"name": bench.operator_resource_name, "namespace": bench.kubernetes_namespace or default_runtime_namespace(cluster)}, "spec": spec}
+	return merge_metadata_labels(manifest, platform_owner_labels("bench", bench))
 
 
 def get_site_hostname(site):
@@ -273,7 +332,8 @@ def build_frappesite_manifest_data(site):
 		},
 		"tls": {"enabled": False},
 	}
-	return {"apiVersion": "vyogo.tech/v1", "kind": "FrappeSite", "metadata": {"name": site.operator_resource_name, "namespace": bench.kubernetes_namespace or default_runtime_namespace(cluster)}, "spec": spec}
+	manifest = {"apiVersion": "vyogo.tech/v1", "kind": "FrappeSite", "metadata": {"name": site.operator_resource_name, "namespace": bench.kubernetes_namespace or default_runtime_namespace(cluster)}, "spec": spec}
+	return merge_metadata_labels(manifest, platform_owner_labels("site", site))
 
 
 def create_action_log(action_type, status="Pending", database_server=None, bench=None, site=None, cluster=None, region=None, release=None, manifest=None, message=None, error=None, dry_run=True, resource_kind=None, operation=None):
@@ -321,14 +381,14 @@ def ensure_site_admin_secret(cluster, site, namespace):
 		except KubernetesClientError as exc:
 			if " 404:" not in str(exc):
 				raise
-			client.create_secret(namespace, name, {"password": secrets.token_urlsafe(30)})
+			client.create_secret(namespace, name, {"password": secrets.token_urlsafe(30)}, labels=platform_owner_labels("site", site))
 		encryption_name = f"{site.operator_resource_name}-encryption-key"
 		try:
 			client.get_secret(namespace, encryption_name)
 		except KubernetesClientError as exc:
 			if " 404:" not in str(exc):
 				raise
-			client.create_secret(namespace, encryption_name, {"encryption_key": secrets.token_urlsafe(36)})
+			client.create_secret(namespace, encryption_name, {"encryption_key": secrets.token_urlsafe(36)}, labels=platform_owner_labels("site", site))
 	return name
 
 
@@ -341,7 +401,7 @@ def ensure_database_root_secret(cluster, database_server):
 		except KubernetesClientError as exc:
 			if " 404:" not in str(exc):
 				raise
-			client.create_secret(database_server.kubernetes_namespace, name, {key: secrets.token_urlsafe(36)})
+			client.create_secret(database_server.kubernetes_namespace, name, {key: secrets.token_urlsafe(36)}, labels=platform_owner_labels("database-server", database_server))
 	return name
 
 
@@ -440,6 +500,380 @@ def sync_custom_resource(cluster, kind, namespace, name):
 		return client.get_custom_resource(kind, namespace, name)
 
 
+def is_not_found(exc):
+	return "Kubernetes API 404:" in str(exc)
+
+
+def require_platform_operator():
+	frappe.only_for("System Manager")
+
+
+def expected_runtime_identity(doc, kind):
+	cluster = get_region_cluster(doc.region)
+	ensure_operator_fields(doc, cluster)
+	if doc.doctype == "Site":
+		bench = frappe.get_doc("Bench", doc.bench)
+		namespace = bench.kubernetes_namespace or default_runtime_namespace(cluster)
+	elif doc.doctype == "Bench":
+		namespace = doc.kubernetes_namespace or default_runtime_namespace(cluster)
+	else:
+		namespace = doc.kubernetes_namespace or default_runtime_namespace(cluster)
+	return cluster, namespace, doc.operator_resource_name
+
+
+def validate_runtime_namespace(cluster, kind, namespace, name):
+	if (kind, namespace, name) in PROTECTED_RUNTIME_RESOURCES:
+		frappe.throw(_("Protected runtime resource {0}/{1} cannot be mutated by Platform lifecycle actions.").format(namespace, name))
+	if kind in RUNTIME_NAMESPACE_RESOURCE_KINDS and namespace != default_runtime_namespace(cluster):
+		frappe.throw(_("Platform lifecycle delete is allowed only in runtime namespace {0}.").format(default_runtime_namespace(cluster)))
+
+
+def validate_runtime_owner(resource, doc, resource_kind):
+	metadata = resource.get("metadata") or {}
+	labels = metadata.get("labels") or {}
+	expected = platform_owner_labels(resource_kind, doc)
+	for key, value in expected.items():
+		if labels.get(key) != value:
+			frappe.throw(_("Runtime resource {0}/{1} is not owned by this Platform document.").format(metadata.get("namespace"), metadata.get("name")))
+	return True
+
+
+def scrub_metadata(metadata):
+	return {
+		"name": metadata.get("name"),
+		"namespace": metadata.get("namespace"),
+		"uid": metadata.get("uid"),
+		"labels": metadata.get("labels") or {},
+		"ownerReferences": metadata.get("ownerReferences") or [],
+		"finalizers": metadata.get("finalizers") or [],
+		"creationTimestamp": metadata.get("creationTimestamp"),
+		"deletionTimestamp": metadata.get("deletionTimestamp"),
+	}
+
+
+def summarize_conditions(status):
+	conditions = []
+	for condition in status.get("conditions") or []:
+		conditions.append({
+			"type": condition.get("type"),
+			"status": condition.get("status"),
+			"reason": condition.get("reason"),
+			"message": sanitize_error(condition.get("message")),
+			"lastTransitionTime": condition.get("lastTransitionTime"),
+		})
+	return conditions
+
+
+def summarize_resource(item, include_status=True):
+	metadata = item.get("metadata") or {}
+	spec = item.get("spec") or {}
+	status = item.get("status") or {}
+	kind = item.get("kind")
+	summary = {"kind": kind, "metadata": scrub_metadata(metadata)}
+	if include_status:
+		summary["status"] = {
+			"phase": status.get("phase") or status.get("state"),
+			"observedGeneration": status.get("observedGeneration"),
+			"conditions": summarize_conditions(status),
+			"readyReplicas": status.get("readyReplicas"),
+			"replicas": status.get("replicas"),
+			"availableReplicas": status.get("availableReplicas"),
+			"succeeded": status.get("succeeded"),
+			"failed": status.get("failed"),
+		}
+	if kind == "PersistentVolumeClaim":
+		summary["storage"] = {
+			"storageClassName": spec.get("storageClassName"),
+			"requestedCapacity": ((spec.get("resources") or {}).get("requests") or {}).get("storage"),
+			"boundCapacity": (status.get("capacity") or {}).get("storage"),
+			"volumeName": spec.get("volumeName"),
+		}
+	elif kind == "Service":
+		summary["service"] = {
+			"type": spec.get("type"),
+			"clusterIP": spec.get("clusterIP"),
+			"ports": [{"name": port.get("name"), "port": port.get("port"), "protocol": port.get("protocol"), "targetPort": port.get("targetPort")} for port in spec.get("ports") or []],
+		}
+	elif kind == "Ingress":
+		summary["route"] = {
+			"ingressClassName": spec.get("ingressClassName"),
+			"hosts": [rule.get("host") for rule in spec.get("rules") or [] if rule.get("host")],
+			"loadBalancer": status.get("loadBalancer") or {},
+		}
+	elif kind == "Pod":
+		summary["workload"] = {
+			"nodeName": spec.get("nodeName"),
+			"readyContainers": sum(1 for container in status.get("containerStatuses") or [] if container.get("ready")),
+			"containerCount": len(status.get("containerStatuses") or []),
+		}
+	return summary
+
+
+def warning_event_summary(event):
+	return {
+		"kind": "Event",
+		"metadata": scrub_metadata(event.get("metadata") or {}),
+		"type": event.get("type"),
+		"reason": event.get("reason"),
+		"message": sanitize_error(event.get("message")),
+		"involvedObject": event.get("involvedObject"),
+		"lastTimestamp": event.get("lastTimestamp") or event.get("eventTime"),
+	}
+
+
+def matches_runtime_owner(item, doc, owner_uid=None, owner_kind=None, owner_name=None):
+	metadata = item.get("metadata") or {}
+	labels = metadata.get("labels") or {}
+	if labels.get(PLATFORM_MANAGER_LABEL) == PLATFORM_MANAGER_VALUE and labels.get(RESOURCE_ID_LABEL) == resource_id_label(doc):
+		return True
+	for reference in metadata.get("ownerReferences") or []:
+		if owner_uid and reference.get("uid") == owner_uid:
+			return True
+		if owner_kind and owner_name and reference.get("kind") == owner_kind and reference.get("name") == owner_name:
+			return True
+	return False
+
+
+def build_runtime_inventory(doc, kind, resource_kind):
+	cluster, namespace, name = expected_runtime_identity(doc, kind)
+	owner = None
+	warnings = []
+	related = {}
+	with get_cluster_client(cluster) as client:
+		try:
+			owner = client.get_custom_resource(kind, namespace, name)
+		except KubernetesClientError as exc:
+			if not is_not_found(exc):
+				raise
+		owner_uid = None
+		if owner:
+			validate_runtime_owner(owner, doc, resource_kind)
+			owner_uid = (owner.get("metadata") or {}).get("uid")
+		for resource, label, group, version in RELATED_RUNTIME_RESOURCES:
+			items = client.list_namespaced(resource, namespace, group=group, version=version)
+			related[label] = [summarize_resource(item) for item in items if matches_runtime_owner(item, doc, owner_uid, kind, name)]
+		for event in client.list_namespaced("events", namespace, field_selector=f"involvedObject.name={name}"):
+			if event.get("type") == "Warning":
+				warnings.append(warning_event_summary(event))
+	return {
+		"cluster": cluster.name,
+		"namespace": namespace,
+		"name": name,
+		"owner": summarize_resource(owner) if owner else None,
+		"owner_present": bool(owner),
+		"related": related,
+		"warning_events": warnings,
+		"secret_values_returned": False,
+	}
+
+
+def owned_secret_names(doc):
+	if doc.doctype == "Site":
+		return [
+			doc.admin_password_secret_reference or f"{doc.operator_resource_name}-admin-password",
+			f"{doc.operator_resource_name}-encryption-key",
+		]
+	if doc.doctype == "Database Server" and doc.root_credential_secret_reference:
+		return [doc.root_credential_secret_reference]
+	return []
+
+
+def cleanup_owned_secrets(doc, cluster, namespace, resource_kind):
+	deleted = []
+	with get_cluster_client(cluster) as client:
+		for name in owned_secret_names(doc):
+			try:
+				secret = client.get_secret(namespace, name)
+			except KubernetesClientError as exc:
+				if is_not_found(exc):
+					continue
+				raise
+			validate_runtime_owner(secret, doc, resource_kind)
+			client.delete_namespaced("secrets", namespace, name)
+			deleted.append(name)
+	return deleted
+
+
+def remaining_required_dependents(doc, inventory):
+	remaining = []
+	for label, items in inventory.get("related", {}).items():
+		if doc.doctype == "Database Server" and label == "PersistentVolumeClaim" and getattr(doc, "data_retention_policy", "Retain") == "Retain":
+			continue
+		remaining.extend((label, item["metadata"].get("name")) for item in items)
+	return remaining
+
+
+def finalize_deleted_state(doc, inventory, status_field, resource_kind):
+	if inventory["owner_present"]:
+		return False
+	if doc.get(status_field) not in {"Deletion Requested", "Quiescing", "Deleting"}:
+		return False
+	cluster = get_region_cluster(doc.region)
+	deleted_secrets = cleanup_owned_secrets(doc, cluster, inventory["namespace"], resource_kind)
+	remaining = remaining_required_dependents(doc, inventory)
+	if deleted_secrets or remaining:
+		return False
+	doc.set(status_field, "Deleted")
+	if hasattr(doc, "provisioning_status"):
+		doc.provisioning_status = "Deleted"
+	doc.save(ignore_permissions=True)
+	return True
+
+
+def create_runtime_inventory_log(label, doc, cluster, inventory, resource_kind):
+	log = create_action_log(
+		label,
+		"Succeeded",
+		database_server=doc.name if doc.doctype == "Database Server" else None,
+		bench=doc.name if doc.doctype == "Bench" else getattr(doc, "bench", None),
+		site=doc.name if doc.doctype == "Site" else None,
+		cluster=cluster.name,
+		region=doc.region,
+		message=f"Runtime inventory collected for {inventory['namespace']}/{inventory['name']} without Secret values.",
+		dry_run=False,
+		resource_kind=resource_kind,
+		operation="inventory",
+	)
+	return log
+
+
+@frappe.whitelist()
+def inspect_database_server_runtime(database_server):
+	require_platform_operator()
+	doc = frappe.get_doc("Database Server", database_server)
+	inventory = build_runtime_inventory(doc, "MariaDB", "database-server")
+	finalize_deleted_state(doc, inventory, "database_status", "database-server")
+	cluster = get_region_cluster(doc.region)
+	log = create_runtime_inventory_log("Runtime Inventory", doc, cluster, inventory, "MariaDB")
+	inventory["action_log"] = log.name
+	return inventory
+
+
+@frappe.whitelist()
+def inspect_bench_runtime(bench):
+	require_platform_operator()
+	doc = frappe.get_doc("Bench", bench)
+	inventory = build_runtime_inventory(doc, "FrappeBench", "bench")
+	finalize_deleted_state(doc, inventory, "bench_status", "bench")
+	cluster = get_region_cluster(doc.region)
+	log = create_runtime_inventory_log("Runtime Inventory", doc, cluster, inventory, "FrappeBench")
+	inventory["action_log"] = log.name
+	return inventory
+
+
+@frappe.whitelist()
+def inspect_site_runtime(site):
+	require_platform_operator()
+	doc = frappe.get_doc("Site", site)
+	inventory = build_runtime_inventory(doc, "FrappeSite", "site")
+	finalize_deleted_state(doc, inventory, "site_status", "site")
+	cluster = get_region_cluster(doc.region)
+	log = create_runtime_inventory_log("Runtime Inventory", doc, cluster, inventory, "FrappeSite")
+	inventory["action_log"] = log.name
+	return inventory
+
+
+def validate_delete_confirmation(doc, confirmation):
+	if (confirmation or "").strip() != doc.name:
+		frappe.throw(_("Type the exact document name to confirm deletion."))
+
+
+def delete_owner_resource(doc, kind, resource_kind, status_field, reason=None):
+	cluster, namespace, name = expected_runtime_identity(doc, kind)
+	validate_runtime_namespace(cluster, kind, namespace, name)
+	log = create_action_log(
+		f"{doc.doctype} Delete",
+		"Deletion Requested",
+		database_server=doc.name if doc.doctype == "Database Server" else None,
+		bench=doc.name if doc.doctype == "Bench" else getattr(doc, "bench", None),
+		site=doc.name if doc.doctype == "Site" else None,
+		cluster=cluster.name,
+		region=doc.region,
+		message=f"Deletion requested for {kind} {namespace}/{name}. Reason: {sanitize_error(reason) if reason else 'Not supplied'}",
+		dry_run=False,
+		resource_kind=kind,
+		operation="delete",
+	)
+	try:
+		doc.set(status_field, "Deletion Requested")
+		if hasattr(doc, "provisioning_status"):
+			doc.provisioning_status = "Deletion Requested"
+		doc.save(ignore_permissions=True)
+		with get_cluster_client(cluster) as client:
+			try:
+				resource = client.get_custom_resource(kind, namespace, name)
+			except KubernetesClientError as exc:
+				if is_not_found(exc):
+					doc.set(status_field, "Deleted")
+					if hasattr(doc, "provisioning_status"):
+						doc.provisioning_status = "Deleted"
+					doc.save(ignore_permissions=True)
+					finish_action_log(log, "Deleted", f"{kind} {namespace}/{name} was already absent.")
+					return {"status": "deleted", "action_log": log.name, "namespace": namespace, "name": name}
+				raise
+			validate_runtime_owner(resource, doc, resource_kind)
+			doc.set(status_field, "Deleting")
+			if hasattr(doc, "provisioning_status"):
+				doc.provisioning_status = "Deleting"
+			doc.save(ignore_permissions=True)
+			client.delete_custom_resource(kind, namespace, name)
+		finish_action_log(log, "Deleting", f"{kind} {namespace}/{name} delete accepted; waiting on normal operator finalizers.")
+		return {"status": "deleting", "action_log": log.name, "namespace": namespace, "name": name}
+	except Exception as exc:
+		doc.set(status_field, "Deletion Failed")
+		if hasattr(doc, "provisioning_status"):
+			doc.provisioning_status = "Deletion Failed"
+		if hasattr(doc, "last_error"):
+			doc.last_error = sanitize_error(exc)
+		doc.save(ignore_permissions=True)
+		finish_action_log(log, "Deletion Failed", error=exc)
+		raise
+
+
+@frappe.whitelist()
+def delete_site(site, confirmation, reason=None):
+	require_platform_operator()
+	doc = frappe.get_doc("Site", site)
+	validate_delete_confirmation(doc, confirmation)
+	return delete_owner_resource(doc, "FrappeSite", "site", "site_status", reason=reason)
+
+
+@frappe.whitelist()
+def delete_bench(bench, confirmation, reason=None):
+	require_platform_operator()
+	doc = frappe.get_doc("Bench", bench)
+	validate_delete_confirmation(doc, confirmation)
+	active_sites = frappe.get_all("Site", filters={"bench": doc.name, "site_status": ["not in", ["Deleted"]]}, fields=["name", "site_status"])
+	if active_sites:
+		frappe.throw(_("Bench cannot be deleted until dependent Sites are Deleted: {0}").format(", ".join(row.name for row in active_sites)))
+	return delete_owner_resource(doc, "FrappeBench", "bench", "bench_status", reason=reason)
+
+
+@frappe.whitelist()
+def delete_database_server(database_server, confirmation, reason=None):
+	require_platform_operator()
+	doc = frappe.get_doc("Database Server", database_server)
+	validate_delete_confirmation(doc, confirmation)
+	if doc.provisioning_type != "Operator Managed":
+		frappe.throw(_("Only operator-managed Database Servers can be deleted through Platform lifecycle actions."))
+	active_benches = frappe.get_all("Bench", filters={"database_server": doc.name, "bench_status": ["not in", ["Deleted", "Retired"]]}, fields=["name", "bench_status"])
+	if active_benches:
+		frappe.throw(_("Database Server cannot be deleted until attached Benches are absent: {0}").format(", ".join(row.name for row in active_benches)))
+	return delete_owner_resource(doc, "MariaDB", "database-server", "database_status", reason=reason)
+
+
+@frappe.whitelist()
+def retry_lifecycle_delete(doctype, name, confirmation):
+	require_platform_operator()
+	if doctype == "Site":
+		return delete_site(name, confirmation)
+	if doctype == "Bench":
+		return delete_bench(name, confirmation)
+	if doctype == "Database Server":
+		return delete_database_server(name, confirmation)
+	frappe.throw(_("Unsupported lifecycle delete DocType."))
+
+
 @frappe.whitelist()
 def sync_database_server_status(database_server):
 	doc = frappe.get_doc("Database Server", database_server); cluster = get_region_cluster(doc.region)
@@ -510,16 +944,43 @@ def sync_site_status(site, check_route=True):
 @frappe.whitelist()
 def check_cluster_permissions(cluster):
 	doc = frappe.get_doc("Cluster", cluster)
+	runtime_namespace = doc.default_runtime_namespace or "default"
 	checks = []
+	denied_checks = []
 	with get_cluster_client(doc) as client:
 		for kind, (group, _version, plural) in RESOURCE_PATHS.items():
-			for verb in ("get", "patch"):
-				allowed, reason = client.can_i(verb, group, plural, doc.default_runtime_namespace or "default")
-				checks.append({"kind": kind, "verb": verb, "allowed": allowed, "reason": reason})
-		for verb in ("get", "create"):
-			allowed, reason = client.can_i(verb, "", "secrets", doc.default_runtime_namespace or "default")
-			checks.append({"kind": "Secret", "verb": verb, "allowed": allowed, "reason": reason})
-	return {"cluster": doc.name, "checks": checks, "all_required_allowed": all(item["allowed"] for item in checks)}
+			for verb in ("get", "list", "patch", "delete"):
+				allowed, reason = client.can_i(verb, group, plural, runtime_namespace)
+				checks.append({"kind": kind, "verb": verb, "group": group, "resource": plural, "namespace": runtime_namespace, "allowed": allowed, "reason": reason})
+		for resource, group in (("pods", ""), ("services", ""), ("persistentvolumeclaims", ""), ("events", ""), ("jobs", "batch"), ("ingresses", "networking.k8s.io")):
+			for verb in ("get", "list"):
+				allowed, reason = client.can_i(verb, group, resource, runtime_namespace)
+				checks.append({"kind": resource, "verb": verb, "group": group, "resource": resource, "namespace": runtime_namespace, "allowed": allowed, "reason": reason})
+		for verb in ("get", "create", "delete"):
+			allowed, reason = client.can_i(verb, "", "secrets", runtime_namespace)
+			checks.append({"kind": "Secret", "verb": verb, "group": "", "resource": "secrets", "namespace": runtime_namespace, "allowed": allowed, "reason": reason})
+		for verb in ("get", "list"):
+			allowed, reason = client.can_i(verb, "k8s.mariadb.com", "mariadbs", "default")
+			checks.append({"kind": "Default MariaDB", "verb": verb, "group": "k8s.mariadb.com", "resource": "mariadbs", "namespace": "default", "allowed": allowed, "reason": reason})
+		for verb, group, resource, namespace, label in (
+			("patch", "k8s.mariadb.com", "mariadbs", "default", "default MariaDB patch"),
+			("delete", "k8s.mariadb.com", "mariadbs", "default", "default MariaDB delete"),
+			("list", "", "secrets", runtime_namespace, "runtime Secret list"),
+			("delete", "", "namespaces", None, "namespace delete"),
+			("delete", "apiextensions.k8s.io", "customresourcedefinitions", None, "CRD delete"),
+		):
+			allowed, reason = client.can_i(verb, group, resource, namespace)
+			denied_checks.append({"kind": label, "verb": verb, "group": group, "resource": resource, "namespace": namespace, "allowed": allowed, "reason": reason})
+	return {
+		"cluster": doc.name,
+		"runtime_namespace": runtime_namespace,
+		"checks": checks,
+		"denied_checks": denied_checks,
+		"all_required_allowed": all(item["allowed"] for item in checks),
+		"all_denied_blocked": all(not item["allowed"] for item in denied_checks),
+		"client": "python-kubernetes-api-wrapper",
+		"kubectl_required": False,
+	}
 
 
 @frappe.whitelist()

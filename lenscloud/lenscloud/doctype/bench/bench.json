@@ -124,7 +124,7 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Bench Status",
-   "options": "Draft\nPending\nAccepted\nProvisioning\nReady\nUpgrading\nSuspended\nDeleting\nFailed\nRetired\nUnknown",
+   "options": "Draft\nPending\nAccepted\nProvisioning\nReady\nUpgrading\nSuspended\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nRetired\nUnknown",
    "default": "Draft"
   },
   {

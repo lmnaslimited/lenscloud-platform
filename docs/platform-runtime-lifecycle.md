@@ -46,6 +46,10 @@ Platform must never delete or replace:
 
 Protected-resource checks belong in both LensCloud policy and Infra RBAC. UI hiding alone is not a security boundary.
 
+## Backend Transport
+
+Platform talks to Kubernetes only from the Frappe backend through the restricted server-side `file:` kubeconfig reference and the Python Kubernetes API wrapper. Browser responses, action logs, and errors must never contain kubeconfig content, bearer tokens, Secret values, client private keys, or certificate private material. `kubectl` and host-side Infra verifier scripts are not Platform runtime dependencies.
+
 ## Platform Lifecycle Actions
 
 Platform-facing actions must include:
@@ -60,6 +64,8 @@ Platform-facing actions must include:
 - retire the control-plane document after runtime deletion is confirmed.
 
 Deleting the owner CR is preferred. Operator owner references and finalizers should clean dependent resources. Direct dependent cleanup is allowed only when the installed operator contract requires it and the resource passes the same ownership checks.
+
+Platform-created credential Secrets must carry the owner labels and may be deleted only by exact name after label validation. A platform-managed Database Server must declare an explicit PVC data policy: `Retain` preserves attributable data PVCs after MariaDB deletion, while `Delete` requires attributable PVC cleanup before the document reaches `Deleted`. Unlabelled PVCs or Secrets are a safe deletion failure, not permission to force cleanup.
 
 ## Deletion State Model
 

@@ -116,6 +116,34 @@ class KubernetesClient:
 	def get_custom_resource(self, kind, namespace, name):
 		return self.request("GET", self.custom_path(kind, namespace, name))
 
+	def list_custom_resources(self, kind, namespace, label_selector=None):
+		params = {"labelSelector": label_selector} if label_selector else None
+		return self.request("GET", self.custom_path(kind, namespace), params=params).get("items", [])
+
+	def delete_custom_resource(self, kind, namespace, name):
+		return self.request("DELETE", self.custom_path(kind, namespace, name))
+
+	def namespaced_path(self, resource, namespace, name=None, group="", version="v1"):
+		if group:
+			path = f"/apis/{quote(group)}/{quote(version)}/namespaces/{quote(namespace)}/{quote(resource)}"
+		else:
+			path = f"/api/{quote(version)}/namespaces/{quote(namespace)}/{quote(resource)}"
+		return f"{path}/{quote(name)}" if name else path
+
+	def list_namespaced(self, resource, namespace, label_selector=None, field_selector=None, group="", version="v1"):
+		params = {}
+		if label_selector:
+			params["labelSelector"] = label_selector
+		if field_selector:
+			params["fieldSelector"] = field_selector
+		return self.request("GET", self.namespaced_path(resource, namespace, group=group, version=version), params=params or None).get("items", [])
+
+	def delete_namespaced(self, resource, namespace, name, group="", version="v1"):
+		return self.request("DELETE", self.namespaced_path(resource, namespace, name, group=group, version=version))
+
+	def get_namespaced(self, resource, namespace, name, group="", version="v1"):
+		return self.request("GET", self.namespaced_path(resource, namespace, name, group=group, version=version))
+
 	def apply_custom_resource(self, manifest):
 		kind = manifest["kind"]
 		metadata = manifest["metadata"]
@@ -131,15 +159,18 @@ class KubernetesClient:
 	def get_secret(self, namespace, name):
 		return self.request("GET", f"/api/v1/namespaces/{quote(namespace)}/secrets/{quote(name)}")
 
-	def create_secret(self, namespace, name, string_data):
-		body = {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": namespace}, "type": "Opaque", "stringData": string_data}
+	def create_secret(self, namespace, name, string_data, labels=None):
+		body = {"apiVersion": "v1", "kind": "Secret", "metadata": {"name": name, "namespace": namespace, "labels": labels or {}}, "type": "Opaque", "stringData": string_data}
 		return self.request("POST", f"/api/v1/namespaces/{quote(namespace)}/secrets", json=body)
 
-	def can_i(self, verb, group, resource, namespace):
+	def can_i(self, verb, group, resource, namespace=None):
+		attributes = {"verb": verb, "group": group, "resource": resource}
+		if namespace:
+			attributes["namespace"] = namespace
 		body = {
 			"apiVersion": "authorization.k8s.io/v1",
 			"kind": "SelfSubjectAccessReview",
-			"spec": {"resourceAttributes": {"verb": verb, "group": group, "resource": resource, "namespace": namespace}},
+			"spec": {"resourceAttributes": attributes},
 		}
 		result = self.request("POST", "/apis/authorization.k8s.io/v1/selfsubjectaccessreviews", json=body)
 		return bool(result.get("status", {}).get("allowed")), result.get("status", {}).get("reason")

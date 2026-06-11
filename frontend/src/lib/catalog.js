@@ -33,11 +33,11 @@ const clusterProviderOptions = ['Hcloud', 'AWS', 'Local', 'Other']
 const clusterEnvironmentOptions = ['Development', 'Staging', 'Production']
 const clusterStatusOptions = ['Draft', 'Active', 'Maintenance', 'Disabled', 'Retired']
 const healthStatusOptions = ['Unknown', 'Healthy', 'Degraded', 'Failed']
-const benchStatusOptions = ['Draft', 'Pending', 'Accepted', 'Provisioning', 'Ready', 'Upgrading', 'Suspended', 'Deleting', 'Failed', 'Retired', 'Unknown']
+const benchStatusOptions = ['Draft', 'Pending', 'Accepted', 'Provisioning', 'Ready', 'Upgrading', 'Suspended', 'Deletion Requested', 'Quiescing', 'Deleting', 'Deleted', 'Deletion Failed', 'Failed', 'Retired', 'Unknown']
 const upgradePolicyOptions = ['Manual', 'Scheduled', 'Auto Quality', 'Auto Production Eligible']
 const upgradeSopStatusOptions = ['Draft', 'Scheduled', 'Precheck', 'Ready', 'Running', 'Verifying', 'Completed', 'Rolled Back', 'Failed']
-const siteStatusOptions = ['Draft', 'Requested', 'Accepted', 'Provisioning', 'Ready', 'Active', 'Suspended', 'Deleting', 'Failed', 'Deleted', 'Unknown']
-const provisioningStatusOptions = ['Not Started', 'Pending', 'Accepted', 'Running', 'Ready', 'Failed', 'Unknown']
+const siteStatusOptions = ['Draft', 'Requested', 'Accepted', 'Provisioning', 'Ready', 'Active', 'Suspended', 'Deletion Requested', 'Quiescing', 'Deleting', 'Deletion Failed', 'Failed', 'Deleted', 'Unknown']
+const provisioningStatusOptions = ['Not Started', 'Pending', 'Accepted', 'Running', 'Ready', 'Deletion Requested', 'Quiescing', 'Deleting', 'Deleted', 'Deletion Failed', 'Failed', 'Unknown']
 const backupStateOptions = ['Not Configured', 'Scheduled', 'Running', 'Succeeded', 'Failed']
 const restoreStateOptions = ['Not Requested', 'Pending', 'Running', 'Succeeded', 'Failed']
 const upgradeStateOptions = ['Not Scheduled', 'Scheduled', 'Running', 'Verifying', 'Succeeded', 'Failed']
@@ -45,8 +45,8 @@ const regionDeploymentOptions = ['Not Deployable', 'Active', 'Maintenance', 'Dis
 const planStatusOptions = ['Active', 'Inactive', 'Retired']
 const benchPolicyOptions = ['Shared Bench', 'Dedicated Bench', 'Manual Placement']
 const integrationStatusOptions = ['Not Configured', 'Configured', 'Healthy', 'Degraded', 'Disabled']
-const databaseStatusOptions = ['Draft', 'Pending', 'Provisioning', 'Ready', 'Maintenance', 'Failed', 'Unknown']
-const databaseProvisioningOptions = ['Not Started', 'Pending', 'Accepted', 'Running', 'Ready', 'Failed', 'Unknown']
+const databaseStatusOptions = ['Draft', 'Pending', 'Provisioning', 'Ready', 'Maintenance', 'Deletion Requested', 'Quiescing', 'Deleting', 'Deleted', 'Deletion Failed', 'Failed', 'Unknown']
+const databaseProvisioningOptions = ['Not Started', 'Pending', 'Accepted', 'Running', 'Ready', 'Deletion Requested', 'Quiescing', 'Deleting', 'Deleted', 'Deletion Failed', 'Failed', 'Unknown']
 const databaseProvisioningTypeOptions = ['Operator Managed', 'External']
 const routeStatusOptions = ['Not Checked', 'Pending', 'Ready', 'Failed', 'Unknown']
 const tlsStatusOptions = ['Inherited', 'Ready', 'Failed', 'Unknown']
@@ -374,6 +374,7 @@ export const platformResources = [
 			{ key: 'image', label: 'MariaDB image', default: 'mariadb:10.11' },
 			{ key: 'storage_class', label: 'Storage class', default: 'local-path' },
 			{ key: 'storage_size', label: 'Storage size', default: '8Gi' },
+			{ key: 'data_retention_policy', label: 'Data retention policy', default: 'Retain', ...selectField(['Retain', 'Delete']) },
 			{ key: 'replica_count', label: 'Replica count', default: 1, type: 'number' },
 			{ key: 'root_credential_secret_reference', label: 'Root Secret reference' },
 			{ key: 'maximum_bench_count', label: 'Maximum Bench count', default: 0, type: 'number' },
@@ -400,6 +401,7 @@ export const platformResources = [
 			{ key: 'image', label: 'MariaDB image' },
 			{ key: 'storage_class', label: 'Storage class' },
 			{ key: 'storage_size', label: 'Storage size' },
+			{ key: 'data_retention_policy', label: 'Data retention policy', ...selectField(['Retain', 'Delete']) },
 			{ key: 'replica_count', label: 'Replica count', type: 'number' },
 			{ key: 'root_credential_secret_reference', label: 'Root Secret reference' },
 			{ key: 'maximum_bench_count', label: 'Maximum Bench count', type: 'number' },
@@ -417,6 +419,9 @@ export const platformResources = [
 			{ key: 'dry-run-database-server', label: 'Preview MariaDB manifest', icon: SquareArrowOutUpRight, description: 'Generate a secret-safe MariaDB Operator manifest.', backendSupported: true, method: 'lenscloud.api.orchestration.dry_run_database_server_manifest', paramsFromRecord: { database_server: 'name' }, fields: [] },
 			{ key: 'reconcile-database-server', label: 'Reconcile Database Server', icon: RefreshCcw, description: 'Idempotently apply when restricted Kubernetes access and apply are enabled; otherwise returns a dry-run.', backendSupported: true, method: 'lenscloud.api.orchestration.reconcile_database_server', paramsFromRecord: { database_server: 'name' }, fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }] },
 			{ key: 'sync-database-server', label: 'Sync runtime status', icon: RefreshCcw, description: 'Read MariaDB runtime readiness from Kubernetes.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_database_server_status', paramsFromRecord: { database_server: 'name' }, fields: [] },
+			{ key: 'inspect-database-server', label: 'Inspect runtime', icon: ScrollText, description: 'Show secret-safe MariaDB CR, finalizer, related workload, PVC, Service, Ingress, Job, and warning Event state.', backendSupported: true, method: 'lenscloud.api.orchestration.inspect_database_server_runtime', paramsFromRecord: { database_server: 'name' }, fields: [] },
+			{ key: 'delete-database-server', label: 'Delete Database Server', icon: AlertTriangle, description: 'Delete only a platform-owned runtime MariaDB after all Benches are absent. Type the exact document name to confirm.', backendSupported: true, method: 'lenscloud.api.orchestration.delete_database_server', paramsFromRecord: { database_server: 'name' }, fields: [{ key: 'confirmation', label: 'Confirm document name', type: 'text' }, { key: 'reason', label: 'Reason', type: 'textarea' }] },
+			{ key: 'retry-database-server-delete', label: 'Retry delete', icon: RefreshCcw, description: 'Retry a failed Database Server lifecycle delete after correcting the blocker.', backendSupported: true, method: 'lenscloud.api.orchestration.retry_lifecycle_delete', paramsFromRecord: { name: 'name' }, fields: [{ key: 'doctype', label: 'DocType', type: 'select', options: ['Database Server'], default: 'Database Server' }, { key: 'confirmation', label: 'Confirm document name', type: 'text' }] },
 		],
 	},
 	{
@@ -507,6 +512,9 @@ export const platformResources = [
 				fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }],
 			},
 			{ key: 'sync-bench', label: 'Sync runtime status', icon: RefreshCcw, description: 'Read FrappeBench status from the selected Cluster.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_bench_status', paramsFromRecord: { bench: 'name' }, fields: [] },
+			{ key: 'inspect-bench', label: 'Inspect runtime', icon: ScrollText, description: 'Show secret-safe FrappeBench CR, finalizer, related workload, PVC, Service, Ingress, Job, and warning Event state.', backendSupported: true, method: 'lenscloud.api.orchestration.inspect_bench_runtime', paramsFromRecord: { bench: 'name' }, fields: [] },
+			{ key: 'delete-bench', label: 'Delete bench', icon: AlertTriangle, description: 'Delete only a platform-owned Bench after dependent Sites are Deleted. Type the exact document name to confirm.', backendSupported: true, method: 'lenscloud.api.orchestration.delete_bench', paramsFromRecord: { bench: 'name' }, fields: [{ key: 'confirmation', label: 'Confirm document name', type: 'text' }, { key: 'reason', label: 'Reason', type: 'textarea' }] },
+			{ key: 'retry-bench-delete', label: 'Retry delete', icon: RefreshCcw, description: 'Retry a failed Bench lifecycle delete after correcting the blocker.', backendSupported: true, method: 'lenscloud.api.orchestration.retry_lifecycle_delete', paramsFromRecord: { name: 'name' }, fields: [{ key: 'doctype', label: 'DocType', type: 'select', options: ['Bench'], default: 'Bench' }, { key: 'confirmation', label: 'Confirm document name', type: 'text' }] },
 			{
 				key: 'upgrade-bench',
 				label: 'Upgrade bench',
@@ -606,6 +614,7 @@ export const platformResources = [
 			},
 			{ key: 'reconcile-site', label: 'Reconcile Site', icon: RefreshCcw, description: 'Idempotently apply the FrappeSite and Traefik wildcard route when restricted access is enabled.', backendSupported: true, method: 'lenscloud.api.orchestration.reconcile_site', paramsFromRecord: { site: 'name' }, fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }] },
 			{ key: 'sync-site', label: 'Sync provisioning and access', icon: RefreshCcw, description: 'Read operator status and verify the HTTPS route.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_site_status', paramsFromRecord: { site: 'name' }, fields: [] },
+			{ key: 'inspect-site', label: 'Inspect runtime', icon: ScrollText, description: 'Show secret-safe FrappeSite CR, finalizer, related workload, PVC, Service, Ingress, Job, and warning Event state.', backendSupported: true, method: 'lenscloud.api.orchestration.inspect_site_runtime', paramsFromRecord: { site: 'name' }, fields: [] },
 			{
 				key: 'create-site',
 				label: 'Create site',
@@ -633,13 +642,16 @@ export const platformResources = [
 				key: 'delete-site',
 				label: 'Delete site',
 				icon: AlertTriangle,
-				description: 'Destructive deletion is represented in the UI, but backend execution is not wired in this pass.',
-				backendSupported: false,
+				description: 'Delete only the exact platform-owned FrappeSite owner CR. Type the exact document name to confirm.',
+				backendSupported: true,
+				method: 'lenscloud.api.orchestration.delete_site',
+				paramsFromRecord: { site: 'name' },
 				fields: [
-					{ key: 'confirmation', label: 'Confirmation', type: 'text', placeholder: 'Type DELETE to confirm intent' },
+					{ key: 'confirmation', label: 'Confirm document name', type: 'text' },
 					{ key: 'reason', label: 'Reason', type: 'textarea', placeholder: 'Explain the deletion request.' },
 				],
 			},
+			{ key: 'retry-site-delete', label: 'Retry delete', icon: RefreshCcw, description: 'Retry a failed Site lifecycle delete after correcting the blocker.', backendSupported: true, method: 'lenscloud.api.orchestration.retry_lifecycle_delete', paramsFromRecord: { name: 'name' }, fields: [{ key: 'doctype', label: 'DocType', type: 'select', options: ['Site'], default: 'Site' }, { key: 'confirmation', label: 'Confirm document name', type: 'text' }] },
 			{
 				key: 'backup-site',
 				label: 'Backup site',

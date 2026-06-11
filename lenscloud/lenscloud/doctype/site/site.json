@@ -94,14 +94,14 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Site Status",
-   "options": "Draft\nRequested\nAccepted\nProvisioning\nReady\nActive\nSuspended\nDeleting\nFailed\nDeleted\nUnknown"
+   "options": "Draft\nRequested\nAccepted\nProvisioning\nReady\nActive\nSuspended\nDeletion Requested\nQuiescing\nDeleting\nDeletion Failed\nFailed\nDeleted\nUnknown"
   },
   {
    "default": "Not Started",
    "fieldname": "provisioning_status",
    "fieldtype": "Select",
    "label": "Provisioning Status",
-   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nFailed\nUnknown"
+   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown"
   },
   {
    "fieldname": "operator_section",

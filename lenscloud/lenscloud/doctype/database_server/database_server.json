@@ -134,6 +134,14 @@
    "default": "8Gi"
   },
   {
+   "fieldname": "data_retention_policy",
+   "fieldtype": "Select",
+   "label": "Data Retention Policy",
+   "options": "Retain\nDelete",
+   "default": "Retain",
+   "reqd": 1
+  },
+  {
    "fieldname": "replica_count",
    "fieldtype": "Int",
    "label": "Replica Count",
@@ -206,7 +214,7 @@
    "fieldname": "database_status",
    "fieldtype": "Select",
    "label": "Database Status",
-   "options": "Draft\nPending\nProvisioning\nReady\nMaintenance\nFailed\nUnknown",
+   "options": "Draft\nPending\nProvisioning\nReady\nMaintenance\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown",
    "default": "Draft",
    "in_list_view": 1
   },
@@ -214,7 +222,7 @@
    "fieldname": "provisioning_status",
    "fieldtype": "Select",
    "label": "Provisioning Status",
-   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nFailed\nUnknown",
+   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown",
    "default": "Not Started"
   },
   {
@@ -261,6 +269,7 @@
   "image",
   "storage_class",
   "storage_size",
+  "data_retention_policy",
   "replica_count",
   "root_credential_secret_reference",
   "root_credential_secret_key",

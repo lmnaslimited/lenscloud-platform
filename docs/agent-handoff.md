@@ -197,3 +197,29 @@ Current live resources requiring manager cleanup before the sequential Private S
 - their exact-prefix Jobs, Secrets, and PVCs in `lenscloud-runtime-eu`
 
 The restricted Platform identity currently has no delete permission. Infra may perform the one-time exact-prefix cleanup to restore capacity, but routine manager cleanup must not become the operating model. The next milestone is the RBAC plus Platform lifecycle implementation defined above. Private Shared and Private live acceptance resume only after Platform can create, inspect, and delete its owned resources directly.
+
+
+## June 11 Runtime Lifecycle Handoff
+
+Canonical evidence: `docs/live-orchestration-evidence-20260611.md`. This section supersedes the June 7 statement that the restricted Platform identity has no delete permission; Infra has supplied the lifecycle RBAC contract and host-side evidence.
+
+Completed in the current Platform worktree from base `818c262`:
+
+- Python Kubernetes API-only permission preflight, apply, inspect, status, and delete paths; no `kubectl` runtime dependency;
+- stable ownership labels on MariaDB, FrappeBench, FrappeSite, and Platform-created credential Secrets;
+- secret-safe owner/dependent inventory and finalizer visibility;
+- guarded asynchronous Site, Bench, and operator-managed Database Server deletion, retry, dependency checks, protected-resource checks, exact confirmation, and action logs;
+- explicit MariaDB PVC `Retain`/`Delete` policy;
+- Platform inspect/delete/progress/retry UI while customer runtime internals remain hidden;
+- migrations, 15/15 backend tests, production build, and authenticated desktop/mobile Playwright.
+
+Apply remains disabled. The current external blocker is Kubernetes API reachability from the devcontainer: Python API preflight timed out connecting to the cluster API on port 6443. No live acceptance resources were created or deleted in this pass.
+
+Before resuming live acceptance, keep the host authorization watcher running:
+
+```sh
+cd /Users/arunkumar.ganesan/lensk8s/lenscloud-infra
+./scripts/52-authorize-platform-api.sh --watch
+```
+
+Then rerun Python preflight and proceed sequentially with lifecycle create/inspect/delete, Private Shared, cleanup, Private, and cleanup. Never use manager cleanup as the normal path, and never mutate `MariaDB/default/frappe-mariadb`.
