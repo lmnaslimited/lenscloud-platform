@@ -1082,8 +1082,10 @@ def validate_cluster_readiness(cluster, expected_root_domain="testcloud.lmnaslen
 			mariadb = client.get_custom_resource("MariaDB", "default", "frappe-mariadb")
 			phase = phase_from_resource(mariadb)
 			add("default-mariadb-ready", "default/frappe-mariadb readable and Ready", phase == "Ready", f"default/frappe-mariadb phase is {phase}.", "Ask Infra to restore the protected shared Public MariaDB before Platform apply.")
-			client.request("GET", f"/apis/networking.k8s.io/v1/ingressclasses/{quote(doc.ingress_class or 'traefik')}")
-			add("ingress-class", "Traefik ingress class exists", True, f"IngressClass {doc.ingress_class or 'traefik'} is readable.")
+			ingress_class = (doc.ingress_class or "").strip()
+			add("ingress-class", "Traefik ingress class configured", ingress_class == "traefik", f"Cluster ingress_class is {ingress_class or '-'}; expected traefik from the Infra handoff.", "Set Cluster.ingress_class to traefik, or ask Infra for a corrected handoff if the test cluster uses another class.")
+			client.list_namespaced("ingresses", runtime_namespace, group="networking.k8s.io", version="v1")
+			add("runtime-ingress-read", "Runtime Ingress API is namespace-readable", True, f"Namespace {runtime_namespace} accepted a namespaced Ingress list request.")
 	except Exception as exc:
 		add("cluster-api-runtime", "Cluster API runtime checks", False, exc, "Check Platform API firewall authorization, restricted RBAC, operators, and runtime namespace with Infra.")
 

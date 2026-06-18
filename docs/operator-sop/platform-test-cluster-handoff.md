@@ -188,7 +188,7 @@ All gates must pass before live apply is enabled:
 5. Frappe Operator API resources exist;
 6. MariaDB Operator API resources exist;
 7. `default/frappe-mariadb` is readable and Ready;
-8. Traefik ingress class exists;
+8. Cluster ingress class is `traefik` and runtime Ingress API is namespace-readable;
 9. Platform Settings root domain is `testcloud.lmnaslens.com`;
 10. Headlamp HTTPS endpoint is reachable;
 11. positive RBAC checks pass;
