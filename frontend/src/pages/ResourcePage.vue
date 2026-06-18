@@ -41,6 +41,7 @@ const lifecycleState = ref('idle')
 const actionExecutionState = ref('idle')
 const actionResult = ref(null)
 const actionRawResult = ref(null)
+const actionFailure = ref(null)
 
 const selectedName = computed(() => route.params.name || records.value[0]?.name || '')
 const isTreeResource = computed(() => Boolean(resource.value?.tree))
@@ -533,9 +534,13 @@ const inspectorTabs = computed(() => {
 function selectAction(action) {
 	activeActionKey.value = activeActionKey.value === action.key ? '' : action.key
 	for (const key of Object.keys(actionState)) delete actionState[key]
+	for (const field of action.fields || []) {
+		actionState[field.key] = field.default ?? (field.type === 'check' ? false : '')
+	}
 	actionExecutionState.value = 'idle'
 	actionResult.value = null
 	actionRawResult.value = null
+	actionFailure.value = null
 }
 
 function buildActionParams() {
@@ -561,11 +566,70 @@ function formatActionResult(result) {
 	return JSON.stringify(result, null, 2)
 }
 
+function actionLogFromError(message) {
+	return String(message || '').match(/ORCH-\d{4}-\d+/)?.[0] || ''
+}
+
+function recoverySteps(action, message) {
+	const text = String(message || '').toLowerCase()
+	const steps = []
+
+	if (text.includes('404') || text.includes('not found')) {
+		steps.push('The runtime resource does not exist yet. Run the matching Reconcile action with Dry run switched off.')
+	}
+	if (text.includes('timed out') || text.includes('connection')) {
+		steps.push('Confirm the host API authorization watcher is running, then run the Cluster permission preflight again.')
+	}
+	if (text.includes('permission') || text.includes('forbidden') || text.includes('403')) {
+		steps.push('Run the Python Cluster permission preflight and stop if required access is denied.')
+	}
+	if (action?.key?.startsWith('sync-')) {
+		steps.push('Confirm the preceding Reconcile action returned accepted rather than dry_run before syncing status.')
+	}
+	if (action?.key?.startsWith('reconcile-')) {
+		steps.push('Confirm Kubernetes apply is enabled only for the controlled window and verify the Dry run switch before retrying.')
+	}
+	if (action?.key?.includes('delete')) {
+		steps.push('Check dependent resources, exact confirmation text, ownership labels, and finalizer progress before retrying.')
+	}
+	steps.push('Open Platform > Orchestration Logs and inspect the latest action for this record.')
+	return [...new Set(steps)]
+}
+
+function successGuidance(action, result) {
+	if (!result || typeof result !== 'object') return null
+	if (result.status === 'dry_run' || result.dry_run === true) {
+		return {
+			title: 'Dry run complete — no cluster resource was created',
+			message: result.message || 'The manifest was generated and audited, but it was not applied to Kubernetes.',
+			steps: result.next_actions || ['Enable apply for the controlled window.', 'Switch Dry run off.', 'Run Reconcile again and require status accepted before syncing.'],
+		}
+	}
+	if (result.status === 'accepted') {
+		return {
+			title: 'Kubernetes accepted the resource',
+			message: result.message || 'The owner resource was submitted successfully.',
+			steps: result.next_actions || ['Run Sync runtime status until the resource is Ready.', 'Use Inspect runtime for conditions, finalizers, workloads, PVCs, Services, and Events.'],
+		}
+	}
+	if (result.status === 'deleting') {
+		return {
+			title: 'Deletion accepted',
+			message: result.message || 'The operator is processing normal finalizers.',
+			steps: result.next_actions || ['Run Inspect runtime until the owner resource is absent and the Platform status is Deleted.', 'Use Retry delete only after correcting a reported blocker.'],
+		}
+	}
+	return result.next_actions?.length ? { title: 'Action completed', message: result.message || 'Review the result below.', steps: result.next_actions } : null
+}
+
+const activeActionGuidance = computed(() => successGuidance(activeAction.value, actionResult.value))
+
 async function executeActiveAction() {
 	if (!activeAction.value?.method) return
 	actionExecutionState.value = 'running'
 	actionResult.value = null
 	actionRawResult.value = null
+	actionFailure.value = null
 	error.value = null
 	try {
 		const result = await callMethod(activeAction.value.method, buildActionParams(), 'POST')
@@ -575,7 +639,13 @@ async function executeActiveAction() {
 		await load()
 	} catch (err) {
 		actionExecutionState.value = 'error'
-		error.value = err?.message || 'Unable to execute action.'
+		const message = err?.message || 'Unable to execute action.'
+		actionFailure.value = {
+			title: `${activeAction.value?.label || 'Action'} failed`,
+			message,
+			actionLog: actionLogFromError(message),
+			steps: recoverySteps(activeAction.value, message),
+		}
 	}
 }
 
@@ -760,7 +830,7 @@ async function saveCurrentRecord() {
 
 		<template #main>
 			<div class="flex h-full min-h-0 flex-col p-4">
-				<Alert v-if="error" theme="red" title="Surface gap" :message="error" />
+				<Alert v-if="error" theme="red" title="Unable to load or save this surface" :description="error" />
 
 				<div v-if="isCreating" class="min-h-0 flex-1 overflow-auto rounded border border-outline-gray-2 bg-surface-white p-4">
 					<div class="flex items-start justify-between gap-3 border-b border-outline-gray-2 pb-3">
@@ -781,6 +851,7 @@ async function saveCurrentRecord() {
 								/>
 								<Button v-if="canClearField(createForm, field)" size="sm" variant="subtle" class="mb-0.5 shrink-0" @click="clearModelField(createForm, field)">Clear</Button>
 							</div>
+							<p v-if="field.description" class="mt-1 text-xs leading-5 text-ink-gray-5">{{ field.description }}</p>
 						</div>
 					</div>
 
@@ -952,6 +1023,7 @@ async function saveCurrentRecord() {
 											{{ formatFieldValue(record[field.key]) }}
 										</div>
 									</div>
+									<p v-if="editableField(field).description" class="mt-1 text-xs leading-5 text-ink-gray-5">{{ editableField(field).description }}</p>
 								</div>
 							</div>
 
@@ -1132,6 +1204,26 @@ async function saveCurrentRecord() {
 									<Badge v-if="!activeAction.backendSupported" class="bg-amber-50 text-amber-700">Backend gap</Badge>
 									<Badge v-else-if="actionExecutionState === 'done'" class="bg-emerald-50 text-emerald-700">Done</Badge>
 									<Badge v-else-if="actionExecutionState === 'error'" class="bg-red-50 text-red-700">Failed</Badge>
+								</div>
+
+								<div v-if="actionFailure" class="mt-3 rounded border border-red-200 bg-red-50 p-3">
+									<p class="text-sm font-semibold text-red-800">{{ actionFailure.title }}</p>
+									<p class="mt-1 text-sm leading-5 text-red-700">{{ actionFailure.message }}</p>
+									<RouterLink v-if="actionFailure.actionLog" class="mt-2 inline-block text-sm font-medium text-ink-blue-3 hover:underline" :to="`/platform/orchestration-logs/${encodeURIComponent(actionFailure.actionLog)}`">Open action log {{ actionFailure.actionLog }}</RouterLink>
+									<div class="mt-3">
+										<p class="text-xs font-semibold uppercase text-red-700">What to do next</p>
+										<ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-red-700">
+											<li v-for="step in actionFailure.steps" :key="step">{{ step }}</li>
+										</ol>
+									</div>
+								</div>
+
+								<div v-if="activeActionGuidance" class="mt-3 rounded border border-blue-200 bg-blue-50 p-3">
+									<p class="text-sm font-semibold text-blue-800">{{ activeActionGuidance.title }}</p>
+									<p class="mt-1 text-sm leading-5 text-blue-700">{{ activeActionGuidance.message }}</p>
+									<ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-blue-700">
+										<li v-for="step in activeActionGuidance.steps" :key="step">{{ step }}</li>
+									</ol>
 								</div>
 
 								<div v-if="actionResult" class="mt-3 rounded border border-outline-gray-2 bg-surface-white p-3">

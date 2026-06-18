@@ -113,6 +113,19 @@ Required result:
 
 Stop if the API times out. Start or check the host authorization watcher, then retry. Stop if a required permission is denied or a prohibited permission is allowed.
 
+## 2.1 Reading Action Outcomes
+
+Every Platform action must now end in one of these visible outcomes:
+
+- `Dry run complete — no cluster resource was created`: review the manifest, then enable apply and rerun Reconcile with `Dry run` off when live creation is intended.
+- `Kubernetes accepted the resource`: the owner CR was submitted; run the named status-sync action next.
+- `Action failed`: read the safe error, follow `What to do next`, and open the linked `ORCH-*` action log.
+- `Deletion accepted`: poll `Inspect runtime`; do not remove finalizers manually.
+
+The action result also shows the action-log ID. Open `/lenscloud/platform/orchestration-logs/<ORCH-ID>` to review status, safe message/error, resource identity, and the secret-safe manifest.
+
+If a status sync reports that the runtime resource is absent, do not keep retrying sync. Return to Reconcile, verify apply is enabled and `Dry run` is off, require `status: accepted`, and only then sync again.
+
 ## 3. Confirm Platform Settings
 
 Open `/lenscloud/platform/settings`.
@@ -196,9 +209,30 @@ Enter:
 - Root Secret reference: `<prefix>-life-db-root`
 - Maximum Bench count: `1`
 
-Save, open `Actions`, select `Reconcile Database Server`, leave `Dry run` unchecked, and run.
+Save, open `Actions`, select `Reconcile Database Server`, confirm `Dry run` is visibly off, and run.
 
-Repeat `Sync runtime status` until Database status and health are Ready/Healthy. Record action-log IDs.
+Required result before status sync:
+
+- banner: `Kubernetes accepted the resource`;
+- result status: `accepted`;
+- a new `ORCH-*` action-log ID.
+
+If the result says `Dry run complete`, no MariaDB was created. Follow the displayed next actions and rerun Reconcile; do not run status sync yet.
+
+After an accepted result, run `Sync runtime status` every 15-30 seconds until Database status and health are Ready/Healthy. Use `Inspect runtime` between sync attempts if you need operator conditions, finalizers, workload, PVC, Service, or warning Event details. Record action-log IDs.
+
+### 6.1 Recovery: Pending Record With No MariaDB CR
+
+Use this when the Database Server document is `Pending` but the latest reconcile log is `Dry Run`.
+
+1. Confirm the Python permission preflight still passes.
+2. Confirm `Kubernetes apply enabled` is on for the controlled window.
+3. Review `Data retention policy`; use `Delete` for a disposable run or consciously accept retained PVCs with `Retain`.
+4. Hard-refresh the Platform page so the latest frontend is loaded.
+5. Open the Database Server, choose `Reconcile Database Server`, and keep `Dry run` off.
+6. Run the action and require `status: accepted`.
+7. Only then run `Sync runtime status` until Ready/Healthy.
+8. If Reconcile fails, open the linked action log and follow its `What to do next` instructions. Do not create the MariaDB by another tool as a workaround.
 
 ### 6.2 Inspect Database Server
 

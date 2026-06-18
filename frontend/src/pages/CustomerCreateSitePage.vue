@@ -128,7 +128,7 @@ onMounted(load)
 
 		<template #main>
 			<div class="h-full overflow-y-auto p-4">
-				<Alert v-if="error" theme="red" title="Create site gap" :message="error" />
+				<Alert v-if="error" theme="red" title="Create site gap" :description="error" />
 
 				<div v-if="loading" class="rounded border border-outline-gray-2 bg-surface-white p-5 text-sm text-ink-gray-5">
 					Loading site request context...
@@ -219,7 +219,7 @@ onMounted(load)
 								<span class="truncate text-sm font-medium text-ink-gray-9">{{ system.value }}</span>
 							</div>
 						</div>
-						<Alert class="mt-3" theme="yellow" title="Billing integration gap" message="Plan and invoice data will come from the billing system configured in Platform Settings. Direct billing-system access is not exposed to customers here." />
+						<Alert class="mt-3" theme="yellow" title="Billing integration gap" description="Plan and invoice data will come from the billing system configured in Platform Settings. Direct billing-system access is not exposed to customers here." />
 					</section>
 
 					<section class="rounded border border-outline-gray-2 bg-surface-white p-4">
@@ -286,7 +286,7 @@ onMounted(load)
 						<p>Support: {{ platformSettings?.support_system || 'Not configured' }}</p>
 					</div>
 				</div>
-				<Alert theme="blue" title="Pending provisioning" message="This creates a LensCloud Site under the selected plan. Kubernetes apply remains gated by the selected Cluster credential and Platform Settings; standard Sites use shared wildcard DNS/TLS and create no Route53 record." />
+				<Alert theme="blue" title="Pending provisioning" description="This creates a LensCloud Site under the selected plan. Kubernetes apply remains gated by the selected Cluster credential and Platform Settings; standard Sites use shared wildcard DNS/TLS and create no Route53 record." />
 			</div>
 		</template>
 	</WorkspaceLayout>

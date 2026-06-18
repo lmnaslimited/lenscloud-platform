@@ -18,8 +18,11 @@ from lenscloud.api.orchestration import (
 	check_site_route,
 	delete_bench,
 	delete_database_server,
+	dry_run_result,
 	frappe_major,
+	remaining_required_dependents,
 	slugify,
+	validate_cluster_readiness,
 	validate_database_server_placement_doc,
 	validate_runtime_owner,
 	warning_event_summary,
@@ -82,6 +85,20 @@ class TestDatabaseServer(FrappeTestCase):
 		with self.assertRaises(RuntimeError):
 			check_site_route(SimpleNamespace(access_url="https://site.example"))
 
+
+	def test_retain_policy_allows_owned_pvc_to_remain(self):
+		inventory = {"related": {"PersistentVolumeClaim": [{"metadata": {"name": "db-a-data"}}]}}
+		self.assertEqual(
+			remaining_required_dependents(SimpleNamespace(doctype="Database Server", data_retention_policy="Retain"), inventory),
+			[],
+		)
+
+	def test_delete_policy_waits_for_owned_pvc_cleanup(self):
+		inventory = {"related": {"PersistentVolumeClaim": [{"metadata": {"name": "db-a-data"}}]}}
+		self.assertEqual(
+			remaining_required_dependents(SimpleNamespace(doctype="Database Server", data_retention_policy="Delete"), inventory),
+			[("PersistentVolumeClaim", "db-a-data")],
+		)
 
 class ReleaseGroupStub(SimpleNamespace):
 	def get(self, key):
@@ -169,6 +186,22 @@ def site_doc(**values):
 	return SimpleNamespace(**defaults)
 
 
+class TestActionGuidance(FrappeTestCase):
+	def action_log(self):
+		return SimpleNamespace(name="ORCH-2026-99999", status="Pending", message=None, error=None, last_transition_time=None, save=Mock())
+
+	def test_selected_dry_run_says_no_resource_was_created(self):
+		result = dry_run_result(self.action_log(), "manifest", SimpleNamespace(name="eu"), "MariaDB", True, True)
+		self.assertEqual(result["status"], "dry_run")
+		self.assertIn("Dry run was selected", result["message"])
+		self.assertIn("no Kubernetes resource was created", result["message"])
+
+	def test_disabled_apply_has_distinct_recovery(self):
+		result = dry_run_result(self.action_log(), "manifest", SimpleNamespace(name="eu"), "MariaDB", False, False)
+		self.assertIn("Kubernetes apply is disabled", result["message"])
+		self.assertIn("Enable Kubernetes apply", result["next_actions"][0])
+
+
 class TestRuntimeLifecycle(FrappeTestCase):
 	@patch("lenscloud.api.orchestration.get_region_cluster", return_value=cluster())
 	def test_database_manifest_carries_platform_ownership_labels(self, _cluster):
@@ -220,10 +253,16 @@ class TestRuntimeLifecycle(FrappeTestCase):
 		with self.assertRaises(frappe.ValidationError):
 			delete_bench("bench-a", "bench-a")
 
+	@patch("lenscloud.api.orchestration.create_action_log")
 	@patch("lenscloud.api.orchestration.get_region_cluster", return_value=cluster(default_runtime_namespace="lenscloud-runtime-eu"))
 	@patch("lenscloud.api.orchestration.frappe.get_all", return_value=[])
-	@patch("lenscloud.api.orchestration.frappe.get_doc", return_value=db_doc(name="frappe-mariadb", operator_resource_name="frappe-mariadb", kubernetes_namespace="default"))
-	def test_database_delete_rejects_protected_default_mariadb(self, _get_doc, _get_all, _cluster):
+	@patch("lenscloud.api.orchestration.frappe.get_doc")
+	def test_database_delete_rejects_protected_default_mariadb(self, get_doc, _get_all, _cluster, create_log):
+		doc = db_doc(name="frappe-mariadb", operator_resource_name="frappe-mariadb", kubernetes_namespace="default")
+		doc.set = lambda field, value: setattr(doc, field, value)
+		doc.save = Mock()
+		get_doc.return_value = doc
+		create_log.return_value = SimpleNamespace(name="ORCH-2026-99998", status="Pending", message=None, error=None, last_transition_time=None, save=Mock())
 		with self.assertRaises(frappe.ValidationError):
 			delete_database_server("frappe-mariadb", "frappe-mariadb")
 
@@ -236,3 +275,38 @@ class TestRuntimeLifecycle(FrappeTestCase):
 		self.assertTrue(result["all_required_allowed"])
 		self.assertTrue(result["all_denied_blocked"])
 		self.assertFalse(result["kubectl_required"])
+
+	@patch("lenscloud.api.orchestration.requests.get")
+	@patch("lenscloud.api.orchestration.kubeconfig_path", return_value="/run/secrets/lenscloud-eu-test.kubeconfig")
+	@patch("lenscloud.api.orchestration.get_cluster_client")
+	@patch("lenscloud.api.orchestration.get_platform_settings", return_value=SimpleNamespace(root_domain="testcloud.lmnaslens.com", kubernetes_apply_enabled=False))
+	@patch("lenscloud.api.orchestration.frappe.db.get_value", return_value="eu-test")
+	@patch("lenscloud.api.orchestration.frappe.get_doc")
+	@patch("lenscloud.api.orchestration.require_platform_operator")
+	def test_cluster_readiness_gates_use_python_client_and_block_without_dry_run_records(self, _role, get_doc, _region_cluster, _settings, get_cluster_client, _kubeconfig, http_get):
+		cluster_doc = SimpleNamespace(
+			name="eu-test",
+			region="EU Test",
+			default_runtime_namespace="lenscloud-runtime-eu",
+			kubeconfig_reference="file:/run/secrets/lenscloud-eu-test.kubeconfig",
+			ingress_class="traefik",
+			headlamp_url="https://headlamp.testcloud.lmnaslens.com",
+			status="Active",
+			health_status="Unknown",
+			save=Mock(),
+		)
+		get_doc.return_value = cluster_doc
+		client = get_cluster_client.return_value.__enter__.return_value
+		client.request.side_effect = lambda method, request_path, **_kwargs: {
+			"/version": {"gitVersion": "v1.33.0"},
+			"/apis/vyogo.tech/v1": {"resources": [{"name": "frappebenches"}, {"name": "frappesites"}]},
+			"/apis/k8s.mariadb.com/v1alpha1": {"resources": [{"name": "mariadbs"}]},
+		}.get(request_path, {})
+		client.get_custom_resource.return_value = {"status": {"phase": "Ready"}}
+		client.can_i.side_effect = lambda verb, group, resource, namespace=None: (False, "denied") if (verb, resource) in {("list", "secrets"), ("delete", "namespaces"), ("delete", "customresourcedefinitions")} or namespace == "default" and verb in {"patch", "delete"} else (True, "allowed")
+		http_get.return_value = SimpleNamespace(status_code=200)
+		result = validate_cluster_readiness("eu-test")
+		self.assertFalse(result["kubectl_required"])
+		self.assertFalse(result["all_gates_passed"])
+		self.assertFalse(result["apply_allowed"])
+		self.assertIn("dry-run-manifests", {gate["key"] for gate in result["gates"] if not gate["passed"]})

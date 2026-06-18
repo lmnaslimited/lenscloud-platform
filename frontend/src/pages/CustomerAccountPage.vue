@@ -108,7 +108,7 @@ onMounted(load)
 
 		<template #main>
 			<div class="h-full overflow-y-auto p-4">
-			<Alert v-if="error" theme="red" title="Account gap" :message="error" />
+			<Alert v-if="error" theme="red" title="Account gap" :description="error" />
 
 			<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
 				<div v-if="loading" class="flex items-center gap-3">

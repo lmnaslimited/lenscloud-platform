@@ -2,7 +2,7 @@ import hashlib
 import json
 import re
 import secrets
-from urllib.parse import urljoin, urlparse
+from urllib.parse import quote, urljoin, urlparse
 
 import frappe
 import requests
@@ -10,7 +10,7 @@ import yaml
 from frappe import _
 from frappe.utils import now_datetime
 
-from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientError, RESOURCE_PATHS, sanitize_error
+from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientError, RESOURCE_PATHS, kubeconfig_path, sanitize_error
 
 
 SAFE_NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
@@ -357,6 +357,33 @@ def finish_action_log(log, status, message=None, error=None):
 	return log
 
 
+def fail_action(log, exc, next_action):
+	finish_action_log(log, "Failed", error=exc)
+	frappe.db.commit()
+	safe_error = sanitize_error(exc)
+	frappe.throw(_("{0} Action log: {1}. Next action: {2}").format(safe_error, log.name, next_action))
+
+
+def dry_run_result(log, manifest, cluster, resource_label, requested_dry_run, apply_enabled):
+	if requested_dry_run:
+		message = f"Dry run was selected. {resource_label} manifest generated; no Kubernetes resource was created."
+		next_actions = ["Switch Dry run off.", "Run Reconcile again and require status accepted before status sync."]
+	else:
+		message = f"Kubernetes apply is disabled. {resource_label} manifest generated; no Kubernetes resource was created."
+		next_actions = ["Enable Kubernetes apply for the controlled test window.", "Run Reconcile again with Dry run off and require status accepted."]
+	finish_action_log(log, "Dry Run", message)
+	return {
+		"status": "dry_run",
+		"dry_run": True,
+		"manifest": manifest,
+		"cluster": cluster.name,
+		"action_log": log.name,
+		"message": message,
+		"next_actions": next_actions,
+		"apply_enabled": bool(apply_enabled),
+	}
+
+
 def phase_from_resource(resource):
 	status = resource.get("status") or {}
 	phase = status.get("phase") or status.get("state")
@@ -405,94 +432,129 @@ def ensure_database_root_secret(cluster, database_server):
 	return name
 
 
+def attach_manifest_to_log(log, manifest):
+	log.manifest = manifest
+	log.save(ignore_permissions=True)
+
+
 @frappe.whitelist()
 def dry_run_database_server_manifest(database_server):
 	doc = frappe.get_doc("Database Server", database_server)
 	cluster = get_region_cluster(doc.region)
-	manifest = build_database_server_manifest_data(doc)
-	text = manifest_yaml(manifest)
-	log = create_action_log("Database Server Dry Run", "Dry Run", database_server=doc.name, cluster=cluster.name, region=doc.region, manifest=text, message="Generated secret-safe MariaDB manifest dry-run.", resource_kind="MariaDB", operation="dry-run")
-	return {"manifest": text, "cluster": cluster.name, "action_log": log.name, "dry_run": True}
+	log = create_action_log("Database Server Dry Run", "Pending", database_server=doc.name, cluster=cluster.name, region=doc.region, message="Generating secret-safe MariaDB manifest.", resource_kind="MariaDB", operation="dry-run")
+	try:
+		text = manifest_yaml(build_database_server_manifest_data(doc))
+		attach_manifest_to_log(log, text)
+		message = "Generated secret-safe MariaDB manifest dry-run; no Kubernetes resource was created."
+		finish_action_log(log, "Dry Run", message)
+		return {"manifest": text, "cluster": cluster.name, "action_log": log.name, "dry_run": True, "status": "dry_run", "message": message, "next_actions": ["Review ownership labels, namespace, storage, and Secret reference names.", "To create it, use Reconcile Database Server with Dry run off while apply is enabled."]}
+	except Exception as exc:
+		fail_action(log, exc, "Correct the Database Server fields named in the error, then retry Preview MariaDB manifest.")
 
 
 @frappe.whitelist()
 def reconcile_database_server(database_server, dry_run=True):
 	doc = frappe.get_doc("Database Server", database_server)
 	cluster = get_region_cluster(doc.region)
-	manifest = build_database_server_manifest_data(doc)
-	text = manifest_yaml(manifest)
 	dry_run = as_bool(dry_run)
-	log = create_action_log("Database Server Reconcile", "Pending", database_server=doc.name, cluster=cluster.name, region=doc.region, manifest=text, dry_run=dry_run, resource_kind="MariaDB", operation="apply")
+	log = create_action_log("Database Server Reconcile", "Pending", database_server=doc.name, cluster=cluster.name, region=doc.region, dry_run=dry_run, message="Preparing MariaDB reconciliation.", resource_kind="MariaDB", operation="apply")
 	try:
-		if dry_run or not get_platform_settings().kubernetes_apply_enabled:
+		text = manifest_yaml(build_database_server_manifest_data(doc))
+		attach_manifest_to_log(log, text)
+		apply_enabled = bool(get_platform_settings().kubernetes_apply_enabled)
+		if dry_run or not apply_enabled:
 			doc.provisioning_status = "Pending"; doc.database_status = "Pending"; doc.save()
-			finish_action_log(log, "Dry Run", "Kubernetes apply is disabled; MariaDB manifest generated.")
-			return {"status": "dry_run", "manifest": text, "cluster": cluster.name, "action_log": log.name}
+			return dry_run_result(log, text, cluster, "MariaDB", dry_run, apply_enabled)
+		require_cluster_apply_ready(cluster)
 		ensure_database_root_secret(cluster, doc)
-		resource = reconcile_manifest(cluster, manifest)
+		resource = reconcile_manifest(cluster, yaml.safe_load(text))
 		doc.provisioning_status = "Accepted"; doc.database_status = phase_from_resource(resource); doc.last_error = None; doc.save()
-		finish_action_log(log, "Succeeded", "MariaDB resource accepted by Kubernetes API.")
-		return {"status": "accepted", "phase": doc.database_status, "cluster": cluster.name, "action_log": log.name}
+		message = "MariaDB resource accepted by Kubernetes API."
+		finish_action_log(log, "Succeeded", message)
+		return {"status": "accepted", "phase": doc.database_status, "cluster": cluster.name, "action_log": log.name, "message": message, "next_actions": ["Run Sync runtime status until Ready/Healthy.", "Run Inspect runtime to review conditions, finalizers, workloads, Services, PVCs, and warning Events."]}
 	except Exception as exc:
 		doc.provisioning_status = "Failed"; doc.database_status = "Failed"; doc.last_error = sanitize_error(exc); doc.save(ignore_permissions=True)
-		finish_action_log(log, "Failed", error=exc)
-		raise
+		fail_action(log, exc, "Open this action log, correct the reported cluster/manifest issue, then retry Reconcile Database Server.")
 
 
 @frappe.whitelist()
 def dry_run_bench_manifest(bench):
 	doc = frappe.get_doc("Bench", bench)
 	cluster = get_region_cluster(doc.region)
-	manifest = build_frappebench_manifest_data(doc, allow_pending_database=True)
-	text = manifest_yaml(manifest)
-	log = create_action_log("Bench Dry Run", "Dry Run", bench=doc.name, database_server=doc.database_server, cluster=cluster.name, region=doc.region, release=doc.current_release, manifest=text, message="Generated FrappeBench manifest dry-run.", resource_kind="FrappeBench", operation="dry-run")
-	return {"manifest": text, "cluster": cluster.name, "action_log": log.name, "dry_run": True}
+	log = create_action_log("Bench Dry Run", "Pending", bench=doc.name, database_server=doc.database_server, cluster=cluster.name, region=doc.region, release=doc.current_release, message="Generating secret-safe FrappeBench manifest.", resource_kind="FrappeBench", operation="dry-run")
+	try:
+		text = manifest_yaml(build_frappebench_manifest_data(doc, allow_pending_database=True))
+		attach_manifest_to_log(log, text)
+		message = "Generated secret-safe FrappeBench manifest dry-run; no Kubernetes resource was created."
+		finish_action_log(log, "Dry Run", message)
+		return {"manifest": text, "cluster": cluster.name, "action_log": log.name, "dry_run": True, "status": "dry_run", "message": message, "next_actions": ["Review release image, ownership labels, namespace, and Database Server reference.", "To create it, use Reconcile Bench with Dry run off while apply is enabled."]}
+	except Exception as exc:
+		fail_action(log, exc, "Correct the Bench placement, Database Server, privacy, or Release field named in the error, then retry the dry run.")
 
 
 @frappe.whitelist()
 def reconcile_bench(bench, dry_run=True):
-	doc = frappe.get_doc("Bench", bench); cluster = get_region_cluster(doc.region); dry_run = as_bool(dry_run)
-	manifest = build_frappebench_manifest_data(doc, allow_pending_database=dry_run or not get_platform_settings().kubernetes_apply_enabled)
-	text = manifest_yaml(manifest)
-	log = create_action_log("Bench Reconcile", "Pending", bench=doc.name, database_server=doc.database_server, cluster=cluster.name, region=doc.region, release=doc.current_release, manifest=text, dry_run=dry_run, resource_kind="FrappeBench", operation="apply")
+	doc = frappe.get_doc("Bench", bench)
+	cluster = get_region_cluster(doc.region)
+	dry_run = as_bool(dry_run)
+	log = create_action_log("Bench Reconcile", "Pending", bench=doc.name, database_server=doc.database_server, cluster=cluster.name, region=doc.region, release=doc.current_release, dry_run=dry_run, message="Preparing FrappeBench reconciliation.", resource_kind="FrappeBench", operation="apply")
 	try:
-		if dry_run or not get_platform_settings().kubernetes_apply_enabled:
-			doc.bench_status = "Pending"; doc.save(); finish_action_log(log, "Dry Run", "Kubernetes apply is disabled; FrappeBench manifest generated.")
-			return {"status": "dry_run", "manifest": text, "cluster": cluster.name, "action_log": log.name}
-		resource = reconcile_manifest(cluster, manifest)
-		doc.bench_status = phase_from_resource(resource); doc.save(); finish_action_log(log, "Succeeded", "FrappeBench accepted by Kubernetes API.")
-		return {"status": "accepted", "phase": doc.bench_status, "cluster": cluster.name, "action_log": log.name}
+		apply_enabled = bool(get_platform_settings().kubernetes_apply_enabled)
+		text = manifest_yaml(build_frappebench_manifest_data(doc, allow_pending_database=dry_run or not apply_enabled))
+		attach_manifest_to_log(log, text)
+		if dry_run or not apply_enabled:
+			doc.bench_status = "Pending"; doc.save()
+			return dry_run_result(log, text, cluster, "FrappeBench", dry_run, apply_enabled)
+		require_cluster_apply_ready(cluster)
+		resource = reconcile_manifest(cluster, yaml.safe_load(text))
+		doc.bench_status = phase_from_resource(resource); doc.save()
+		message = "FrappeBench accepted by Kubernetes API."
+		finish_action_log(log, "Succeeded", message)
+		return {"status": "accepted", "phase": doc.bench_status, "cluster": cluster.name, "action_log": log.name, "message": message, "next_actions": ["Run Sync runtime status until Ready.", "Run Inspect runtime before creating a Site."]}
 	except Exception as exc:
-		doc.bench_status = "Failed"; doc.save(ignore_permissions=True); finish_action_log(log, "Failed", error=exc); raise
+		doc.bench_status = "Failed"; doc.save(ignore_permissions=True)
+		fail_action(log, exc, "Open this action log, correct the placement/database/release issue, then retry Reconcile Bench.")
 
 
 @frappe.whitelist()
 def dry_run_site_manifest(site):
-	doc = frappe.get_doc("Site", site); cluster = get_region_cluster(doc.region)
-	manifest = build_frappesite_manifest_data(doc); text = manifest_yaml(manifest)
-	log = create_action_log("Site Dry Run", "Dry Run", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, manifest=text, message="Generated FrappeSite manifest dry-run.", resource_kind="FrappeSite", operation="dry-run")
-	return {"manifest": text, "cluster": cluster.name, "action_log": log.name, "dry_run": True}
+	doc = frappe.get_doc("Site", site)
+	cluster = get_region_cluster(doc.region)
+	log = create_action_log("Site Dry Run", "Pending", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, message="Generating secret-safe FrappeSite manifest.", resource_kind="FrappeSite", operation="dry-run")
+	try:
+		text = manifest_yaml(build_frappesite_manifest_data(doc))
+		attach_manifest_to_log(log, text)
+		message = "Generated secret-safe FrappeSite manifest dry-run; no Kubernetes resource was created."
+		finish_action_log(log, "Dry Run", message)
+		return {"manifest": text, "cluster": cluster.name, "action_log": log.name, "dry_run": True, "status": "dry_run", "message": message, "next_actions": ["Review hostname, ownership labels, Bench reference, and wildcard ingress settings.", "To create it, use Reconcile Site with Dry run off while apply is enabled."]}
+	except Exception as exc:
+		fail_action(log, exc, "Correct the Site placement, Bench, hostname, or route field named in the error, then retry the dry run.")
 
 
 @frappe.whitelist()
 def reconcile_site(site, dry_run=True):
-	doc = frappe.get_doc("Site", site); cluster = get_region_cluster(doc.region); dry_run = as_bool(dry_run)
-	manifest = build_frappesite_manifest_data(doc); text = manifest_yaml(manifest)
-	log = create_action_log("Site Reconcile", "Pending", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, manifest=text, dry_run=dry_run, resource_kind="FrappeSite", operation="apply")
+	doc = frappe.get_doc("Site", site)
+	cluster = get_region_cluster(doc.region)
+	dry_run = as_bool(dry_run)
+	log = create_action_log("Site Reconcile", "Pending", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, dry_run=dry_run, message="Preparing FrappeSite reconciliation.", resource_kind="FrappeSite", operation="apply")
 	try:
-		if dry_run or not get_platform_settings().kubernetes_apply_enabled:
+		text = manifest_yaml(build_frappesite_manifest_data(doc))
+		attach_manifest_to_log(log, text)
+		apply_enabled = bool(get_platform_settings().kubernetes_apply_enabled)
+		if dry_run or not apply_enabled:
 			doc.provisioning_status = "Pending"; doc.site_status = "Requested"; doc.route_status = "Pending"; doc.save(ignore_permissions=True)
-			finish_action_log(log, "Dry Run", "Kubernetes apply is disabled; FrappeSite manifest generated.")
-			return {"status": "dry_run", "manifest": text, "cluster": cluster.name, "action_log": log.name}
-		namespace = manifest["metadata"]["namespace"]
+			return dry_run_result(log, text, cluster, "FrappeSite", dry_run, apply_enabled)
+		require_cluster_apply_ready(cluster)
+		namespace = yaml.safe_load(text)["metadata"]["namespace"]
 		ensure_site_admin_secret(cluster, doc, namespace)
-		resource = reconcile_manifest(cluster, manifest)
+		resource = reconcile_manifest(cluster, yaml.safe_load(text))
 		doc.provisioning_status = "Accepted"; doc.site_status = phase_from_resource(resource); doc.route_status = "Pending"; doc.save(ignore_permissions=True)
-		finish_action_log(log, "Succeeded", "FrappeSite accepted by Kubernetes API.")
-		return {"status": "accepted", "phase": doc.site_status, "cluster": cluster.name, "action_log": log.name}
+		message = "FrappeSite accepted by Kubernetes API."
+		finish_action_log(log, "Succeeded", message)
+		return {"status": "accepted", "phase": doc.site_status, "cluster": cluster.name, "action_log": log.name, "message": message, "next_actions": ["Run Sync provisioning and access until Ready.", "When Ready, verify the HTTPS page and generated static asset.", "Run Inspect runtime for finalizers, Jobs, Services, Ingresses, and warning Events."]}
 	except Exception as exc:
 		doc.provisioning_status = "Failed"; doc.site_status = "Failed"; doc.route_status = "Failed"; doc.route_error = sanitize_error(exc); doc.save(ignore_permissions=True)
-		finish_action_log(log, "Failed", error=exc); raise
+		fail_action(log, exc, "Open this action log, correct the Bench/secret/route issue, then retry Reconcile Site.")
 
 
 def sync_custom_resource(cluster, kind, namespace, name):
@@ -720,57 +782,52 @@ def finalize_deleted_state(doc, inventory, status_field, resource_kind):
 	return True
 
 
-def create_runtime_inventory_log(label, doc, cluster, inventory, resource_kind):
+def inspect_runtime(doc, kind, resource_kind, status_field):
+	cluster = get_region_cluster(doc.region)
 	log = create_action_log(
-		label,
-		"Succeeded",
+		"Runtime Inventory",
+		"Pending",
 		database_server=doc.name if doc.doctype == "Database Server" else None,
 		bench=doc.name if doc.doctype == "Bench" else getattr(doc, "bench", None),
 		site=doc.name if doc.doctype == "Site" else None,
 		cluster=cluster.name,
 		region=doc.region,
-		message=f"Runtime inventory collected for {inventory['namespace']}/{inventory['name']} without Secret values.",
+		message=f"Collecting secret-safe runtime inventory for {kind}.",
 		dry_run=False,
-		resource_kind=resource_kind,
+		resource_kind=kind,
 		operation="inventory",
 	)
-	return log
+	try:
+		inventory = build_runtime_inventory(doc, kind, resource_kind)
+		finalize_deleted_state(doc, inventory, status_field, resource_kind)
+		message = f"Runtime inventory collected for {inventory['namespace']}/{inventory['name']} without Secret values."
+		finish_action_log(log, "Succeeded", message)
+		inventory.update({
+			"action_log": log.name,
+			"message": message,
+			"next_actions": ["Review owner conditions/finalizers and related resources below.", "If provisioning is still running, wait for the operator and run status sync again."] if inventory["owner_present"] else ["No owner CR is present. If creation was intended, run Reconcile with Dry run off and require status accepted."]
+		})
+		return inventory
+	except Exception as exc:
+		fail_action(log, exc, "Open this action log, verify API reachability and ownership identity, then retry Inspect runtime.")
 
 
 @frappe.whitelist()
 def inspect_database_server_runtime(database_server):
 	require_platform_operator()
-	doc = frappe.get_doc("Database Server", database_server)
-	inventory = build_runtime_inventory(doc, "MariaDB", "database-server")
-	finalize_deleted_state(doc, inventory, "database_status", "database-server")
-	cluster = get_region_cluster(doc.region)
-	log = create_runtime_inventory_log("Runtime Inventory", doc, cluster, inventory, "MariaDB")
-	inventory["action_log"] = log.name
-	return inventory
+	return inspect_runtime(frappe.get_doc("Database Server", database_server), "MariaDB", "database-server", "database_status")
 
 
 @frappe.whitelist()
 def inspect_bench_runtime(bench):
 	require_platform_operator()
-	doc = frappe.get_doc("Bench", bench)
-	inventory = build_runtime_inventory(doc, "FrappeBench", "bench")
-	finalize_deleted_state(doc, inventory, "bench_status", "bench")
-	cluster = get_region_cluster(doc.region)
-	log = create_runtime_inventory_log("Runtime Inventory", doc, cluster, inventory, "FrappeBench")
-	inventory["action_log"] = log.name
-	return inventory
+	return inspect_runtime(frappe.get_doc("Bench", bench), "FrappeBench", "bench", "bench_status")
 
 
 @frappe.whitelist()
 def inspect_site_runtime(site):
 	require_platform_operator()
-	doc = frappe.get_doc("Site", site)
-	inventory = build_runtime_inventory(doc, "FrappeSite", "site")
-	finalize_deleted_state(doc, inventory, "site_status", "site")
-	cluster = get_region_cluster(doc.region)
-	log = create_runtime_inventory_log("Runtime Inventory", doc, cluster, inventory, "FrappeSite")
-	inventory["action_log"] = log.name
-	return inventory
+	return inspect_runtime(frappe.get_doc("Site", site), "FrappeSite", "site", "site_status")
 
 
 def validate_delete_confirmation(doc, confirmation):
@@ -780,7 +837,6 @@ def validate_delete_confirmation(doc, confirmation):
 
 def delete_owner_resource(doc, kind, resource_kind, status_field, reason=None):
 	cluster, namespace, name = expected_runtime_identity(doc, kind)
-	validate_runtime_namespace(cluster, kind, namespace, name)
 	log = create_action_log(
 		f"{doc.doctype} Delete",
 		"Deletion Requested",
@@ -795,6 +851,7 @@ def delete_owner_resource(doc, kind, resource_kind, status_field, reason=None):
 		operation="delete",
 	)
 	try:
+		validate_runtime_namespace(cluster, kind, namespace, name)
 		doc.set(status_field, "Deletion Requested")
 		if hasattr(doc, "provisioning_status"):
 			doc.provisioning_status = "Deletion Requested"
@@ -808,8 +865,9 @@ def delete_owner_resource(doc, kind, resource_kind, status_field, reason=None):
 					if hasattr(doc, "provisioning_status"):
 						doc.provisioning_status = "Deleted"
 					doc.save(ignore_permissions=True)
-					finish_action_log(log, "Deleted", f"{kind} {namespace}/{name} was already absent.")
-					return {"status": "deleted", "action_log": log.name, "namespace": namespace, "name": name}
+					message = f"{kind} {namespace}/{name} was already absent."
+					finish_action_log(log, "Deleted", message)
+					return {"status": "deleted", "action_log": log.name, "namespace": namespace, "name": name, "message": message, "next_actions": ["Run Inspect runtime to confirm required dependent cleanup and final Platform status."]}
 				raise
 			validate_runtime_owner(resource, doc, resource_kind)
 			doc.set(status_field, "Deleting")
@@ -817,8 +875,9 @@ def delete_owner_resource(doc, kind, resource_kind, status_field, reason=None):
 				doc.provisioning_status = "Deleting"
 			doc.save(ignore_permissions=True)
 			client.delete_custom_resource(kind, namespace, name)
-		finish_action_log(log, "Deleting", f"{kind} {namespace}/{name} delete accepted; waiting on normal operator finalizers.")
-		return {"status": "deleting", "action_log": log.name, "namespace": namespace, "name": name}
+		message = f"{kind} {namespace}/{name} delete accepted; waiting on normal operator finalizers."
+		finish_action_log(log, "Deleting", message)
+		return {"status": "deleting", "action_log": log.name, "namespace": namespace, "name": name, "message": message, "next_actions": ["Run Inspect runtime until the owner CR is absent and the Platform status is Deleted.", "Never remove finalizers manually; use Retry delete only after correcting a reported blocker."]}
 	except Exception as exc:
 		doc.set(status_field, "Deletion Failed")
 		if hasattr(doc, "provisioning_status"):
@@ -826,8 +885,7 @@ def delete_owner_resource(doc, kind, resource_kind, status_field, reason=None):
 		if hasattr(doc, "last_error"):
 			doc.last_error = sanitize_error(exc)
 		doc.save(ignore_permissions=True)
-		finish_action_log(log, "Deletion Failed", error=exc)
-		raise
+		fail_action(log, exc, "Open this action log, correct the ownership/dependency/finalizer blocker, then use Retry delete.")
 
 
 @frappe.whitelist()
@@ -884,7 +942,9 @@ def sync_database_server_status(database_server):
 		finish_action_log(log, "Succeeded", f"MariaDB runtime phase: {phase}.")
 		return {"status": doc.database_status, "health": doc.health_status, "action_log": log.name}
 	except Exception as exc:
-		doc.health_status = "Failed"; doc.last_sync_time = now_datetime(); doc.last_error = sanitize_error(exc); doc.save(ignore_permissions=True); finish_action_log(log, "Failed", error=exc); raise
+		doc.health_status = "Failed"; doc.last_sync_time = now_datetime(); doc.last_error = sanitize_error(exc); doc.save(ignore_permissions=True)
+		next_action = "Run Reconcile Database Server with Dry run off, require status accepted, then retry Sync runtime status." if is_not_found(exc) else "Open this action log, correct the reported runtime access or operator issue, then retry Sync runtime status."
+		fail_action(log, exc, next_action)
 
 
 @frappe.whitelist()
@@ -895,7 +955,9 @@ def sync_bench_status(bench):
 		resource = sync_custom_resource(cluster, "FrappeBench", doc.kubernetes_namespace, doc.operator_resource_name); doc.bench_status = phase_from_resource(resource); doc.save(); finish_action_log(log, "Succeeded", f"FrappeBench runtime phase: {doc.bench_status}.")
 		return {"status": doc.bench_status, "action_log": log.name}
 	except Exception as exc:
-		doc.bench_status = "Failed"; doc.save(ignore_permissions=True); finish_action_log(log, "Failed", error=exc); raise
+		doc.bench_status = "Failed"; doc.save(ignore_permissions=True)
+		next_action = "Run Reconcile Bench with Dry run off, require status accepted, then retry Sync runtime status." if is_not_found(exc) else "Open this action log, correct the reported runtime issue, then retry Bench status sync."
+		fail_action(log, exc, next_action)
 
 
 def get_route_response(url, timeout):
@@ -938,7 +1000,138 @@ def sync_site_status(site, check_route=True):
 		doc.save(); finish_action_log(log, "Succeeded", f"FrappeSite runtime phase: {phase}; route: {doc.route_status}.")
 		return {"status": doc.site_status, "provisioning_status": doc.provisioning_status, "route_status": doc.route_status, "access_url": doc.access_url, "route": result, "action_log": log.name}
 	except Exception as exc:
-		doc.last_route_check = now_datetime(); doc.route_status = "Failed"; doc.route_error = sanitize_error(exc); doc.save(ignore_permissions=True); finish_action_log(log, "Failed", error=exc); raise
+		doc.last_route_check = now_datetime(); doc.route_status = "Failed"; doc.route_error = sanitize_error(exc); doc.save(ignore_permissions=True)
+		next_action = "Run Reconcile Site with Dry run off, require status accepted, then retry Sync provisioning and access." if is_not_found(exc) else "Open this action log, inspect operator conditions and route diagnostics, then retry Site status sync."
+		fail_action(log, exc, next_action)
+
+
+def gate_result(key, label, passed, message, next_action=None, evidence=None):
+	return {
+		"key": key,
+		"label": label,
+		"passed": bool(passed),
+		"message": sanitize_error(message),
+		"next_action": next_action,
+		"evidence": evidence,
+	}
+
+
+def api_resources(client, group, version):
+	result = client.request("GET", f"/apis/{quote(group)}/{quote(version)}")
+	return {item.get("name") for item in result.get("resources") or []}
+
+
+def headlamp_reachable(url):
+	if not url or not str(url).startswith("https://"):
+		return False, "Headlamp URL must be HTTPS."
+	try:
+		response = requests.get(url, timeout=15, allow_redirects=True)
+		return response.status_code < 500, f"HTTPS status {response.status_code}."
+	except requests.RequestException as exc:
+		return False, sanitize_error(exc)
+
+
+def validate_dry_run_records(database_server=None, bench=None, site=None):
+	selected = [value for value in (database_server, bench, site) if value]
+	if not selected:
+		return False, "No dry-run records were supplied for manifest validation."
+	for name in selected:
+		# The builders return structured data and never expose Secret values.
+		if name == database_server:
+			build_database_server_manifest_data(frappe.get_doc("Database Server", database_server))
+		elif name == bench:
+			build_frappebench_manifest_data(frappe.get_doc("Bench", bench), allow_pending_database=True)
+		elif name == site:
+			build_frappesite_manifest_data(frappe.get_doc("Site", site))
+	return True, "Selected dry-run manifest builders completed without validation errors."
+
+
+@frappe.whitelist()
+def validate_cluster_readiness(cluster, expected_root_domain="testcloud.lmnaslens.com", database_server=None, bench=None, site=None):
+	require_platform_operator()
+	doc = frappe.get_doc("Cluster", cluster)
+	settings = get_platform_settings()
+	runtime_namespace = doc.default_runtime_namespace or "default"
+	gates = []
+
+	def add(key, label, passed, message, next_action=None, evidence=None):
+		gates.append(gate_result(key, label, passed, message, next_action, evidence))
+
+	try:
+		path = kubeconfig_path(doc.kubeconfig_reference)
+		add("kubeconfig-readable", "Restricted kubeconfig readable", True, f"Server-side kubeconfig reference is readable at {path}.")
+	except Exception as exc:
+		add("kubeconfig-readable", "Restricted kubeconfig readable", False, exc, "Mount the restricted kubeconfig read-only into the Platform backend and store only the file: reference.")
+
+	try:
+		region_cluster = frappe.db.get_value("Region", doc.region, "cluster") if doc.region else None
+		add("region-cluster", "Region resolves to selected Cluster", region_cluster == doc.name, f"Region {doc.region or '-'} resolves to Cluster {region_cluster or '-' }.", "Set Region.cluster to this Cluster before creating runtime records.")
+	except Exception as exc:
+		add("region-cluster", "Region resolves to selected Cluster", False, exc, "Fix the Region record and retry validation.")
+
+	try:
+		with get_cluster_client(doc) as client:
+			version = client.request("GET", "/version")
+			add("api-reachable", "Kubernetes API reachable", True, "Kubernetes API version endpoint responded.", evidence=version.get("gitVersion"))
+			client.request("GET", f"/api/v1/namespaces/{quote(runtime_namespace)}")
+			add("runtime-namespace", "Runtime namespace exists", True, f"Namespace {runtime_namespace} is readable.")
+			frappe_resources = api_resources(client, "vyogo.tech", "v1")
+			add("frappe-crds", "Frappe Operator CRDs exist", {"frappebenches", "frappesites"}.issubset(frappe_resources), f"Frappe resources discovered: {', '.join(sorted(frappe_resources))}.", "Ask Infra to verify Frappe Operator and CRDs.")
+			mariadb_resources = api_resources(client, "k8s.mariadb.com", "v1alpha1")
+			add("mariadb-crds", "MariaDB Operator CRDs exist", "mariadbs" in mariadb_resources, f"MariaDB resources discovered: {', '.join(sorted(mariadb_resources))}.", "Ask Infra to verify MariaDB Operator and CRDs.")
+			mariadb = client.get_custom_resource("MariaDB", "default", "frappe-mariadb")
+			phase = phase_from_resource(mariadb)
+			add("default-mariadb-ready", "default/frappe-mariadb readable and Ready", phase == "Ready", f"default/frappe-mariadb phase is {phase}.", "Ask Infra to restore the protected shared Public MariaDB before Platform apply.")
+			client.request("GET", f"/apis/networking.k8s.io/v1/ingressclasses/{quote(doc.ingress_class or 'traefik')}")
+			add("ingress-class", "Traefik ingress class exists", True, f"IngressClass {doc.ingress_class or 'traefik'} is readable.")
+	except Exception as exc:
+		add("cluster-api-runtime", "Cluster API runtime checks", False, exc, "Check Platform API firewall authorization, restricted RBAC, operators, and runtime namespace with Infra.")
+
+	expected = (expected_root_domain or "").strip().lower().strip(".")
+	actual = (settings.root_domain or "").strip().lower().strip(".")
+	add("root-domain", "Root domain matches handoff", bool(expected and actual == expected), f"Platform Settings root_domain is {actual or '-'}; expected {expected or '-'}.", "Set Platform Settings root_domain to the Infra handoff root domain.")
+	reachable, headlamp_message = headlamp_reachable(doc.headlamp_url)
+	add("headlamp-https", "Headlamp HTTPS reachable", reachable, headlamp_message, "Ask Infra to verify wildcard DNS/TLS, Traefik, and Headlamp before Platform apply.")
+
+	try:
+		permissions = check_cluster_permissions(cluster)
+		add("positive-rbac", "Positive RBAC checks pass", permissions["all_required_allowed"], "Required namespace and protected-read checks completed.", "Stop and hand the RBAC evidence back to Infra.")
+		add("negative-rbac", "Negative RBAC checks remain denied", permissions["all_denied_blocked"], "Protected operations were checked for denial.", "Stop immediately; Platform apply must remain disabled until Infra fixes the restricted access contract.")
+	except Exception as exc:
+		add("rbac-preflight", "RBAC preflight completed", False, exc, "Fix API reachability or restricted access before enabling apply.")
+
+	try:
+		dry_run_ok, dry_run_message = validate_dry_run_records(database_server=database_server, bench=bench, site=site)
+		add("dry-run-manifests", "Dry-run manifest validation passes", dry_run_ok, dry_run_message, "Create/select the Database Server, Bench, and/or Site control-plane records, then rerun validation.")
+	except Exception as exc:
+		add("dry-run-manifests", "Dry-run manifest validation passes", False, exc, "Correct the record fields named in the error and rerun dry-run validation.")
+
+	all_passed = all(item["passed"] for item in gates)
+	doc.health_status = "Healthy" if all_passed else "Degraded"
+	doc.last_sync_time = now_datetime()
+	doc.last_error = None if all_passed else "; ".join(item["label"] for item in gates if not item["passed"])
+	doc.save(ignore_permissions=True)
+	return {
+		"cluster": doc.name,
+		"all_gates_passed": all_passed,
+		"apply_allowed": all_passed,
+		"client": "python-kubernetes-api-wrapper",
+		"kubectl_required": False,
+		"gates": gates,
+		"next_actions": ["Enable Kubernetes apply only for the controlled test window after all gates pass."] if all_passed else ["Keep Kubernetes apply disabled.", "Resolve every failed gate and rerun Validate cluster gates."],
+	}
+
+
+def require_cluster_apply_ready(cluster):
+	settings = get_platform_settings()
+	if not settings.kubernetes_apply_enabled:
+		return True
+	root_domain = (settings.root_domain or "").strip().lower().strip(".")
+	if not root_domain:
+		frappe.throw(_("Platform Settings root_domain is required before live apply."))
+	if cluster.status != "Active" or cluster.health_status != "Healthy":
+		frappe.throw(_("Cluster {0} must pass Validate cluster gates and be Healthy before live apply.").format(cluster.name))
+	return True
 
 
 @frappe.whitelist()

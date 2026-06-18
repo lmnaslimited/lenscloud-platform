@@ -15,7 +15,10 @@ class DatabaseServer(Document):
 		self.operator_resource_name = slugify(self.operator_resource_name or self.title)
 		self.kubernetes_namespace = self.kubernetes_namespace or cluster.default_runtime_namespace or "default"
 		self.storage_class = self.storage_class or cluster.default_storage_class or "local-path"
+		self.data_retention_policy = self.data_retention_policy or "Retain"
 		self.attached_bench_count = frappe.db.count("Bench", {"database_server": self.name}) if not self.is_new() else 0
+		if self.data_retention_policy not in {"Retain", "Delete"}:
+			frappe.throw(_("Data Retention Policy must be Retain or Delete."))
 		if self.privacy in {"Private", "Private Shared"} and not (self.owner_customer or self.privacy_boundary):
 			frappe.throw(_("{0} Database Server requires an Owner Customer or Privacy Boundary.").format(self.privacy))
 		if self.privacy == "Public":

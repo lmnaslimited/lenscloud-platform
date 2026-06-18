@@ -3,17 +3,40 @@ function getCsrfToken() {
 }
 
 function parseBody(response, bodyText) {
-	if (!bodyText) {
-		return {}
-	}
+	if (!bodyText) return {}
 
 	try {
 		return JSON.parse(bodyText)
 	} catch {
-		return {
-			message: bodyText,
-		}
+		return { message: bodyText }
 	}
+}
+
+function parseServerMessages(value) {
+	if (!value) return []
+	try {
+		const messages = typeof value === 'string' ? JSON.parse(value) : value
+		return (Array.isArray(messages) ? messages : [messages]).map((entry) => {
+			try {
+				return typeof entry === 'string' ? JSON.parse(entry) : entry
+			} catch {
+				return { message: String(entry) }
+			}
+		})
+	} catch {
+		return []
+	}
+}
+
+function requestError(body, response) {
+	const serverMessages = parseServerMessages(body?._server_messages)
+	const serverMessage = [...serverMessages].reverse().find((entry) => entry?.message)
+	const message = serverMessage?.message || body?.message || body?.exception || body?.exc_type || response.statusText || 'Request failed'
+	const error = new Error(message)
+	error.title = serverMessage?.title || body?.exc_type || 'Request failed'
+	error.status = response.status
+	error.details = body
+	return error
 }
 
 async function request(path, options = {}) {
@@ -44,7 +67,7 @@ async function request(path, options = {}) {
 	const body = parseBody(response, bodyText)
 
 	if (!response.ok) {
-		throw new Error(body?.message || body?.exc || response.statusText || 'Request failed')
+		throw requestError(body, response)
 	}
 
 	return body

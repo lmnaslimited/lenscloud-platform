@@ -104,7 +104,7 @@ onMounted(load)
 
 		<template #main>
 			<div class="h-full overflow-y-auto p-4">
-				<Alert v-if="error" theme="red" title="Sites gap" :message="error" />
+				<Alert v-if="error" theme="red" title="Sites gap" :description="error" />
 
 				<div v-if="loading" class="rounded border border-outline-gray-2 bg-surface-white p-5 text-sm text-ink-gray-5">
 					Loading sites...
@@ -225,7 +225,7 @@ onMounted(load)
 						</div>
 					</div>
 				</div>
-				<Alert theme="blue" title="Support first" message="Customers use support for standard requests. Backup, restore, upgrade, advanced DNS, suspend, and delete require LensCloud qualification or platform-team handling." />
+				<Alert theme="blue" title="Support first" description="Customers use support for standard requests. Backup, restore, upgrade, advanced DNS, suspend, and delete require LensCloud qualification or platform-team handling." />
 			</div>
 		</template>
 	</WorkspaceLayout>
