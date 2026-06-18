@@ -1073,10 +1073,10 @@ def validate_cluster_readiness(cluster, expected_root_domain="testcloud.lmnaslen
 		with get_cluster_client(doc) as client:
 			version = client.request("GET", "/version")
 			add("api-reachable", "Kubernetes API reachable", True, "Kubernetes API version endpoint responded.", evidence=version.get("gitVersion"))
-			client.request("GET", f"/api/v1/namespaces/{quote(runtime_namespace)}")
-			add("runtime-namespace", "Runtime namespace exists", True, f"Namespace {runtime_namespace} is readable.")
 			frappe_resources = api_resources(client, "vyogo.tech", "v1")
 			add("frappe-crds", "Frappe Operator CRDs exist", {"frappebenches", "frappesites"}.issubset(frappe_resources), f"Frappe resources discovered: {', '.join(sorted(frappe_resources))}.", "Ask Infra to verify Frappe Operator and CRDs.")
+			client.list_custom_resources("FrappeBench", runtime_namespace)
+			add("runtime-namespace", "Runtime namespace accepts Platform-scoped reads", True, f"Namespace {runtime_namespace} accepted a namespace-scoped FrappeBench list request.")
 			mariadb_resources = api_resources(client, "k8s.mariadb.com", "v1alpha1")
 			add("mariadb-crds", "MariaDB Operator CRDs exist", "mariadbs" in mariadb_resources, f"MariaDB resources discovered: {', '.join(sorted(mariadb_resources))}.", "Ask Infra to verify MariaDB Operator and CRDs.")
 			mariadb = client.get_custom_resource("MariaDB", "default", "frappe-mariadb")

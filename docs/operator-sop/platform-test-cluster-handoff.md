@@ -184,7 +184,7 @@ All gates must pass before live apply is enabled:
 1. restricted kubeconfig file exists and is readable server-side;
 2. Kubernetes API is reachable from the Platform backend;
 3. Region resolves to the selected Cluster;
-4. runtime namespace exists;
+4. runtime namespace accepts namespace-scoped Platform API reads;
 5. Frappe Operator API resources exist;
 6. MariaDB Operator API resources exist;
 7. `default/frappe-mariadb` is readable and Ready;

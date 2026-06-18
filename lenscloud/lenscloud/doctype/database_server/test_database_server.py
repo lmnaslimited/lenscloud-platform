@@ -303,6 +303,7 @@ class TestRuntimeLifecycle(FrappeTestCase):
 			"/apis/k8s.mariadb.com/v1alpha1": {"resources": [{"name": "mariadbs"}]},
 		}.get(request_path, {})
 		client.get_custom_resource.return_value = {"status": {"phase": "Ready"}}
+		client.list_custom_resources.return_value = []
 		client.can_i.side_effect = lambda verb, group, resource, namespace=None: (False, "denied") if (verb, resource) in {("list", "secrets"), ("delete", "namespaces"), ("delete", "customresourcedefinitions")} or namespace == "default" and verb in {"patch", "delete"} else (True, "allowed")
 		http_get.return_value = SimpleNamespace(status_code=200)
 		result = validate_cluster_readiness("eu-test")
@@ -310,3 +311,4 @@ class TestRuntimeLifecycle(FrappeTestCase):
 		self.assertFalse(result["all_gates_passed"])
 		self.assertFalse(result["apply_allowed"])
 		self.assertIn("dry-run-manifests", {gate["key"] for gate in result["gates"] if not gate["passed"]})
+		client.list_custom_resources.assert_any_call("FrappeBench", "lenscloud-runtime-eu")
