@@ -6,6 +6,7 @@ from unittest.mock import Mock, patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
+from lenscloud.api.kubernetes_client import KubernetesClientError
 from lenscloud.api.orchestration import (
 	CUSTOMER_LABEL,
 	PLATFORM_MANAGER_LABEL,
@@ -22,6 +23,7 @@ from lenscloud.api.orchestration import (
 	frappe_major,
 	remaining_required_dependents,
 	slugify,
+	sync_runtime_namespaces,
 	validate_cluster_readiness,
 	validate_database_server_placement_doc,
 	validate_runtime_owner,
@@ -47,6 +49,59 @@ class TestDatabaseServer(FrappeTestCase):
 
 	def test_release_version_normalizes_to_frappe_major(self):
 		self.assertEqual(frappe_major("v15.91.2"), "15")
+
+	@patch("lenscloud.lenscloud.doctype.database_server.database_server.frappe.db.count", return_value=0)
+	@patch("lenscloud.lenscloud.doctype.database_server.database_server.get_region_cluster", return_value=SimpleNamespace(name="eu-test", default_runtime_namespace="lenscloud-runtime-eu", default_storage_class="local-path"))
+	def test_new_platform_database_cannot_use_default_namespace(self, _cluster, _count):
+		from lenscloud.lenscloud.doctype.database_server.database_server import DatabaseServer
+
+		doc = DatabaseServer({
+			"doctype": "Database Server",
+			"title": "EU Test Private MariaDB",
+			"region": "EU Test",
+			"provisioning_type": "Operator Managed",
+			"operator_resource_name": "eu-test-private-mariadb",
+			"kubernetes_namespace": "default",
+			"privacy": "Private",
+			"privacy_boundary": "customer-a",
+		})
+		with self.assertRaises(frappe.ValidationError):
+			doc.validate()
+
+	@patch("lenscloud.lenscloud.doctype.database_server.database_server.frappe.db.count", return_value=0)
+	@patch("lenscloud.lenscloud.doctype.database_server.database_server.get_region_cluster", return_value=SimpleNamespace(name="eu-test", default_runtime_namespace="lenscloud-runtime-eu", default_storage_class="local-path"))
+	def test_new_platform_database_rejects_misspelled_runtime_namespace(self, _cluster, _count):
+		from lenscloud.lenscloud.doctype.database_server.database_server import DatabaseServer
+
+		doc = DatabaseServer({
+			"doctype": "Database Server",
+			"title": "EU Test Private MariaDB",
+			"region": "EU Test",
+			"provisioning_type": "Operator Managed",
+			"operator_resource_name": "eu-test-private-mariadb",
+			"kubernetes_namespace": "lenscould-runtime-eu",
+			"privacy": "Private",
+			"privacy_boundary": "customer-a",
+		})
+		with self.assertRaises(frappe.ValidationError):
+			doc.validate()
+
+	@patch("lenscloud.lenscloud.doctype.database_server.database_server.frappe.db.count", return_value=0)
+	@patch("lenscloud.lenscloud.doctype.database_server.database_server.get_region_cluster", return_value=SimpleNamespace(name="eu-test", default_runtime_namespace="lenscloud-runtime-eu", default_storage_class="local-path"))
+	def test_protected_shared_database_can_register_default_namespace(self, _cluster, _count):
+		from lenscloud.lenscloud.doctype.database_server.database_server import DatabaseServer
+
+		doc = DatabaseServer({
+			"doctype": "Database Server",
+			"title": "EU Test Shared MariaDB",
+			"region": "EU Test",
+			"provisioning_type": "Operator Managed",
+			"operator_resource_name": "frappe-mariadb",
+			"kubernetes_namespace": "default",
+			"privacy": "Public",
+		})
+		doc.validate()
+		self.assertEqual(doc.kubernetes_namespace, "default")
 
 	@patch("lenscloud.api.orchestration.frappe.get_all", return_value=[])
 	@patch("lenscloud.api.orchestration.get_region_cluster", return_value=SimpleNamespace(name="eu"))
@@ -314,3 +369,53 @@ class TestRuntimeLifecycle(FrappeTestCase):
 		self.assertIn("dry-run-manifests", {gate["key"] for gate in result["gates"] if not gate["passed"]})
 		client.list_custom_resources.assert_any_call("FrappeBench", "lenscloud-runtime-eu")
 		client.list_namespaced.assert_any_call("ingresses", "lenscloud-runtime-eu", group="networking.k8s.io", version="v1")
+
+	@patch("lenscloud.api.orchestration.frappe.db.exists", return_value=None)
+	@patch("lenscloud.api.orchestration.frappe.get_doc")
+	@patch("lenscloud.api.orchestration.get_cluster_client")
+	@patch("lenscloud.api.orchestration.require_platform_operator")
+	def test_sync_runtime_namespaces_falls_back_to_runtime_probe_when_namespace_list_denied(self, _role, get_cluster_client, get_doc, _exists):
+		cluster_doc = cluster(name="eu-test", default_runtime_namespace="lenscloud-runtime-eu", save=Mock())
+		created = []
+
+		def get_doc_side_effect(*args, **_kwargs):
+			if args and args[0] == "Cluster":
+				return cluster_doc
+			doc = SimpleNamespace(**args[0], name=args[0]["namespace"], save=Mock())
+			doc.insert = Mock(side_effect=lambda ignore_permissions=True: created.append(doc))
+			return doc
+
+		get_doc.side_effect = get_doc_side_effect
+		client = get_cluster_client.return_value.__enter__.return_value
+		client.request.side_effect = KubernetesClientError("Kubernetes API 403: namespace list forbidden")
+		client.list_custom_resources.return_value = []
+		result = sync_runtime_namespaces("eu-test")
+		self.assertEqual(result["synced"], ["lenscloud-runtime-eu"])
+		self.assertEqual(created[0].source, "Cluster Runtime Probe")
+		client.list_custom_resources.assert_called_once_with("FrappeBench", "lenscloud-runtime-eu")
+
+	@patch("lenscloud.api.orchestration.frappe.db.exists", return_value=None)
+	@patch("lenscloud.api.orchestration.frappe.get_doc")
+	@patch("lenscloud.api.orchestration.get_cluster_client")
+	@patch("lenscloud.api.orchestration.require_platform_operator")
+	def test_sync_runtime_namespaces_filters_cluster_namespace_list_to_platform_targets(self, _role, get_cluster_client, get_doc, _exists):
+		cluster_doc = cluster(name="eu-test", default_runtime_namespace="lenscloud-runtime-eu", save=Mock())
+		created = []
+
+		def get_doc_side_effect(*args, **_kwargs):
+			if args and args[0] == "Cluster":
+				return cluster_doc
+			doc = SimpleNamespace(**args[0], name=args[0]["namespace"], save=Mock())
+			doc.insert = Mock(side_effect=lambda ignore_permissions=True: created.append(doc))
+			return doc
+
+		get_doc.side_effect = get_doc_side_effect
+		client = get_cluster_client.return_value.__enter__.return_value
+		client.request.return_value = {"items": [
+			{"metadata": {"name": "kube-system"}, "status": {"phase": "Active"}},
+			{"metadata": {"name": "lenscloud-runtime-eu"}, "status": {"phase": "Active"}},
+			{"metadata": {"name": "lenscloud-runtime-us", "labels": {"lenscloud.io/runtime-namespace": "true"}}, "status": {"phase": "Active"}},
+		]}
+		result = sync_runtime_namespaces("eu-test")
+		self.assertEqual(result["synced"], ["lenscloud-runtime-eu", "lenscloud-runtime-us"])
+		self.assertEqual([doc.namespace for doc in created], ["lenscloud-runtime-eu", "lenscloud-runtime-us"])

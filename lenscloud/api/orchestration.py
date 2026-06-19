@@ -384,6 +384,18 @@ def dry_run_result(log, manifest, cluster, resource_label, requested_dry_run, ap
 	}
 
 
+def database_reconcile_next_action(doc, cluster, exc):
+	text = str(exc).lower()
+	runtime_namespace = default_runtime_namespace(cluster)
+	if "secrets" in text and ("403" in text or "forbidden" in text):
+		if doc.kubernetes_namespace != runtime_namespace:
+			return _("Database Server Kubernetes namespace is {0}, but new Platform-managed MariaDB resources must use {1}. Correct the namespace, save, run Preview MariaDB manifest, then retry Reconcile Database Server.").format(doc.kubernetes_namespace or "-", runtime_namespace)
+		return _("The Database Server namespace is {0}, but the Platform identity cannot get/create runtime Secrets there. Run Validate cluster gates and the Cluster permission preflight; if Secret get/create is denied in the runtime namespace, hand this RBAC evidence to Infra.").format(runtime_namespace)
+	if "namespace" in text or "namespaces" in text:
+		return _("Verify the Database Server Kubernetes namespace exactly matches the Cluster runtime namespace {0}, then rerun Preview MariaDB manifest before reconcile.").format(runtime_namespace)
+	return _("Open this action log, correct the reported cluster/manifest issue, then retry Reconcile Database Server.")
+
+
 def phase_from_resource(resource):
 	status = resource.get("status") or {}
 	phase = status.get("phase") or status.get("state")
@@ -474,7 +486,7 @@ def reconcile_database_server(database_server, dry_run=True):
 		return {"status": "accepted", "phase": doc.database_status, "cluster": cluster.name, "action_log": log.name, "message": message, "next_actions": ["Run Sync runtime status until Ready/Healthy.", "Run Inspect runtime to review conditions, finalizers, workloads, Services, PVCs, and warning Events."]}
 	except Exception as exc:
 		doc.provisioning_status = "Failed"; doc.database_status = "Failed"; doc.last_error = sanitize_error(exc); doc.save(ignore_permissions=True)
-		fail_action(log, exc, "Open this action log, correct the reported cluster/manifest issue, then retry Reconcile Database Server.")
+		fail_action(log, exc, database_reconcile_next_action(doc, cluster, exc))
 
 
 @frappe.whitelist()
@@ -1044,6 +1056,74 @@ def validate_dry_run_records(database_server=None, bench=None, site=None):
 		elif name == site:
 			build_frappesite_manifest_data(frappe.get_doc("Site", site))
 	return True, "Selected dry-run manifest builders completed without validation errors."
+
+
+def upsert_runtime_namespace(cluster_doc, namespace, status="Active", source="Kubernetes Namespace List", is_default=False, last_error=None):
+	namespace = (namespace or "").strip()
+	if not namespace:
+		return None
+	existing = frappe.db.exists("Runtime Namespace", namespace)
+	if existing:
+		doc = frappe.get_doc("Runtime Namespace", existing)
+	else:
+		doc = frappe.get_doc({"doctype": "Runtime Namespace", "namespace": namespace})
+	doc.title = namespace
+	doc.cluster = cluster_doc.name
+	doc.status = status
+	doc.source = source
+	doc.is_default = 1 if is_default else 0
+	doc.last_sync_time = now_datetime()
+	doc.last_error = sanitize_error(last_error) if last_error else None
+	if existing:
+		doc.save(ignore_permissions=True)
+	else:
+		doc.insert(ignore_permissions=True)
+	return doc
+
+
+def is_platform_runtime_namespace(cluster_doc, namespace_item):
+	metadata = namespace_item.get("metadata") or {}
+	name = metadata.get("name")
+	labels = metadata.get("labels") or {}
+	return name == default_runtime_namespace(cluster_doc) or labels.get(PLATFORM_MANAGER_LABEL) == PLATFORM_MANAGER_VALUE or labels.get("lenscloud.io/runtime-namespace") == "true"
+
+
+@frappe.whitelist()
+def sync_runtime_namespaces(cluster):
+	require_platform_operator()
+	doc = frappe.get_doc("Cluster", cluster)
+	runtime_namespace = default_runtime_namespace(doc)
+	synced = []
+	warnings = []
+	with get_cluster_client(doc) as client:
+		try:
+			result = client.request("GET", "/api/v1/namespaces")
+			for item in result.get("items") or []:
+				if not is_platform_runtime_namespace(doc, item):
+					continue
+				metadata = item.get("metadata") or {}
+				name = metadata.get("name")
+				phase = (item.get("status") or {}).get("phase") or "Unknown"
+				record = upsert_runtime_namespace(doc, name, status="Active" if phase == "Active" else "Unknown", source="Kubernetes Namespace List", is_default=name == runtime_namespace)
+				if record:
+					synced.append(record.name)
+		except Exception as exc:
+			warnings.append(sanitize_error(exc))
+			client.list_custom_resources("FrappeBench", runtime_namespace)
+			record = upsert_runtime_namespace(doc, runtime_namespace, status="Active", source="Cluster Runtime Probe", is_default=True, last_error=exc)
+			if record:
+				synced.append(record.name)
+	doc.default_runtime_namespace = runtime_namespace
+	doc.last_sync_time = now_datetime()
+	doc.save(ignore_permissions=True)
+	return {
+		"cluster": doc.name,
+		"runtime_namespace": runtime_namespace,
+		"synced": synced,
+		"warnings": warnings,
+		"message": "Runtime namespaces synced from Kubernetes namespace list." if not warnings else "Namespace list was not permitted; registered the configured runtime namespace after a namespace-scoped probe.",
+		"next_actions": ["Use synced Runtime Namespace records when creating Database Servers, Benches, and Sites.", "Infra continues to own Kubernetes namespace creation and deletion."],
+	}
 
 
 @frappe.whitelist()

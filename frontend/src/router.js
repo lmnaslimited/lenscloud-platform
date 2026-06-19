@@ -38,6 +38,8 @@ const routes = [
 			{ path: 'releases/:name', name: 'platform-release-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'releases', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'clusters', name: 'platform-clusters', component: ResourcePage, props: { scope: 'platform', resourceKey: 'clusters', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'clusters/:name', name: 'platform-cluster-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'clusters', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'runtime-namespaces', name: 'platform-runtime-namespaces', component: ResourcePage, props: { scope: 'platform', resourceKey: 'runtime-namespaces', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'runtime-namespaces/:name', name: 'platform-runtime-namespace-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'runtime-namespaces', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'database-servers', name: 'platform-database-servers', component: ResourcePage, props: { scope: 'platform', resourceKey: 'database-servers', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'database-servers/:name', name: 'platform-database-server-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'database-servers', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'benches', name: 'platform-benches', component: ResourcePage, props: { scope: 'platform', resourceKey: 'benches', mode: 'list' }, meta: { scope: 'platform' } },

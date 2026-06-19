@@ -105,10 +105,10 @@
   },
   {
    "fieldname": "kubernetes_namespace",
-   "fieldtype": "Data",
-   "label": "Kubernetes Namespace",
-   "default": "default",
-   "reqd": 1
+   "fieldtype": "Link",
+   "label": "Runtime Namespace",
+   "reqd": 1,
+   "options": "Runtime Namespace"
   },
   {
    "fieldname": "operator_resource_name",

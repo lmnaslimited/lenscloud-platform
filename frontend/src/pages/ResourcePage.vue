@@ -580,6 +580,9 @@ function recoverySteps(action, message) {
 	if (text.includes('timed out') || text.includes('connection')) {
 		steps.push('Confirm the host API authorization watcher is running, then run the Cluster permission preflight again.')
 	}
+	if (text.includes('secrets') && (text.includes('forbidden') || text.includes('403')) && text.includes('namespace')) {
+		steps.push('Check the record Kubernetes namespace. New Platform-managed resources must use the Cluster runtime namespace exactly, for example lenscloud-runtime-eu.')
+	}
 	if (text.includes('permission') || text.includes('forbidden') || text.includes('403')) {
 		steps.push('Run the Python Cluster permission preflight and stop if required access is denied.')
 	}

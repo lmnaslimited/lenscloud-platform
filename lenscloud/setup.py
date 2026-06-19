@@ -50,6 +50,16 @@ def seed_defaults():
 	if region.get("cluster") != cluster.name or region.deployment_status != "Active":
 		region.cluster = cluster.name; region.deployment_status = "Active"; region.save(ignore_permissions=True)
 
+	if frappe.db.exists("DocType", "Runtime Namespace"):
+		upsert_doc("Runtime Namespace", "default", {
+			"title": "default", "cluster": cluster.name, "namespace": "default",
+			"status": "Active", "source": "Infra Handoff", "is_default": 0,
+		})
+		upsert_doc("Runtime Namespace", "lenscloud-runtime-eu", {
+			"title": "lenscloud-runtime-eu", "cluster": cluster.name, "namespace": "lenscloud-runtime-eu",
+			"status": "Active", "source": "Infra Handoff", "is_default": 1,
+		})
+
 	settings = frappe.get_single("Platform Settings")
 	for key, value in {
 		"default_plan": "Free", "root_domain": "cloud.lmnaslens.com", "domain_strategy": "Wildcard",

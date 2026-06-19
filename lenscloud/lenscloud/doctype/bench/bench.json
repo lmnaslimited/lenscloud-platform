@@ -105,9 +105,10 @@
   },
   {
    "fieldname": "kubernetes_namespace",
-   "fieldtype": "Data",
+   "fieldtype": "Link",
    "in_list_view": 1,
-   "label": "Kubernetes Namespace"
+   "label": "Runtime Namespace",
+   "options": "Runtime Namespace"
   },
   {
    "fieldname": "operator_resource_name",

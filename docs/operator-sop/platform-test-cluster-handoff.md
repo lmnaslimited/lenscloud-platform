@@ -115,6 +115,19 @@ Open `/lenscloud/platform/clusters` and create or update the Cluster record.
 
 Then return to the `EU Test` Region and set its Cluster link to this record if it was not available during Region creation.
 
+### Sync Runtime Namespaces
+
+Open the Cluster record and run `Sync runtime namespaces`.
+
+Expected result:
+
+- Runtime Namespace `lenscloud-runtime-eu` exists in `/lenscloud/platform/runtime-namespaces`;
+- Status is `Active`;
+- Source is `Kubernetes Namespace List` if namespace-list RBAC is allowed, or `Cluster Runtime Probe` when the restricted kubeconfig can only prove namespace access through a namespaced FrappeBench list;
+- no Kubernetes namespace is created by Platform. Infra remains the owner of namespace creation and deletion.
+
+If `lenscloud-runtime-eu` does not appear, stop before creating Database Server or Bench records. Check the Cluster `Default runtime namespace`, kubeconfig reference, and the latest action result. Hand off to Infra only if the runtime namespace does not exist or namespace-scoped Platform reads are denied.
+
 ## 5. Register The Default Public Database Server
 
 Open `/lenscloud/platform/database-servers` and create or update a record for the protected shared MariaDB.
@@ -138,6 +151,18 @@ Recommended values:
 | Health status | set to `Healthy` only after sync/validation confirms readiness |
 
 This record represents protected capacity. Do not run Delete Database Server against it except as a negative rejection test.
+
+### New Database Server Namespace Rule
+
+For new Private or Private Shared Database Servers, select Runtime Namespace `lenscloud-runtime-eu`. If it is not available in the picker, return to the Cluster record and run `Sync runtime namespaces` before continuing. Do not type an unsynced namespace and do not use `default` for new Platform-managed MariaDB resources. The `default` namespace is reserved for the protected shared Public baseline `MariaDB/default/frappe-mariadb`.
+
+If Reconcile Database Server fails while trying to read or create a root Secret in `default` or a misspelled namespace such as `lenscould-runtime-eu`, edit the Database Server record, select the synced Runtime Namespace `lenscloud-runtime-eu`, save, run Preview MariaDB manifest again, and then reconcile with Dry run off during the controlled apply window.
+
+### Runtime Namespace Registry
+
+Runtime namespaces are first-class Platform data synced from Cluster access. Platform operators select `Runtime Namespace` records when creating Database Servers and Benches; Platform does not create, delete, or rename Kubernetes namespaces.
+
+`Sync runtime namespaces` registers the Cluster default runtime namespace after either Kubernetes namespace discovery or a namespace-scoped runtime probe. This keeps Platform usable with restricted RBAC while still preventing operators from choosing arbitrary free-text namespaces.
 
 ## 6. Create Approved Release Data
 
@@ -230,7 +255,7 @@ Create a Public Bench:
 | Region | `EU Test` |
 | Privacy | `Public` |
 | Database Server | shared Public DB record |
-| Kubernetes namespace | `lenscloud-runtime-eu` |
+| Runtime namespace | select `lenscloud-runtime-eu` |
 | Operator resource name | `<prefix>-public-bench` |
 | Storage class | `local-path` |
 
