@@ -28,7 +28,7 @@ Status: `Complete`, `In Progress`, `Pending`, or `Blocked`.
 | Platform deletion orchestration | Site, Bench, and platform-managed Database Server deletion APIs enforce ownership, dependencies, protected-resource rules, audit, and retry | In Progress |
 | Platform lifecycle UI | Platform operators can inspect, confirm, delete, monitor, and retry from resource pages | Complete |
 | Lifecycle create/inspect/delete acceptance | Platform completes owned resource lifecycle without manager or Infra intervention | Blocked |
-| Runtime namespace registry | Cluster-approved runtime namespaces are synced into Runtime Namespace records and selected on Database Server and Bench records | In Progress |
+| Runtime namespace registry | Infra-approved namespaces are synced with customer/purpose metadata and filtered for Database Server and Bench placement | In Progress |
 
 ## Execution Order
 

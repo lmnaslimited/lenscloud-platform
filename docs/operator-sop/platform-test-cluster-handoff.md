@@ -123,10 +123,21 @@ Expected result:
 
 - Runtime Namespace `lenscloud-runtime-eu` exists in `/lenscloud/platform/runtime-namespaces`;
 - Status is `Active`;
-- Source is `Kubernetes Namespace List` if namespace-list RBAC is allowed, or `Cluster Runtime Probe` when the restricted kubeconfig can only prove namespace access through a namespaced FrappeBench list;
-- no Kubernetes namespace is created by Platform. Infra remains the owner of namespace creation and deletion.
+- Approved for Platform is checked;
+- Verification Status is `Verified`;
+- Source is `Kubernetes Namespace List`;
+- no Kubernetes namespace is created by Platform. Infra remains the owner of namespace creation, labels, and RBAC.
 
-If `lenscloud-runtime-eu` does not appear, stop before creating Database Server or Bench records. Check the Cluster `Default runtime namespace`, kubeconfig reference, and the latest action result. Hand off to Infra only if the runtime namespace does not exist or namespace-scoped Platform reads are denied.
+Platform imports only the Cluster default runtime namespace or namespaces labelled by Infra with both required labels:
+
+```text
+lenscloud.io/runtime-namespace=true
+lenscloud.io/managed-by=platform
+```
+
+If an enterprise or customer-dedicated namespace does not appear, do not edit the kubeconfig context manually. Ask Infra to run the `INF-008` onboarding flow from `lenscloud-infra/docs/platform-runtime-namespace-sop.md`, including `scripts/56-register-platform-runtime-namespace.sh` and `scripts/57-verify-platform-runtime-namespace.sh`.
+
+If `lenscloud-runtime-eu` does not appear, stop before creating Database Server or Bench records. Check the Cluster `Default runtime namespace`, kubeconfig reference, and the latest action result. Hand off to Infra only if the runtime namespace does not exist, namespace-list discovery is denied, or namespace-scoped Platform reads are denied.
 
 ## 5. Register The Default Public Database Server
 
@@ -162,7 +173,14 @@ If Reconcile Database Server fails while trying to read or create a root Secret 
 
 Runtime namespaces are first-class Platform data synced from Cluster access. Platform operators select `Runtime Namespace` records when creating Database Servers and Benches; Platform does not create, delete, or rename Kubernetes namespaces.
 
-`Sync runtime namespaces` registers the Cluster default runtime namespace after either Kubernetes namespace discovery or a namespace-scoped runtime probe. This keeps Platform usable with restricted RBAC while still preventing operators from choosing arbitrary free-text namespaces.
+`Sync runtime namespaces` stores Infra metadata labels for Region, Customer, runtime purpose, and Cluster. Placement controls filter choices by active/approved state, Region, Customer or privacy boundary, purpose, and privacy:
+
+- `public` namespaces are for Public resources;
+- `private-shared` namespaces are for Private Shared resources;
+- `private` namespaces are for Private resources;
+- `enterprise` namespaces may host Private or Private Shared enterprise/customer resources.
+
+A customer-labelled namespace can only be selected for matching customer or privacy-boundary records. Customers never see namespace internals in self-service flows.
 
 ## 6. Create Approved Release Data
 

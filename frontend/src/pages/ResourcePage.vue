@@ -211,6 +211,10 @@ function fieldOptionKey(field) {
 	return `${field.type || 'text'}:${field.options || field.key}`
 }
 
+function optionModelContext() {
+	return isCreating.value ? createForm : formState
+}
+
 function optionLabelForDoc(doc, field) {
 	const labelFields = field.labelFields || ['title', 'first_name', 'last_name', 'image_tag', 'cluster_name', 'plan_code']
 	const label = labelFields.map((key) => doc[key]).filter(Boolean).join(' ')
@@ -224,7 +228,7 @@ async function loadFieldOptions() {
 		const key = fieldOptionKey(field)
 		if (fieldOptions[key]) return
 
-		const fields = Array.from(new Set(['name', ...(field.labelFields || ['title', 'first_name', 'last_name', 'image_tag', 'cluster_name', 'plan_code'])]))
+		const fields = Array.from(new Set(['name', ...(field.labelFields || ['title', 'first_name', 'last_name', 'image_tag', 'cluster_name', 'plan_code']), ...(field.optionFields || [])]))
 		const rows = await listDocs(field.options, {
 			fields,
 			limit: field.limit || 100,
@@ -235,12 +239,15 @@ async function loadFieldOptions() {
 		fieldOptions[key] = rows.map((row) => ({
 			label: optionLabelForDoc(row, field),
 			value: row.name,
+			doc: row,
 		}))
 	}))
 }
 
-function optionsForField(field) {
-	return fieldOptions[fieldOptionKey(field)] || []
+function optionsForField(field, model = optionModelContext()) {
+	const options = fieldOptions[fieldOptionKey(field)] || []
+	if (typeof field.optionFilter !== 'function') return options
+	return options.filter((option) => field.optionFilter(option.doc || {}, model, props.resourceKey))
 }
 
 const showExternalContext = computed(() => props.scope === 'platform' && ['customers', 'sites'].includes(props.resourceKey))
@@ -684,14 +691,14 @@ function controlTypeForField(field) {
 	return 'text'
 }
 
-function normalizedOptionsForField(field) {
+function normalizedOptionsForField(field, model = optionModelContext()) {
 	if (field.type === 'select') {
 		const source = Array.isArray(field.options) ? field.options : String(field.options || '').split('\n')
 		const options = source.map((option) => (typeof option === 'object' ? option : { label: option, value: option })).filter((option) => option.value !== '')
 		return [{ label: 'None', value: '' }, ...options]
 	}
 
-	if (field.type === 'link') return [{ label: 'None', value: '' }, ...optionsForField(field)]
+	if (field.type === 'link') return [{ label: 'None', value: '' }, ...optionsForField(field, model)]
 	return []
 }
 
@@ -714,7 +721,7 @@ function fieldControlProps(model, field) {
 	}
 
 	if (field.type === 'select' || field.type === 'link') {
-		props.options = normalizedOptionsForField(field)
+		props.options = normalizedOptionsForField(field, model)
 	}
 
 	if (field.type === 'link') {

@@ -5,7 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from lenscloud.api.orchestration import get_region_cluster, slugify
+from lenscloud.api.orchestration import get_region_cluster, slugify, validate_runtime_namespace_placement_doc
 
 
 class DatabaseServer(Document):
@@ -15,8 +15,8 @@ class DatabaseServer(Document):
 		self.operator_resource_name = slugify(self.operator_resource_name or self.title)
 		runtime_namespace = cluster.default_runtime_namespace or "default"
 		self.kubernetes_namespace = self.kubernetes_namespace or runtime_namespace
-		if self.provisioning_type == "Operator Managed" and not (self.kubernetes_namespace == "default" and self.operator_resource_name == "frappe-mariadb") and self.kubernetes_namespace != runtime_namespace:
-			frappe.throw(_("New operator-managed Database Servers must use the Cluster runtime namespace {0}. Only protected MariaDB/default/frappe-mariadb may use namespace default.").format(runtime_namespace))
+		if self.provisioning_type == "Operator Managed":
+			validate_runtime_namespace_placement_doc(self, cluster)
 		self.storage_class = self.storage_class or cluster.default_storage_class or "local-path"
 		self.data_retention_policy = self.data_retention_policy or "Retain"
 		self.attached_bench_count = frappe.db.count("Bench", {"database_server": self.name}) if not self.is_new() else 0

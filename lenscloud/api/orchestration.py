@@ -19,6 +19,10 @@ PLATFORM_MANAGER_LABEL = "lenscloud.io/managed-by"
 RESOURCE_KIND_LABEL = "lenscloud.io/resource-kind"
 RESOURCE_ID_LABEL = "lenscloud.io/resource-id"
 CUSTOMER_LABEL = "lenscloud.io/customer"
+RUNTIME_NAMESPACE_LABEL = "lenscloud.io/runtime-namespace"
+RUNTIME_PURPOSE_LABEL = "lenscloud.io/runtime-purpose"
+REGION_LABEL = "lenscloud.io/region"
+CLUSTER_LABEL = "lenscloud.io/cluster"
 PLATFORM_MANAGER_VALUE = "platform"
 RUNTIME_NAMESPACE_RESOURCE_KINDS = {"MariaDB", "FrappeBench", "FrappeSite"}
 DELETE_STATES = {"Deletion Requested", "Quiescing", "Deleting", "Deleted", "Deletion Failed"}
@@ -171,6 +175,54 @@ def bench_boundary(bench):
 
 def database_boundary(database_server):
 	return (database_server.privacy_boundary or database_server.owner_customer or "").strip()
+
+
+def runtime_purpose_allows_privacy(runtime_purpose, privacy):
+	purpose = (runtime_purpose or "").strip().lower()
+	privacy = (privacy or "").strip()
+	if not purpose:
+		return True
+	if purpose == "enterprise":
+		return privacy in {"Private", "Private Shared"}
+	return {
+		"public": {"Public"},
+		"private-shared": {"Private Shared"},
+		"private": {"Private"},
+	}.get(purpose, set()).__contains__(privacy)
+
+
+def runtime_namespace_customer(doc):
+	return (getattr(doc, "owner_customer", None) or getattr(doc, "customer", None) or getattr(doc, "privacy_boundary", None) or "").strip()
+
+
+def validate_runtime_namespace_placement_doc(doc, cluster=None):
+	namespace = (getattr(doc, "kubernetes_namespace", None) or "").strip()
+	cluster = cluster or get_region_cluster(doc.region)
+	if not namespace:
+		return True
+	operator_name = getattr(doc, "operator_resource_name", "")
+	if namespace == "default" and getattr(doc, "doctype", None) == "Database Server" and operator_name == "frappe-mariadb":
+		return True
+	if namespace == "default":
+		frappe.throw(_("Namespace default is reserved for protected MariaDB/default/frappe-mariadb."))
+	if not frappe.db.exists("Runtime Namespace", namespace):
+		frappe.throw(_("Runtime Namespace {0} is not synced. Run Sync runtime namespaces on the Cluster, then retry.").format(namespace))
+	runtime_namespace = frappe.get_doc("Runtime Namespace", namespace)
+	if runtime_namespace.cluster != cluster.name:
+		frappe.throw(_("Runtime Namespace {0} belongs to Cluster {1}, but {2} resolves to Cluster {3}.").format(namespace, runtime_namespace.cluster, doc.doctype, cluster.name))
+	if getattr(runtime_namespace, "region", None) and runtime_namespace.region != doc.region:
+		frappe.throw(_("Runtime Namespace {0} is labelled for Region {1}, but this {2} uses Region {3}.").format(namespace, runtime_namespace.region, doc.doctype, doc.region))
+	if runtime_namespace.status != "Active" or not runtime_namespace.approved_for_platform:
+		frappe.throw(_("Runtime Namespace {0} is not active and approved for Platform placement.").format(namespace))
+	if not runtime_purpose_allows_privacy(runtime_namespace.runtime_purpose, getattr(doc, "privacy", None)):
+		frappe.throw(_("Runtime Namespace {0} purpose {1} is not compatible with {2} privacy {3}.").format(namespace, runtime_namespace.runtime_purpose or "unspecified", doc.doctype, getattr(doc, "privacy", None) or "unspecified"))
+	expected_customer = (runtime_namespace.customer or "").strip()
+	actual_customer = runtime_namespace_customer(doc)
+	if expected_customer and actual_customer and expected_customer != actual_customer:
+		frappe.throw(_("Runtime Namespace {0} is assigned to Customer {1}, but this {2} is for {3}.").format(namespace, expected_customer, doc.doctype, actual_customer))
+	if expected_customer and getattr(doc, "privacy", None) in {"Private", "Private Shared"} and not actual_customer:
+		frappe.throw(_("Runtime Namespace {0} is customer-scoped; set Owner Customer or Privacy Boundary before placement.").format(namespace))
+	return True
 
 
 def validate_database_server_placement_doc(bench, database_server, allow_pending=False):
@@ -1058,10 +1110,11 @@ def validate_dry_run_records(database_server=None, bench=None, site=None):
 	return True, "Selected dry-run manifest builders completed without validation errors."
 
 
-def upsert_runtime_namespace(cluster_doc, namespace, status="Active", source="Kubernetes Namespace List", is_default=False, last_error=None):
+def upsert_runtime_namespace(cluster_doc, namespace, status="Active", source="Kubernetes Namespace List", is_default=False, last_error=None, labels=None):
 	namespace = (namespace or "").strip()
 	if not namespace:
 		return None
+	labels = labels or {}
 	existing = frappe.db.exists("Runtime Namespace", namespace)
 	if existing:
 		doc = frappe.get_doc("Runtime Namespace", existing)
@@ -1072,6 +1125,13 @@ def upsert_runtime_namespace(cluster_doc, namespace, status="Active", source="Ku
 	doc.status = status
 	doc.source = source
 	doc.is_default = 1 if is_default else 0
+	doc.region = labels.get(REGION_LABEL) or getattr(cluster_doc, "region", None)
+	doc.customer = labels.get(CUSTOMER_LABEL) or None
+	doc.runtime_purpose = labels.get(RUNTIME_PURPOSE_LABEL) or ("public" if is_default else None)
+	doc.cluster_label = labels.get(CLUSTER_LABEL) or getattr(cluster_doc, "cluster_name", None) or cluster_doc.name
+	doc.approved_for_platform = 1 if is_default or (labels.get(RUNTIME_NAMESPACE_LABEL) == "true" and labels.get(PLATFORM_MANAGER_LABEL) == PLATFORM_MANAGER_VALUE) else 0
+	doc.verification_status = "Verified" if doc.approved_for_platform and status == "Active" else "Pending"
+	doc.verification_message = "Imported from approved namespace labels." if labels else ("Cluster default runtime namespace." if is_default else None)
 	doc.last_sync_time = now_datetime()
 	doc.last_error = sanitize_error(last_error) if last_error else None
 	if existing:
@@ -1085,7 +1145,7 @@ def is_platform_runtime_namespace(cluster_doc, namespace_item):
 	metadata = namespace_item.get("metadata") or {}
 	name = metadata.get("name")
 	labels = metadata.get("labels") or {}
-	return name == default_runtime_namespace(cluster_doc) or labels.get(PLATFORM_MANAGER_LABEL) == PLATFORM_MANAGER_VALUE or labels.get("lenscloud.io/runtime-namespace") == "true"
+	return name == default_runtime_namespace(cluster_doc) or (labels.get(PLATFORM_MANAGER_LABEL) == PLATFORM_MANAGER_VALUE and labels.get(RUNTIME_NAMESPACE_LABEL) == "true")
 
 
 @frappe.whitelist()
@@ -1102,9 +1162,10 @@ def sync_runtime_namespaces(cluster):
 				if not is_platform_runtime_namespace(doc, item):
 					continue
 				metadata = item.get("metadata") or {}
+				labels = metadata.get("labels") or {}
 				name = metadata.get("name")
 				phase = (item.get("status") or {}).get("phase") or "Unknown"
-				record = upsert_runtime_namespace(doc, name, status="Active" if phase == "Active" else "Unknown", source="Kubernetes Namespace List", is_default=name == runtime_namespace)
+				record = upsert_runtime_namespace(doc, name, status="Active" if phase == "Active" else "Unknown", source="Kubernetes Namespace List", is_default=name == runtime_namespace, labels=labels)
 				if record:
 					synced.append(record.name)
 		except Exception as exc:

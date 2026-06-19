@@ -11,6 +11,13 @@
   "namespace",
   "status",
   "source",
+  "region",
+  "customer",
+  "runtime_purpose",
+  "cluster_label",
+  "approved_for_platform",
+  "verification_status",
+  "verification_message",
   "is_default",
   "last_sync_time",
   "last_error"
@@ -67,6 +74,52 @@
    "fieldname": "last_error",
    "fieldtype": "Text",
    "label": "Last Error"
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "label": "Region",
+   "options": "Region",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "runtime_purpose",
+   "fieldtype": "Select",
+   "label": "Runtime Purpose",
+   "options": "\npublic\nprivate-shared\nprivate\nenterprise",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "cluster_label",
+   "fieldtype": "Data",
+   "label": "Infra Cluster Label"
+  },
+  {
+   "fieldname": "approved_for_platform",
+   "fieldtype": "Check",
+   "label": "Approved For Platform",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "verification_status",
+   "fieldtype": "Select",
+   "label": "Verification Status",
+   "options": "Unknown\nVerified\nPending\nFailed",
+   "default": "Unknown",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "verification_message",
+   "fieldtype": "Text",
+   "label": "Verification Message"
   }
  ],
  "grid_page_length": 50,

@@ -54,10 +54,14 @@ def seed_defaults():
 		upsert_doc("Runtime Namespace", "default", {
 			"title": "default", "cluster": cluster.name, "namespace": "default",
 			"status": "Active", "source": "Infra Handoff", "is_default": 0,
+			"region": "EU", "runtime_purpose": "public", "cluster_label": "lenscloud-eu-dev",
+			"approved_for_platform": 0, "verification_status": "Verified",
 		})
 		upsert_doc("Runtime Namespace", "lenscloud-runtime-eu", {
 			"title": "lenscloud-runtime-eu", "cluster": cluster.name, "namespace": "lenscloud-runtime-eu",
 			"status": "Active", "source": "Infra Handoff", "is_default": 1,
+			"region": "EU", "runtime_purpose": "public", "cluster_label": "lenscloud-eu-dev",
+			"approved_for_platform": 1, "verification_status": "Verified",
 		})
 
 	settings = frappe.get_single("Platform Settings")

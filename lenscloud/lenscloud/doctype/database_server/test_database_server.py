@@ -27,6 +27,7 @@ from lenscloud.api.orchestration import (
 	validate_cluster_readiness,
 	validate_database_server_placement_doc,
 	validate_runtime_owner,
+	validate_runtime_namespace_placement_doc,
 	warning_event_summary,
 )
 
@@ -399,7 +400,7 @@ class TestRuntimeLifecycle(FrappeTestCase):
 	@patch("lenscloud.api.orchestration.get_cluster_client")
 	@patch("lenscloud.api.orchestration.require_platform_operator")
 	def test_sync_runtime_namespaces_filters_cluster_namespace_list_to_platform_targets(self, _role, get_cluster_client, get_doc, _exists):
-		cluster_doc = cluster(name="eu-test", default_runtime_namespace="lenscloud-runtime-eu", save=Mock())
+		cluster_doc = cluster(name="eu-test", region="EU Test", cluster_name="lenscloud-eu-test", default_runtime_namespace="lenscloud-runtime-eu", save=Mock())
 		created = []
 
 		def get_doc_side_effect(*args, **_kwargs):
@@ -414,8 +415,51 @@ class TestRuntimeLifecycle(FrappeTestCase):
 		client.request.return_value = {"items": [
 			{"metadata": {"name": "kube-system"}, "status": {"phase": "Active"}},
 			{"metadata": {"name": "lenscloud-runtime-eu"}, "status": {"phase": "Active"}},
-			{"metadata": {"name": "lenscloud-runtime-us", "labels": {"lenscloud.io/runtime-namespace": "true"}}, "status": {"phase": "Active"}},
+			{"metadata": {"name": "lenscloud-half-labelled", "labels": {"lenscloud.io/runtime-namespace": "true"}}, "status": {"phase": "Active"}},
+			{"metadata": {"name": "lenscloud-enterprise-acme", "labels": {"lenscloud.io/runtime-namespace": "true", "lenscloud.io/managed-by": "platform", "lenscloud.io/customer": "customer-a", "lenscloud.io/runtime-purpose": "enterprise", "lenscloud.io/region": "EU Test", "lenscloud.io/cluster": "lenscloud-eu-test"}}, "status": {"phase": "Active"}},
 		]}
 		result = sync_runtime_namespaces("eu-test")
-		self.assertEqual(result["synced"], ["lenscloud-runtime-eu", "lenscloud-runtime-us"])
-		self.assertEqual([doc.namespace for doc in created], ["lenscloud-runtime-eu", "lenscloud-runtime-us"])
+		self.assertEqual(result["synced"], ["lenscloud-runtime-eu", "lenscloud-enterprise-acme"])
+		self.assertEqual([doc.namespace for doc in created], ["lenscloud-runtime-eu", "lenscloud-enterprise-acme"])
+		enterprise = created[1]
+		self.assertEqual(enterprise.customer, "customer-a")
+		self.assertEqual(enterprise.runtime_purpose, "enterprise")
+		self.assertEqual(enterprise.region, "EU Test")
+		self.assertEqual(enterprise.cluster_label, "lenscloud-eu-test")
+		self.assertEqual(enterprise.approved_for_platform, 1)
+		self.assertEqual(enterprise.verification_status, "Verified")
+
+	@patch("lenscloud.api.orchestration.frappe.get_doc")
+	@patch("lenscloud.api.orchestration.frappe.db.exists", return_value=True)
+	def test_runtime_namespace_placement_rejects_cross_customer_namespace(self, _exists, get_doc):
+		get_doc.return_value = SimpleNamespace(
+			name="lenscloud-enterprise-acme",
+			cluster="eu",
+			region="EU",
+			status="Active",
+			approved_for_platform=1,
+			runtime_purpose="enterprise",
+			customer="customer-a",
+		)
+		with self.assertRaises(frappe.ValidationError):
+			validate_runtime_namespace_placement_doc(
+				db_doc(kubernetes_namespace="lenscloud-enterprise-acme", owner_customer="customer-b", privacy_boundary="customer-b", privacy="Private"),
+				cluster(name="eu"),
+			)
+
+	@patch("lenscloud.api.orchestration.frappe.get_doc")
+	@patch("lenscloud.api.orchestration.frappe.db.exists", return_value=True)
+	def test_runtime_namespace_placement_accepts_matching_customer_enterprise_namespace(self, _exists, get_doc):
+		get_doc.return_value = SimpleNamespace(
+			name="lenscloud-enterprise-acme",
+			cluster="eu",
+			region="EU",
+			status="Active",
+			approved_for_platform=1,
+			runtime_purpose="enterprise",
+			customer="customer-a",
+		)
+		self.assertTrue(validate_runtime_namespace_placement_doc(
+			db_doc(kubernetes_namespace="lenscloud-enterprise-acme", owner_customer="customer-a", privacy_boundary="customer-a", privacy="Private"),
+			cluster(name="eu"),
+		))

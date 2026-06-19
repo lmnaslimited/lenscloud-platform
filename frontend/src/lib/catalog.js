@@ -53,6 +53,36 @@ const tlsStatusOptions = ['Inherited', 'Ready', 'Failed', 'Unknown']
 const hostnameStatusOptions = ['Pending', 'Reserved', 'Conflict', 'Released']
 const edgeStatusOptions = ['Unknown', 'Ready', 'Degraded', 'Failed']
 
+const runtimeNamespaceOptionFields = ['namespace', 'cluster', 'region', 'customer', 'runtime_purpose', 'status', 'approved_for_platform', 'is_default']
+const runtimeNamespacePurposeAllowsPrivacy = (purpose, privacy) => {
+	if (!purpose || !privacy) return true
+	if (purpose === 'enterprise') return ['Private', 'Private Shared'].includes(privacy)
+	return {
+		public: ['Public'],
+		'private-shared': ['Private Shared'],
+		private: ['Private'],
+	}[purpose]?.includes(privacy) ?? true
+}
+const runtimeNamespaceOptionFilter = (row, model = {}, resourceKey = '') => {
+	if (row.name === 'default') {
+		return resourceKey === 'database-servers' && model.operator_resource_name === 'frappe-mariadb'
+	}
+	if (row.status !== 'Active' || !Number(row.approved_for_platform || 0)) return false
+	if (row.region && model.region && row.region !== model.region) return false
+	if (!runtimeNamespacePurposeAllowsPrivacy(row.runtime_purpose, model.privacy)) return false
+	const namespaceCustomer = row.customer
+	const selectedCustomer = model.owner_customer || model.customer || model.privacy_boundary
+	if (namespaceCustomer && selectedCustomer && namespaceCustomer !== selectedCustomer) return false
+	if (namespaceCustomer && ['Private', 'Private Shared'].includes(model.privacy || '') && !selectedCustomer) return false
+	return true
+}
+const runtimeNamespaceField = (description) => ({
+	...linkField('Runtime Namespace', ['namespace', 'runtime_purpose', 'customer', 'region', 'status']),
+	optionFields: runtimeNamespaceOptionFields,
+	optionFilter: runtimeNamespaceOptionFilter,
+	description,
+})
+
 export const platformResources = [
 	{
 		key: 'customers',
@@ -391,6 +421,10 @@ export const platformResources = [
 			{ key: 'namespace', label: 'Namespace' },
 			{ key: 'cluster', label: 'Cluster', linkPrefix: '/platform/clusters/', ...linkField('Cluster', ['title', 'cluster_name']) },
 			{ key: 'status', label: 'Status', ...selectField(['Active', 'Unavailable', 'Unknown']) },
+			{ key: 'runtime_purpose', label: 'Purpose', ...selectField(['public', 'private-shared', 'private', 'enterprise']) },
+			{ key: 'customer', label: 'Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'approved_for_platform', label: 'Approved', ...checkField },
+			{ key: 'verification_status', label: 'Verification', ...selectField(['Unknown', 'Verified', 'Pending', 'Failed']) },
 			{ key: 'is_default', label: 'Default', ...checkField },
 		],
 		detailFields: [
@@ -399,6 +433,13 @@ export const platformResources = [
 			{ key: 'cluster', label: 'Cluster', linkPrefix: '/platform/clusters/', ...linkField('Cluster', ['title', 'cluster_name']) },
 			{ key: 'status', label: 'Status', ...selectField(['Active', 'Unavailable', 'Unknown']) },
 			{ key: 'source', label: 'Source', ...selectField(['Kubernetes Namespace List', 'Cluster Runtime Probe', 'Infra Handoff', 'Manual']) },
+			{ key: 'region', label: 'Region', linkPrefix: '/platform/regions/', ...linkField('Region') },
+			{ key: 'customer', label: 'Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'runtime_purpose', label: 'Runtime purpose', ...selectField(['public', 'private-shared', 'private', 'enterprise']) },
+			{ key: 'cluster_label', label: 'Infra cluster label' },
+			{ key: 'approved_for_platform', label: 'Approved for Platform', ...checkField },
+			{ key: 'verification_status', label: 'Verification status', ...selectField(['Unknown', 'Verified', 'Pending', 'Failed']) },
+			{ key: 'verification_message', label: 'Verification message' },
 			{ key: 'is_default', label: 'Default runtime namespace', ...checkField },
 			{ key: 'last_sync_time', label: 'Last sync' },
 			{ key: 'last_error', label: 'Last sync warning' },
@@ -428,7 +469,7 @@ export const platformResources = [
 			{ key: 'privacy', label: 'Privacy', required: true, ...linkField('Privacy') },
 			{ key: 'owner_customer', label: 'Owner Customer', ...linkField('Customer', ['first_name', 'last_name']) },
 			{ key: 'privacy_boundary', label: 'Privacy boundary' },
-			{ key: 'kubernetes_namespace', label: 'Runtime namespace', description: 'Select a synced Runtime Namespace. Leave blank to derive the Cluster default. Only protected frappe-mariadb may use default.', ...linkField('Runtime Namespace', ['namespace', 'cluster', 'status']) },
+			{ key: 'kubernetes_namespace', label: 'Runtime namespace', ...runtimeNamespaceField('Select an active approved Runtime Namespace. Options are filtered by Region, customer, purpose, and privacy. Only protected frappe-mariadb may use default.') },
 			{ key: 'operator_resource_name', label: 'MariaDB resource name', required: true },
 			{ key: 'image', label: 'MariaDB image', default: 'mariadb:10.11' },
 			{ key: 'storage_class', label: 'Storage class', default: 'local-path' },
@@ -461,7 +502,7 @@ export const platformResources = [
 			{ key: 'privacy', label: 'Privacy', ...linkField('Privacy') },
 			{ key: 'owner_customer', label: 'Owner Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
 			{ key: 'privacy_boundary', label: 'Privacy boundary' },
-			{ key: 'kubernetes_namespace', label: 'Runtime namespace', linkPrefix: '/platform/runtime-namespaces/', ...linkField('Runtime Namespace', ['namespace', 'cluster', 'status']) },
+			{ key: 'kubernetes_namespace', label: 'Runtime namespace', linkPrefix: '/platform/runtime-namespaces/', ...runtimeNamespaceField('Select an active approved Runtime Namespace. Options are filtered by Region, customer, purpose, and privacy.') },
 			{ key: 'operator_resource_name', label: 'MariaDB resource name' },
 			{ key: 'image', label: 'MariaDB image' },
 			{ key: 'storage_class', label: 'Storage class' },
@@ -515,7 +556,7 @@ export const platformResources = [
 			{ key: 'owner_customer', label: 'Owner Customer', ...linkField('Customer', ['first_name', 'last_name']) },
 			{ key: 'privacy_boundary', label: 'Privacy boundary' },
 			{ key: 'database_server', label: 'Database Server', required: true, ...linkField('Database Server', ['title', 'privacy', 'region']) },
-			{ key: 'kubernetes_namespace', label: 'Runtime namespace', linkPrefix: '/platform/runtime-namespaces/', ...linkField('Runtime Namespace', ['namespace', 'cluster', 'status']) },
+			{ key: 'kubernetes_namespace', label: 'Runtime namespace', linkPrefix: '/platform/runtime-namespaces/', ...runtimeNamespaceField('Select an active approved Runtime Namespace. Options are filtered by Region, customer, purpose, and privacy.') },
 			{ key: 'operator_resource_name', label: 'Operator resource name' },
 			{ key: 'storage_class', label: 'Storage class' },
 			{ key: 'bench_status', label: 'Bench status', default: 'Draft', ...selectField(benchStatusOptions) },
@@ -543,7 +584,7 @@ export const platformResources = [
 			{ key: 'privacy_boundary', label: 'Privacy boundary' },
 			{ key: 'database_server', label: 'Database Server', linkPrefix: '/platform/database-servers/', ...linkField('Database Server', ['title', 'privacy', 'region']) },
 			{ key: 'cluster_runtime_target', label: 'Cluster/runtime target' },
-			{ key: 'kubernetes_namespace', label: 'Runtime namespace', linkPrefix: '/platform/runtime-namespaces/', ...linkField('Runtime Namespace', ['namespace', 'cluster', 'status']) },
+			{ key: 'kubernetes_namespace', label: 'Runtime namespace', linkPrefix: '/platform/runtime-namespaces/', ...runtimeNamespaceField('Select an active approved Runtime Namespace. Options are filtered by Region, customer, purpose, and privacy.') },
 			{ key: 'operator_resource_name', label: 'Operator resource name' },
 			{ key: 'storage_class', label: 'Storage class' },
 			{ key: 'bench_status', label: 'Bench status', ...selectField(benchStatusOptions) },

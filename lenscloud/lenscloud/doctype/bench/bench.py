@@ -5,7 +5,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from lenscloud.api.orchestration import ensure_operator_fields, get_region_cluster, validate_database_server_placement_doc
+from lenscloud.api.orchestration import ensure_operator_fields, get_region_cluster, validate_database_server_placement_doc, validate_runtime_namespace_placement_doc
 
 
 class Bench(Document):
@@ -14,6 +14,7 @@ class Bench(Document):
 			return
 		cluster = get_region_cluster(self.region)
 		ensure_operator_fields(self, cluster)
+		validate_runtime_namespace_placement_doc(self, cluster)
 		if self.current_release:
 			release_group = frappe.db.get_value("Release", self.current_release, "release_group")
 			if release_group and self.release_group != release_group:
