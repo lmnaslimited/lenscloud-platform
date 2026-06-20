@@ -1,9 +1,9 @@
 <script setup>
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
-import { Alert, Badge, Button, Dropdown, FormControl, ListView, Tabs, TextInput } from 'frappe-ui'
+import { Alert, Autocomplete, Badge, Button, Dropdown, FormControl, ListHeader, ListHeaderItem, ListRows, ListView, Popover, Tabs, TextInput } from 'frappe-ui'
 import { listDocs, getDoc, saveDoc, createDoc, submitDoc, cancelDoc, callMethod, formatFieldValue } from '@/lib/api'
-import { getResourceByKey, platformSettings } from '@/lib/catalog'
+import { getResourceByDoctype, getResourceByKey, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import { ChevronDown, ChevronRight, CreditCard, Filter, FolderTree, LifeBuoy, List, Lock, MapPin, MoreHorizontal, Search, Users } from 'lucide-vue-next'
@@ -28,7 +28,9 @@ const settingsContext = ref(null)
 const saveState = ref('idle')
 const activeActionKey = ref('')
 const searchQuery = ref('')
-const filterMode = ref('all')
+const listFilters = ref({})
+const draftFilterRows = ref([])
+const sortState = reactive({ field: '', direction: 'asc' })
 const inspectorTab = ref(0)
 const displayMode = ref('list')
 const expandedTreeNodes = ref(new Set())
@@ -43,42 +45,264 @@ const actionResult = ref(null)
 const actionRawResult = ref(null)
 const actionFailure = ref(null)
 
-const selectedName = computed(() => route.params.name || records.value[0]?.name || '')
+const selectedName = computed(() => route.params.name || record.value?.name || '')
 const isTreeResource = computed(() => Boolean(resource.value?.tree))
 
 const listColumns = computed(() => {
 	if (!resource.value) return []
 
 	return [
-		{
-			label: 'Name',
-			key: 'name',
-			width: 3,
-			getLabel: ({ row }) => row.title || row.first_name || row.name,
-		},
+		{ label: 'Name', key: 'name', width: '240px', type: 'text' },
 		...resource.value.summaryFields.map((field) => ({
-			label: field.label,
-			key: field.key,
+			...field,
 			width: field.width || '180px',
-			getLabel: ({ row }) => formatFieldValue(row[field.key]),
 		})),
 	]
 })
 
-const visibleRecords = computed(() => {
-	const query = searchQuery.value.trim().toLowerCase()
-	let rows = records.value
+const allResourceFields = computed(() => {
+	if (!resource.value) return []
+	const fields = [
+		{ key: 'name', label: 'Name', type: 'link', options: resource.value.doctype },
+		...(resource.value.summaryFields || []),
+		...(resource.value.detailFields || []),
+		...(resource.value.lifecycleFields || []),
+	]
+	return fields.filter((field, index, source) => field.key && source.findIndex((item) => item.key === field.key) === index)
+})
 
-	if (filterMode.value === 'linked') {
-		rows = rows.filter((row) => resource.value?.summaryFields?.some((field) => row[field.key]))
-	} else if (filterMode.value === 'gaps') {
-		rows = rows.filter((row) => resource.value?.summaryFields?.some((field) => !row[field.key]))
+const filterDocFields = computed(() => allResourceFields.value.map((field) => ({
+	fieldname: field.key,
+	label: field.label || field.key,
+	fieldtype: frappeFieldType(field),
+	options: filterOptionsForField(field),
+})))
+
+const filterFieldOptions = computed(() => filterDocFields.value.map((field) => ({
+	label: field.label,
+	value: field.fieldname,
+	description: field.fieldtype,
+})))
+
+const activeFilterEntries = computed(() => Object.entries(listFilters.value).filter(([field, [operator, value]]) => isFilterReady(field, operator, value)))
+const appliedFilterCount = computed(() => activeFilterEntries.value.length)
+
+function filterOptionsForField(field = {}) {
+	if (Array.isArray(field.options)) return field.options.map((option) => (typeof option === 'object' ? option.value || option.label : option)).filter(Boolean).join('\n')
+	return field.options || ''
+}
+
+function frappeFieldType(field = {}) {
+	if (field.type === 'link') return 'Link'
+	if (field.type === 'check') return 'Check'
+	if (field.type === 'number') return 'Int'
+	if (field.type === 'select' || Array.isArray(field.options)) return 'Select'
+	return 'Data'
+}
+
+function rowTitle(row) {
+	return row?.title || row?.first_name || row?.image_tag || row?.cluster_name || row?.plan_code || row?.name || ''
+}
+
+function setFilter(field, operator, value, source = '') {
+	if (!field || value === undefined || value === null || value === '') return
+	const nextFilters = { ...listFilters.value }
+	nextFilters[field] = source ? [operator, value, source] : [operator, value]
+	listFilters.value = nextFilters
+	draftFilterRows.value = filtersToDraftRows(nextFilters)
+}
+
+function clearFilters() {
+	listFilters.value = {}
+	draftFilterRows.value = []
+	searchQuery.value = ''
+}
+
+function clearAppliedFilter(field) {
+	const nextFilters = { ...listFilters.value }
+	delete nextFilters[field]
+	listFilters.value = nextFilters
+	draftFilterRows.value = filtersToDraftRows(nextFilters)
+}
+
+function filterChipLabel(field, operator, value) {
+	const label = fieldMeta(field).label || field
+	return `${label} ${operator} ${value}`
+}
+
+
+function operatorOptionsForField(fieldname) {
+	const fieldtype = frappeFieldType(fieldMeta(fieldname))
+	if (['Data', 'Long Text', 'Small Text', 'Text', 'Text Editor', 'JSON', 'Code', 'Link'].includes(fieldtype)) {
+		return [
+			{ label: 'Equals', value: '=' },
+			{ label: 'Not Equals', value: '!=' },
+			{ label: 'Like', value: 'like' },
+			{ label: 'Not Like', value: 'not like' },
+		]
 	}
+	if (['Int', 'Float'].includes(fieldtype)) {
+		return [
+			{ label: 'Equals', value: '=' },
+			{ label: 'Not Equals', value: '!=' },
+			{ label: '<', value: '<' },
+			{ label: '>', value: '>' },
+			{ label: '<=', value: '<=' },
+			{ label: '>=', value: '>=' },
+		]
+	}
+	return [
+		{ label: 'Equals', value: '=' },
+		{ label: 'Not Equals', value: '!=' },
+	]
+}
 
-	if (!query) return rows
+function defaultOperatorForField(fieldname) {
+	const fieldtype = frappeFieldType(fieldMeta(fieldname))
+	return ['Data', 'Long Text', 'Small Text', 'Text', 'Text Editor', 'JSON', 'Code'].includes(fieldtype) ? 'like' : '='
+}
 
+function defaultValueForField(fieldname) {
+	const field = fieldMeta(fieldname)
+	const fieldtype = frappeFieldType(field)
+	if (fieldtype === 'Check') return 'Yes'
+	if (fieldtype === 'Select') return filterValueOptions(fieldname)[0]?.value || ''
+	return ''
+}
+
+function filterValueOptions(fieldname) {
+	const field = fieldMeta(fieldname)
+	const fieldtype = frappeFieldType(field)
+	if (fieldname === 'name') {
+		return records.value.map((row) => ({
+			label: rowTitle(row) && rowTitle(row) !== row.name ? `${rowTitle(row)} · ${row.name}` : row.name,
+			value: row.name,
+		}))
+	}
+	if (fieldtype === 'Check') return [{ label: 'Yes', value: 'Yes' }, { label: 'No', value: 'No' }]
+	if (fieldtype === 'Select') return filterOptionsForField(field).split('\n').filter(Boolean).map((option) => ({ label: option, value: option }))
+	if (fieldtype === 'Link') return optionsForField(field)
+	return []
+}
+
+function filtersToDraftRows(filters) {
+	return Object.entries(filters).map(([field, [operator, value]]) => ({ field, operator, value }))
+}
+
+function addDraftFilter() {
+	draftFilterRows.value = [...draftFilterRows.value, { field: '', operator: '=', value: '' }]
+}
+
+function removeDraftFilter(index) {
+	draftFilterRows.value = draftFilterRows.value.filter((_, rowIndex) => rowIndex !== index)
+}
+
+function updateDraftField(row, selected) {
+	const field = selected?.value || selected || ''
+	row.field = field
+	row.operator = defaultOperatorForField(field)
+	row.value = defaultValueForField(field)
+}
+
+function updateDraftOperator(row, selected) {
+	row.operator = selected?.value || selected || '='
+	applyDraftFiltersIfReady()
+}
+
+function updateDraftValue(row, value) {
+	row.value = value?.value ?? value ?? ''
+	applyDraftFiltersIfReady()
+}
+
+function resetDraftFilters() {
+	draftFilterRows.value = filtersToDraftRows(listFilters.value)
+}
+
+function appliedFiltersFromDraft() {
+	const next = {}
+	for (const row of draftFilterRows.value) {
+		if (!isFilterReady(row.field, row.operator, row.value)) continue
+		next[row.field] = [row.operator, row.value]
+	}
+	return next
+}
+
+function applyDraftFilters() {
+	listFilters.value = appliedFiltersFromDraft()
+}
+
+function applyDraftFiltersIfReady() {
+	listFilters.value = appliedFiltersFromDraft()
+}
+
+function normalizeValue(value) {
+	return String(value ?? '').toLowerCase()
+}
+
+function fieldMeta(field) {
+	return allResourceFields.value.find((item) => item.key === field) || {}
+}
+
+function isFilterReady(field, operator, value) {
+	if (!field || !operator || value === undefined || value === null) return false
+	const meta = fieldMeta(field)
+	if (String(value) === '' && !['Check', 'Select'].includes(frappeFieldType(meta))) return false
+	return true
+}
+
+function filterMatches(row, field, operator, value) {
+	const raw = field === 'name' ? row.name : row[field]
+	const left = normalizeValue(raw)
+	const right = normalizeValue(value)
+	const leftNumber = Number(raw)
+	const rightNumber = Number(value)
+	const canCompareNumber = !Number.isNaN(leftNumber) && !Number.isNaN(rightNumber)
+	switch (operator) {
+		case '=':
+			return left === right
+		case '!=':
+			return left !== right
+		case '<':
+			return canCompareNumber ? leftNumber < rightNumber : left < right
+		case '>':
+			return canCompareNumber ? leftNumber > rightNumber : left > right
+		case '<=':
+			return canCompareNumber ? leftNumber <= rightNumber : left <= right
+		case '>=':
+			return canCompareNumber ? leftNumber >= rightNumber : left >= right
+		case 'not like':
+			return !left.includes(right.replaceAll('%', ''))
+		case 'like':
+		default:
+			return left.includes(right.replaceAll('%', ''))
+	}
+}
+
+function applyRecordFilters(rows) {
+	const query = searchQuery.value.trim().toLowerCase()
 	const keys = ['name', ...(resource.value?.summaryFields || []).map((field) => field.key)]
-	return rows.filter((row) => keys.some((key) => String(row[key] || '').toLowerCase().includes(query)))
+	const entries = Object.entries(listFilters.value).filter(([field, [operator, value]]) => isFilterReady(field, operator, value))
+	return rows.filter((row) => {
+		const queryMatch = !query || keys.some((key) => normalizeValue(key === 'name' ? rowTitle(row) || row.name : row[key]).includes(query))
+		return queryMatch && entries.every(([field, [operator, value]]) => filterMatches(row, field, operator, value))
+	})
+}
+
+function compareRows(a, b, field) {
+	const av = field === 'name' ? rowTitle(a) || a.name : a[field]
+	const bv = field === 'name' ? rowTitle(b) || b.name : b[field]
+	const na = Number(av)
+	const nb = Number(bv)
+	if (!Number.isNaN(na) && !Number.isNaN(nb) && String(av).trim() !== '' && String(bv).trim() !== '') return na - nb
+	return String(av || '').localeCompare(String(bv || ''))
+}
+
+const visibleRecords = computed(() => {
+	let rows = applyRecordFilters(records.value)
+	if (sortState.field) {
+		rows = [...rows].sort((a, b) => compareRows(a, b, sortState.field) * (sortState.direction === 'desc' ? -1 : 1))
+	}
+	return rows
 })
 
 const treeRows = computed(() => {
@@ -87,13 +311,7 @@ const treeRows = computed(() => {
 	const tree = resource.value.tree
 	const parentField = tree.parentField
 	const query = searchQuery.value.trim().toLowerCase()
-	let sourceRows = records.value
-
-	if (filterMode.value === 'linked') {
-		sourceRows = sourceRows.filter((row) => resource.value?.summaryFields?.some((field) => row[field.key]))
-	} else if (filterMode.value === 'gaps') {
-		sourceRows = sourceRows.filter((row) => resource.value?.summaryFields?.some((field) => !row[field.key]))
-	}
+	let sourceRows = applyRecordFilters(records.value)
 
 	const rowByName = new Map(sourceRows.map((row) => [row.name, row]))
 	const keys = ['name', ...(resource.value?.summaryFields || []).map((field) => field.key)]
@@ -223,7 +441,7 @@ function optionLabelForDoc(doc, field) {
 
 async function loadFieldOptions() {
 	const actionFields = (resource.value?.actions || []).flatMap((action) => action.fields || [])
-	const linkFields = [...documentLifecycleFields.value, ...actionFields].filter((field) => field.type === 'link' && field.options)
+	const linkFields = [...allResourceFields.value, ...documentLifecycleFields.value, ...actionFields].filter((field) => field.type === 'link' && field.options)
 	await Promise.all(linkFields.map(async (field) => {
 		const key = fieldOptionKey(field)
 		if (fieldOptions[key]) return
@@ -395,15 +613,9 @@ const assistantContext = computed(() => {
 	}
 })
 
-const filterOptions = computed(() => [
-	{ label: 'All records', onClick: () => { filterMode.value = 'all' } },
-	{ label: 'Linked records', onClick: () => { filterMode.value = 'linked' } },
-	{ label: 'Records with gaps', onClick: () => { filterMode.value = 'gaps' } },
-])
-
 const listActions = computed(() => [
 	{ label: 'Refresh', onClick: load },
-	{ label: 'Clear search', onClick: () => { searchQuery.value = ''; filterMode.value = 'all' } },
+	{ label: 'Clear filters and search', onClick: clearFilters },
 ])
 
 async function loadCustomerContext() {
@@ -491,8 +703,16 @@ async function loadDetail(name) {
 			filters: [[linkField, '=', sourceValue]],
 		})
 
-		return { label: relation.label, items, previewFields: relation.fields.slice(0, 2), route: relation.route }
+		return { label: relation.label, items, previewFields: relation.fields.slice(0, 2), route: relation.route, doctype: relation.doctype, linkField, sourceValue }
 	}))
+}
+
+function applyRouteFilter() {
+	const field = route.query.filter_field
+	const value = route.query.filter_value
+	if (!field || value === undefined) return
+	listFilters.value = {}
+	setFilter(String(field), String(route.query.filter_operator || '='), String(value), String(route.query.filter_source || 'Related'))
 }
 
 async function load() {
@@ -501,8 +721,10 @@ async function load() {
 	related.value = []
 	try {
 		await Promise.all([loadList(), loadSettingsContext(), loadFieldOptions()])
-		const previewName = route.params.name || (props.mode === 'list' ? records.value[0]?.name : '')
+		applyRouteFilter()
+		const previewName = route.params.name || ''
 		await loadDetail(previewName)
+		if (!previewName) record.value = null
 	} catch (err) {
 		error.value = err?.message || 'Unable to load records.'
 	} finally {
@@ -511,7 +733,7 @@ async function load() {
 }
 
 onMounted(load)
-watch(() => [props.mode, props.resourceKey, route.params.name, props.scope], load)
+watch(() => [props.mode, props.resourceKey, route.params.name, props.scope, route.query.filter_field, route.query.filter_value], load)
 watch(isTreeResource, (enabled) => {
 	displayMode.value = enabled ? 'tree' : 'list'
 	expandedTreeNodes.value = new Set()
@@ -521,20 +743,11 @@ const title = computed(() => resource.value?.label || 'Records')
 const subtitle = computed(() => resource.value?.listHelp || 'Native Frappe document surface.')
 const activeAction = computed(() => (resource.value?.actions || []).find((action) => action.key === activeActionKey.value) || null)
 const inspectorTabs = computed(() => {
-	const tabs = [
-		{ label: 'Summary' },
-		{ label: 'Fields' },
-		{ label: 'Document' },
-		{ label: 'Status' },
-	]
-
+	const tabs = [{ label: 'Overview' }, { label: 'Edit' }]
+	tabs.push({ label: `Actions${resource.value?.actions?.length ? ` (${resource.value.actions.length})` : ''}` })
+	tabs.push({ label: `Related${related.value.length ? ` (${related.value.length})` : ''}` })
+	tabs.push({ label: 'Diagnostics' })
 	if (showExternalContext.value) tabs.push({ label: 'External' })
-
-	tabs.push(
-		{ label: `Actions${resource.value?.actions?.length ? ` (${resource.value.actions.length})` : ''}` },
-		{ label: `Related${related.value.length ? ` (${related.value.length})` : ''}` },
-	)
-
 	return tabs
 })
 
@@ -670,15 +883,108 @@ function toggleTreeNode(name) {
 	expandedTreeNodes.value = next
 }
 
-function selectTreeRow(row) {
-	if (!resource.value?.detailRoute) return
-	router.push(resource.value.detailRoute(row.name))
-	loadDetail(row.name).catch((err) => {
-		error.value = err?.message || 'Unable to load region.'
+const hasUnsavedChanges = computed(() => {
+	if (!record.value || !resource.value?.editable || saveState.value === 'saving') return false
+	return documentLifecycleFields.value.some((field) => !field.readOnly && String(formState[field.key] ?? '') !== String(record.value[field.key] ?? field.default ?? ''))
+})
+
+function confirmRecordSwitch() {
+	return !hasUnsavedChanges.value || window.confirm('You have unsaved edits in the inspector. Switch records and discard those local edits?')
+}
+
+async function selectRecord(row) {
+	if (!resource.value?.detailRoute || !row?.name || row.name === selectedName.value) return
+	if (!confirmRecordSwitch()) return
+	error.value = null
+	await router.push(resource.value.detailRoute(row.name))
+	await loadDetail(row.name).catch((err) => {
+		error.value = err?.message || 'Unable to load record.'
 	})
 }
 
+function selectTreeRow(row) {
+	selectRecord(row)
+}
 
+function toggleSort(field) {
+	if (sortState.field === field) {
+		sortState.direction = sortState.direction === 'asc' ? 'desc' : 'asc'
+	} else {
+		sortState.field = field
+		sortState.direction = 'asc'
+	}
+}
+
+function sortIndicator(field) {
+	if (sortState.field !== field) return ''
+	return sortState.direction === 'asc' ? '↑' : '↓'
+}
+
+function addCellFilter(field, value, source = '') {
+	setFilter(field, '=', value, source)
+}
+
+function statusTone(value) {
+	const normalized = String(value || '').toLowerCase()
+	if (['ready', 'active', 'healthy', 'succeeded', 'verified', 'reserved'].some((item) => normalized.includes(item))) return 'green'
+	if (['failed', 'blocked', 'conflict', 'degraded'].some((item) => normalized.includes(item))) return 'red'
+	if (['running', 'provisioning', 'accepted', 'deleting', 'quiescing', 'pending'].some((item) => normalized.includes(item))) return 'amber'
+	if (['deleted', 'retired', 'disabled', 'suspended'].some((item) => normalized.includes(item))) return 'muted'
+	return 'gray'
+}
+
+function statusBadgeClass(value) {
+	return {
+		green: 'bg-emerald-50 text-emerald-700',
+		red: 'bg-red-50 text-red-700',
+		amber: 'bg-amber-50 text-amber-700',
+		muted: 'bg-surface-gray-2 text-ink-gray-6',
+		gray: 'bg-surface-white text-ink-gray-7',
+	}[statusTone(value)]
+}
+
+function statusDotClass(value) {
+	return {
+		green: 'bg-emerald-500',
+		red: 'bg-red-500',
+		amber: 'bg-amber-500',
+		muted: 'bg-ink-gray-4',
+		gray: 'bg-ink-gray-3',
+	}[statusTone(value)]
+}
+
+function isStatusField(field = {}) {
+	return field.key?.includes('status') || field.key?.includes('state') || field.key === 'privacy' || field.key === 'health_status' || field.key === 'docstatus'
+}
+
+function isFilterableCell(field = {}) {
+	return isStatusField(field) || field.type === 'link' || Boolean(field.linkPrefix) || ['region', 'cluster', 'customer', 'privacy', 'database_server', 'bench', 'release_group', 'current_release'].includes(field.key)
+}
+
+function cellValue(row, field) {
+	return field.key === 'name' ? rowTitle(row) || row.name : row[field.key]
+}
+
+function cellSubtitle(row, field) {
+	return field.key === 'name' && rowTitle(row) !== row.name ? row.name : ''
+}
+
+function relatedResourcePath(relation, item) {
+	const target = getResourceByDoctype(relation.doctype)
+	if (!target) return relation.route(item.name)
+	return {
+		path: target.route,
+		query: { filter_field: 'name', filter_operator: '=', filter_value: item.name, filter_source: relation.label },
+	}
+}
+
+function openRelatedFilter(relation, item) {
+	if (relation.doctype === resource.value?.doctype) {
+		setFilter('name', '=', item.name, relation.label)
+		return
+	}
+	router.push(relatedResourcePath(relation, item))
+}
 
 function controlTypeForField(field) {
 	if (field.type === 'check') return 'checkbox'
@@ -825,9 +1131,9 @@ async function saveCurrentRecord() {
 	<WorkspaceLayout
 		:title="title"
 		:subtitle="subtitle"
-		inspector-kicker="Doctype inspector"
-		:inspector-title="record ? (record.title || record.first_name || record.name || resource.label) : resource.label"
-		:inspector-subtitle="mode === 'detail' && record ? 'Update fields, review related records, and surface request entry points from this rail.' : 'Open a record to inspect editable fields and related data.'"
+		inspector-kicker="Selected record"
+		:inspector-title="record ? `Editing ${resource.doctype}: ${record.title || record.first_name || record.name}` : `No ${resource.doctype} selected`"
+		:inspector-subtitle="record ? 'Review, edit, and run actions only for the visibly selected record.' : 'Select a row from the list before editing or running actions.'"
 		assistant-label="Assistant"
 		assistant-hint="This drawer will eventually provide context-aware help for the selected doctype, record, and action path."
 		:assistant-context="assistantContext"
@@ -874,27 +1180,65 @@ async function saveCurrentRecord() {
 				</div>
 
 				<div v-else class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-outline-gray-2 bg-surface-white">
-				<div class="flex shrink-0 items-center justify-between gap-2 border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
-					<div class="flex min-w-0 flex-1 items-center gap-2">
-						<TextInput v-model="searchQuery" class="max-w-xs" variant="subtle" :placeholder="displayMode === 'tree' ? 'Search tree' : 'Search list'">
-							<template #prefix><Search class="size-4 text-ink-gray-4" /></template>
-						</TextInput>
-						<div v-if="isTreeResource" class="flex shrink-0 rounded border border-outline-gray-2 bg-surface-white p-0.5">
-							<Button size="sm" :variant="displayMode === 'list' ? 'subtle' : 'ghost'" class="h-7" @click="setDisplayMode('list')">
-								<List class="size-4" />
-								List
-							</Button>
-							<Button size="sm" :variant="displayMode === 'tree' ? 'subtle' : 'ghost'" class="h-7" @click="setDisplayMode('tree')">
-								<FolderTree class="size-4" />
-								Tree
-							</Button>
+				<div class="shrink-0 border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+					<div class="flex flex-wrap items-center justify-between gap-2">
+						<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+							<TextInput v-model="searchQuery" class="max-w-xs" variant="subtle" :placeholder="displayMode === 'tree' ? 'Search tree' : 'Search list'">
+								<template #prefix><Search class="size-4 text-ink-gray-4" /></template>
+							</TextInput>
+							<Popover placement="bottom-start" popover-class="z-[200] w-[760px] rounded-lg border border-outline-gray-2 bg-surface-white p-3 shadow-xl" @open="resetDraftFilters">
+								<template #target="{ togglePopover }">
+									<Button variant="subtle" @click="togglePopover">
+										<Filter class="size-4" />
+										Filter
+										<Badge v-if="appliedFilterCount" class="ml-1 bg-surface-gray-7 text-ink-white">{{ appliedFilterCount }}</Badge>
+									</Button>
+								</template>
+								<template #body="{ close }">
+									<div class="space-y-3">
+										<div class="flex items-start justify-between gap-3">
+											<div>
+												<p class="text-sm font-medium text-ink-gray-9">Filters</p>
+												<p class="mt-0.5 text-xs text-ink-gray-5">Add field, operator, and value, then apply the filter.</p>
+											</div>
+											<Button size="sm" variant="ghost" @click="close">Close</Button>
+										</div>
+
+										<div v-if="!draftFilterRows.length" class="rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 px-3 py-2 text-sm text-ink-gray-5">No filters yet. Add a filter to start.</div>
+										<div v-for="(filter, index) in draftFilterRows" :key="index" class="grid grid-cols-[64px_minmax(0,1fr)_160px_minmax(0,1fr)_32px] items-end gap-2">
+											<div class="pb-1.5 text-right text-sm text-ink-gray-5">{{ index === 0 ? 'Where' : 'And' }}</div>
+											<Autocomplete :model-value="filter.field" :options="filterFieldOptions" placeholder="Filter by..." @change="(value) => updateDraftField(filter, value)" />
+											<FormControl type="select" :model-value="filter.operator" :options="operatorOptionsForField(filter.field)" placeholder="Operator" @update:modelValue="(value) => updateDraftOperator(filter, value)" />
+											<Autocomplete v-if="['Link', 'Select', 'Check'].includes(frappeFieldType(fieldMeta(filter.field)))" :model-value="filter.value" :options="filterValueOptions(filter.field)" placeholder="Value" @change="(value) => updateDraftValue(filter, value)" />
+											<FormControl v-else type="text" :model-value="filter.value" placeholder="Value" @update:modelValue="(value) => updateDraftValue(filter, value)" />
+											<Button variant="ghost" icon="x" @click="removeDraftFilter(index)" />
+										</div>
+
+										<div class="flex items-center justify-between border-t border-outline-gray-2 pt-3">
+											<Button variant="ghost" @click="addDraftFilter">Add filter</Button>
+											<div class="flex items-center gap-2">
+												<Button variant="ghost" @click="clearFilters(); close()">Clear filters</Button>
+												<Button @click="applyDraftFilters(); close()">Apply filters</Button>
+											</div>
+										</div>
+									</div>
+								</template>
+							</Popover>
+							<div v-if="isTreeResource" class="flex shrink-0 rounded border border-outline-gray-2 bg-surface-white p-0.5">
+								<Button size="sm" :variant="displayMode === 'list' ? 'subtle' : 'ghost'" class="h-7" @click="setDisplayMode('list')"><List class="size-4" />List</Button>
+								<Button size="sm" :variant="displayMode === 'tree' ? 'subtle' : 'ghost'" class="h-7" @click="setDisplayMode('tree')"><FolderTree class="size-4" />Tree</Button>
+							</div>
 						</div>
-						<Badge v-if="filterMode !== 'all'" class="bg-surface-gray-2 text-ink-gray-6">{{ filterMode }}</Badge>
+						<div class="flex shrink-0 items-center gap-2">
+							<Badge class="bg-surface-white text-ink-gray-7">{{ visibleRowCount }} / {{ records.length }}</Badge>
+							<Dropdown :options="listActions"><Button variant="ghost" :icon="MoreHorizontal" /></Dropdown>
+						</div>
 					</div>
-					<div class="flex shrink-0 items-center gap-2">
-						<Badge class="bg-surface-white text-ink-gray-7">{{ visibleRowCount }} / {{ records.length }}</Badge>
-						<Dropdown :options="filterOptions"><Button variant="subtle" :icon="Filter">Filter</Button></Dropdown>
-						<Dropdown :options="listActions"><Button variant="ghost" :icon="MoreHorizontal" /></Dropdown>
+					<div v-if="activeFilterEntries.length" class="mt-2 flex flex-wrap items-center gap-2">
+						<button v-for="([field, filter]) in activeFilterEntries" :key="field" type="button" class="rounded-full border border-outline-gray-2 bg-surface-white px-2.5 py-1 text-xs font-medium text-ink-gray-7 hover:bg-surface-gray-1" @click="clearAppliedFilter(field)">
+							{{ filterChipLabel(field, filter[0], filter[1]) }} ×
+						</button>
+						<Button size="sm" variant="ghost" @click="clearFilters">Clear all</Button>
 					</div>
 				</div>
 
@@ -946,19 +1290,51 @@ async function saveCurrentRecord() {
 					:rows="visibleRecords"
 					row-key="name"
 					:options="{
-						getRowRoute: (row) => resource.detailRoute(row.name),
-						selectable: true,
+						getRowRoute: null,
+						onRowClick: selectRecord,
+						selectable: false,
 						showTooltip: true,
 						resizeColumn: true,
+						enableActive: true,
+						rowHeight: 52,
 						emptyState: {
-							title: mode === 'detail' ? 'No related records yet' : 'No records yet',
-							description: mode === 'detail'
-								? 'Open a different record or refresh the list to see related context.'
-								: 'This surface is ready, but the current user does not have any matching records yet.',
-							button: { label: 'Refresh', variant: 'subtle', onClick: load },
+							title: 'No matching records',
+							description: 'Adjust filters or refresh the list to see records.',
+							button: { label: 'Clear filters', variant: 'subtle', onClick: clearFilters },
 						},
 					}"
-				/>
+				>
+					<template #default>
+						<ListHeader>
+							<ListHeaderItem v-for="column in listColumns" :key="column.key" :item="column">
+								<button type="button" class="flex min-w-0 items-center gap-1 truncate text-left text-sm text-ink-gray-5 hover:text-ink-gray-8" @click.stop="toggleSort(column.key)">
+									<span class="truncate">{{ column.label }}</span>
+									<span v-if="sortIndicator(column.key)" class="text-xs text-ink-gray-7">{{ sortIndicator(column.key) }}</span>
+								</button>
+							</ListHeaderItem>
+						</ListHeader>
+						<ListRows />
+					</template>
+					<template #cell="{ column, row }">
+						<div class="flex min-w-0 items-start gap-2" :class="selectedName === row.name && column.key === 'name' ? 'border-l-2 border-blue-500 pl-2' : ''">
+							<span v-if="column.key === 'name'" class="mt-1 size-2 shrink-0 rounded-full" :class="statusDotClass(row[resource.primaryStatusField] || row.status || row.site_status || row.bench_status || row.database_status || row.health_status)"></span>
+							<div class="min-w-0 flex-1">
+								<button
+									v-if="isStatusField(column) || isFilterableCell(column)"
+									type="button"
+									class="block max-w-full truncate text-left hover:underline"
+									:class="isStatusField(column) ? `rounded-full px-2 py-0.5 ${statusBadgeClass(cellValue(row, column))}` : 'text-ink-gray-8'"
+									@click.stop="addCellFilter(column.key, cellValue(row, column), column.label)"
+								>
+									<span v-if="isStatusField(column)" class="mr-1 inline-block size-2 rounded-full" :class="statusDotClass(cellValue(row, column))"></span>{{ formatFieldValue(cellValue(row, column)) || '-' }}
+								</button>
+								<span v-else class="block truncate text-ink-gray-8">{{ formatFieldValue(cellValue(row, column)) || '-' }}</span>
+								<div v-if="cellSubtitle(row, column)" class="truncate text-xs text-ink-gray-5">{{ cellSubtitle(row, column) }}</div>
+								<Badge v-if="selectedName === row.name && column.key === 'name'" class="mt-1 bg-blue-100 text-blue-700">Selected</Badge>
+							</div>
+						</div>
+					</template>
+				</ListView>
 				</div>
 			</div>
 		</template>
@@ -971,14 +1347,14 @@ async function saveCurrentRecord() {
 				class="h-full [&_[role='tab']]:py-2 [&_[role='tab']]:text-sm [&_[role='tablist']]:gap-4 [&_[role='tablist']]:px-1 [&_[role='tabpanel']]:px-1 [&_[role='tabpanel']]:py-3"
 			>
 				<template #tab-panel="{ tab }">
-					<div v-if="tab.label.startsWith('Summary')" class="space-y-3">
+					<div v-if="tab.label.startsWith('Overview')" class="space-y-3">
 						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 							<div class="flex items-start justify-between gap-3">
 								<div class="min-w-0">
 									<p class="text-xs font-medium text-ink-gray-5">Record</p>
 									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ record ? (record.title || record.first_name || record.name) : 'No record selected' }}</p>
 								</div>
-								<Badge class="bg-surface-white text-ink-gray-7">{{ record ? 'Loaded' : 'Pending' }}</Badge>
+								<Badge :class="record ? 'bg-blue-50 text-blue-700' : 'bg-surface-white text-ink-gray-7'">{{ record ? 'Selected' : 'Pending' }}</Badge>
 							</div>
 						</div>
 
@@ -1002,7 +1378,7 @@ async function saveCurrentRecord() {
 						</div>
 					</div>
 
-					<div v-else-if="tab.label.startsWith('Fields')" class="space-y-3">
+					<div v-else-if="tab.label.startsWith('Edit')" class="space-y-3">
 						<div v-if="!record" class="rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-3">
 							<p class="text-sm font-medium text-ink-gray-8">No record selected</p>
 							<p class="mt-1 text-sm leading-5 text-ink-gray-5">Choose a row to inspect fields here.</p>
@@ -1011,8 +1387,8 @@ async function saveCurrentRecord() {
 						<template v-else>
 							<div class="flex items-center justify-between gap-2">
 								<div>
-									<p class="text-sm font-medium text-ink-gray-9">Fields</p>
-									<p class="text-xs text-ink-gray-5">{{ canEditDocument ? 'Editable via standard Frappe document save.' : 'Read-only in the current document state.' }}</p>
+									<p class="text-sm font-medium text-ink-gray-9">Edit selected record</p>
+									<p class="text-xs text-ink-gray-5">{{ canEditDocument ? 'Local edits stay in this rail until Save.' : 'Read-only in the current document state.' }}</p>
 								</div>
 								<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ canEditDocument ? 'Editable' : 'Read only' }}</Badge>
 							</div>
@@ -1088,7 +1464,7 @@ async function saveCurrentRecord() {
 							</div>
 						</div>
 					</div>
-					<div v-else-if="tab.label.startsWith('Status')" class="space-y-3">
+					<div v-else-if="tab.label.startsWith('Diagnostics')" class="space-y-3">
 						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 							<div class="flex items-start justify-between gap-3">
 								<div>
@@ -1265,16 +1641,17 @@ async function saveCurrentRecord() {
 							</div>
 							<div class="p-2">
 								<p v-if="!relation.items.length" class="px-1 py-2 text-sm leading-5 text-ink-gray-5">No related records found.</p>
-								<RouterLink
+								<button
 									v-for="item in relation.items"
 									v-else
 									:key="item.name"
-									:to="relation.route(item.name)"
-									class="block rounded px-2 py-1.5 text-sm transition hover:bg-surface-gray-1"
+									type="button"
+									class="block w-full rounded px-2 py-1.5 text-left text-sm transition hover:bg-surface-gray-1"
+									@click="openRelatedFilter(relation, item)"
 								>
 									<div class="truncate font-medium text-ink-gray-9">{{ item.title || item.first_name || item.name }}</div>
-									<div class="truncate text-xs text-ink-gray-5">{{ item.name }}</div>
-								</RouterLink>
+									<div class="truncate text-xs text-ink-gray-5">Filter list by name = {{ item.name }}</div>
+								</button>
 							</div>
 						</div>
 					</div>

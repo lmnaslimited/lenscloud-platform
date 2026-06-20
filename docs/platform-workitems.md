@@ -5,6 +5,10 @@ Keep detailed design in domain documents and completed proof in dated evidence.
 
 Status: `Complete`, `In Progress`, `Pending`, or `Blocked`.
 
+## Backlog Control
+
+All Platform product, UI, and operator-workflow scope starts in this file first. Supporting design docs, SOPs, and evidence may be linked from a row here, but they are not independent backlog trackers.
+
 | Work Item | Outcome | Status |
 |---|---|---|
 | EU cluster, operators, Traefik, wildcard TLS, restricted access | Infra runtime is ready for Platform reconciliation | Complete |
@@ -29,6 +33,7 @@ Status: `Complete`, `In Progress`, `Pending`, or `Blocked`.
 | Platform lifecycle UI | Platform operators can inspect, confirm, delete, monitor, and retry from resource pages | Complete |
 | Lifecycle create/inspect/delete acceptance | Platform completes owned resource lifecycle without manager or Infra intervention | Blocked |
 | Runtime namespace registry | Infra-approved namespaces are synced with customer/purpose metadata and filtered for Database Server and Bench placement | In Progress |
+| Platform list and inspector UX | Operators can filter by fields, see the selected record clearly, use status/cell click filters, sort columns, filter by related documents, and edit from a simplified inspector rail | In Progress |
 
 ## Execution Order
 

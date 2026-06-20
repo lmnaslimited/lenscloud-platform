@@ -1120,6 +1120,10 @@ export function getResourceByKey(key) {
 	return [...platformResources, ...customerResources].find((resource) => resource.key === key) || null
 }
 
+export function getResourceByDoctype(doctype) {
+	return [...platformResources, ...customerResources].find((resource) => resource.doctype === doctype) || null
+}
+
 export function getRoutesForScope(scope) {
 	return scope === 'customer' ? customerNav : platformNav
 }
