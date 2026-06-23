@@ -1,0 +1,162 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "autoname": "field:title",
+ "creation": "2026-06-22 21:27:21.160195",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "version",
+  "status",
+  "column_break_uzpf",
+  "protection_level",
+  "enable_developer_mode",
+  "allow_client_scripts",
+  "allow_server_scripts",
+  "cors_policy",
+  "cors_origins",
+  "column_break_agrd",
+  "enable_bench_test",
+  "require_bench_test",
+  "enable_latp",
+  "require_latp",
+  "latp_mode",
+  "settings"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Version",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nActive\nRetired"
+  },
+  {
+   "fieldname": "protection_level",
+   "fieldtype": "Select",
+   "label": "Protection Level",
+   "options": "Permissive\nTest\nProduction-like\nRestricted",
+   "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_developer_mode",
+   "fieldtype": "Check",
+   "label": "Enable Developer Mode"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_client_scripts",
+   "fieldtype": "Check",
+   "label": "Allow Client Scripts"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_server_scripts",
+   "fieldtype": "Check",
+   "label": "Allow Server Scripts"
+  },
+  {
+   "default": "Disabled",
+   "fieldname": "cors_policy",
+   "fieldtype": "Select",
+   "label": "CORS Policy",
+   "options": "Disabled\nAllowlist"
+  },
+  {
+   "fieldname": "cors_origins",
+   "fieldtype": "Small Text",
+   "label": "CORS Origins"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_bench_test",
+   "fieldtype": "Check",
+   "label": "Enable Bench Test"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_bench_test",
+   "fieldtype": "Check",
+   "label": "Require Bench Test Gate"
+  },
+  {
+   "default": "0",
+   "fieldname": "enable_latp",
+   "fieldtype": "Check",
+   "label": "Enable LATP"
+  },
+  {
+   "default": "0",
+   "fieldname": "require_latp",
+   "fieldtype": "Check",
+   "label": "Require LATP Gate"
+  },
+  {
+   "default": "Non-destructive",
+   "fieldname": "latp_mode",
+   "fieldtype": "Select",
+   "label": "LATP Mode",
+   "options": "Non-destructive\nFull"
+  },
+  {
+   "fieldname": "settings",
+   "fieldtype": "Table",
+   "label": "Allowlisted Site Settings",
+   "options": "Site Control Setting"
+  },
+  {
+   "fieldname": "column_break_uzpf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_agrd",
+   "fieldtype": "Column Break"
+  }
+ ],
+ "grid_page_length": 50,
+ "links": [],
+ "modified": "2026-06-23 15:01:33.556109",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Site Control Profile",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "title_field": "title"
+}

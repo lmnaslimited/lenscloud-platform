@@ -9,33 +9,40 @@
   "title",
   "identity_section",
   "cluster_name",
-  "region",
   "provider",
+  "column_break_wnkm",
+  "region",
   "environment",
+  "column_break_mgfk",
   "status",
-  "access_section",
+  "access_and_operations_tab",
   "manager_host",
-  "manager_public_ip",
-  "manager_private_ip",
   "headlamp_url",
   "kubernetes_api_endpoint",
-  "access_method",
+  "column_break_vvrr",
+  "manager_public_ip",
+  "manager_private_ip",
+  "column_break_kezf",
   "kubeconfig_reference",
   "credential_reference",
-  "operator_section",
+  "access_method",
+  "operator_defaults_tab",
   "operator_namespace",
   "default_runtime_namespace",
   "default_storage_class",
   "default_bench_namespace_pattern",
+  "column_break_aksd",
   "domain_strategy",
+  "ingress_class",
+  "wildcard_hostname",
+  "column_break_kxha",
   "wildcard_dns_status",
   "wildcard_tls_status",
   "ingress_status",
-  "ingress_class",
-  "wildcard_hostname",
-  "health_section",
+  "health_tab",
   "health_status",
   "last_sync_time",
+  "column_break_tvwl",
   "last_error"
  ],
  "fields": [
@@ -43,8 +50,8 @@
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
-   "unique": 1,
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "identity_section",
@@ -54,44 +61,39 @@
   {
    "fieldname": "cluster_name",
    "fieldtype": "Data",
-   "label": "Cluster Name",
    "in_list_view": 1,
-   "unique": 1,
-   "reqd": 1
+   "label": "Cluster Name",
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "region",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Region",
-   "options": "Region",
-   "in_list_view": 1
+   "options": "Region"
   },
   {
+   "default": "Hcloud",
    "fieldname": "provider",
    "fieldtype": "Select",
    "label": "Provider",
-   "options": "Hcloud\nAWS\nLocal\nOther",
-   "default": "Hcloud"
+   "options": "Hcloud\nAWS\nLocal\nOther"
   },
   {
+   "default": "Development",
    "fieldname": "environment",
    "fieldtype": "Select",
    "label": "Environment",
-   "options": "Development\nStaging\nProduction",
-   "default": "Development"
+   "options": "Development\nStaging\nProduction"
   },
   {
+   "default": "Active",
    "fieldname": "status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nActive\nMaintenance\nDisabled\nRetired",
-   "default": "Active",
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "access_section",
-   "fieldtype": "Section Break",
-   "label": "Access and Operations"
+   "options": "Draft\nActive\nMaintenance\nDisabled\nRetired"
   },
   {
    "fieldname": "manager_host",
@@ -119,10 +121,10 @@
    "label": "Kubernetes API Endpoint"
   },
   {
+   "default": "SSH to manager VM",
    "fieldname": "access_method",
    "fieldtype": "Data",
-   "label": "Access Method",
-   "default": "SSH to manager VM"
+   "label": "Access Method"
   },
   {
    "fieldname": "kubeconfig_reference",
@@ -135,45 +137,35 @@
    "label": "Credential Reference"
   },
   {
-   "fieldname": "operator_section",
-   "fieldtype": "Section Break",
-   "label": "Operator Defaults"
-  },
-  {
+   "default": "frappe-operator-system",
    "fieldname": "operator_namespace",
    "fieldtype": "Data",
-   "label": "Operator Namespace",
-   "default": "frappe-operator-system"
+   "label": "Operator Namespace"
   },
   {
+   "default": "default",
    "fieldname": "default_runtime_namespace",
    "fieldtype": "Data",
-   "label": "Default Runtime Namespace",
-   "default": "default"
+   "label": "Default Runtime Namespace"
   },
   {
+   "default": "local-path",
    "fieldname": "default_storage_class",
    "fieldtype": "Data",
-   "label": "Default Storage Class",
-   "default": "local-path"
+   "label": "Default Storage Class"
   },
   {
+   "default": "bench-{bench}",
    "fieldname": "default_bench_namespace_pattern",
    "fieldtype": "Data",
-   "label": "Default Bench Namespace Pattern",
-   "default": "bench-{bench}"
+   "label": "Default Bench Namespace Pattern"
   },
   {
-   "fieldname": "health_section",
-   "fieldtype": "Section Break",
-   "label": "Health"
-  },
-  {
+   "default": "Unknown",
    "fieldname": "health_status",
    "fieldtype": "Select",
    "label": "Health Status",
-   "options": "Unknown\nHealthy\nDegraded\nFailed",
-   "default": "Unknown"
+   "options": "Unknown\nHealthy\nDegraded\nFailed"
   },
   {
    "fieldname": "last_sync_time",
@@ -186,49 +178,92 @@
    "label": "Last Error"
   },
   {
+   "default": "Wildcard",
    "fieldname": "domain_strategy",
    "fieldtype": "Select",
    "label": "Domain Strategy",
-   "options": "Wildcard\nCustom Domains",
-   "default": "Wildcard"
+   "options": "Wildcard\nCustom Domains"
   },
   {
+   "default": "Unknown",
    "fieldname": "wildcard_dns_status",
    "fieldtype": "Select",
    "label": "Wildcard DNS Status",
-   "options": "Unknown\nReady\nDegraded\nFailed",
-   "default": "Unknown"
+   "options": "Unknown\nReady\nDegraded\nFailed"
   },
   {
+   "default": "Unknown",
    "fieldname": "wildcard_tls_status",
    "fieldtype": "Select",
    "label": "Wildcard TLS Status",
-   "options": "Unknown\nReady\nDegraded\nFailed",
-   "default": "Unknown"
+   "options": "Unknown\nReady\nDegraded\nFailed"
   },
   {
+   "default": "Unknown",
    "fieldname": "ingress_status",
    "fieldtype": "Select",
    "label": "Ingress Status",
-   "options": "Unknown\nReady\nDegraded\nFailed",
-   "default": "Unknown"
+   "options": "Unknown\nReady\nDegraded\nFailed"
   },
   {
+   "default": "traefik",
    "fieldname": "ingress_class",
    "fieldtype": "Data",
-   "label": "Ingress Class",
-   "default": "traefik"
+   "label": "Ingress Class"
   },
   {
    "fieldname": "wildcard_hostname",
    "fieldtype": "Data",
    "label": "Wildcard Hostname"
+  },
+  {
+   "fieldname": "column_break_wnkm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_mgfk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_vvrr",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_kezf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operator_defaults_tab",
+   "fieldtype": "Tab Break",
+   "label": "Operator Defaults"
+  },
+  {
+   "fieldname": "health_tab",
+   "fieldtype": "Tab Break",
+   "label": "Health"
+  },
+  {
+   "fieldname": "column_break_aksd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_kxha",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "access_and_operations_tab",
+   "fieldtype": "Tab Break",
+   "label": "Access and Operations"
+  },
+  {
+   "fieldname": "column_break_tvwl",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-03 00:00:00.000000",
+ "modified": "2026-06-23 12:44:31.366099",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Cluster",

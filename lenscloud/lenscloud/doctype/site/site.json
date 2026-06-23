@@ -7,32 +7,40 @@
  "engine": "InnoDB",
  "field_order": [
   "customer",
-  "bench",
+  "plan",
+  "subscription",
+  "title",
+  "column_break_laho",
   "region",
   "cluster",
-  "plan",
-  "title",
-  "domain_section",
+  "bench",
+  "policy_hash",
+  "column_break_eldn",
+  "environment",
+  "site_control_profile",
+  "domain_tab",
   "subdomain",
   "domain",
   "site_status",
   "provisioning_status",
-  "operator_section",
+  "operator_and_dns_tab",
   "operator_resource_name",
-  "admin_password_secret_reference",
+  "access_url",
   "dns_status",
-  "dns_record_name",
-  "dns_record_type",
-  "dns_target",
-  "last_dns_sync",
-  "last_dns_error",
   "hostname_reservation_status",
   "route_status",
   "tls_status",
-  "access_url",
+  "column_break_otrd",
+  "admin_password_secret_reference",
+  "dns_record_name",
+  "dns_record_type",
+  "dns_target",
   "last_route_check",
   "route_error",
-  "lifecycle_section",
+  "column_break_bunf",
+  "last_dns_sync",
+  "last_dns_error",
+  "lifecycle_state_tab",
   "backup_state",
   "restore_state",
   "upgrade_state"
@@ -72,11 +80,6 @@
    "options": "Plan"
   },
   {
-   "fieldname": "domain_section",
-   "fieldtype": "Section Break",
-   "label": "Domain"
-  },
-  {
    "fieldname": "subdomain",
    "fieldtype": "Data",
    "label": "Subdomain"
@@ -102,11 +105,6 @@
    "fieldtype": "Select",
    "label": "Provisioning Status",
    "options": "Not Started\nPending\nAccepted\nRunning\nReady\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown"
-  },
-  {
-   "fieldname": "operator_section",
-   "fieldtype": "Section Break",
-   "label": "Operator and DNS"
   },
   {
    "fieldname": "operator_resource_name",
@@ -148,11 +146,6 @@
    "label": "Last DNS Error"
   },
   {
-   "fieldname": "lifecycle_section",
-   "fieldtype": "Section Break",
-   "label": "Lifecycle State"
-  },
-  {
    "default": "Not Configured",
    "fieldname": "backup_state",
    "fieldtype": "Select",
@@ -181,26 +174,26 @@
    "unique": 1
   },
   {
+   "default": "Pending",
    "fieldname": "hostname_reservation_status",
    "fieldtype": "Select",
    "label": "Hostname Reservation Status",
-   "options": "Pending\nReserved\nConflict\nReleased",
-   "default": "Pending"
+   "options": "Pending\nReserved\nConflict\nReleased"
   },
   {
+   "default": "Not Checked",
    "fieldname": "route_status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Route Status",
-   "options": "Not Checked\nPending\nReady\nFailed\nUnknown",
-   "default": "Not Checked",
-   "in_list_view": 1
+   "options": "Not Checked\nPending\nReady\nFailed\nUnknown"
   },
   {
+   "default": "Inherited",
    "fieldname": "tls_status",
    "fieldtype": "Select",
    "label": "TLS Status",
-   "options": "Inherited\nReady\nFailed\nUnknown",
-   "default": "Inherited"
+   "options": "Inherited\nReady\nFailed\nUnknown"
   },
   {
    "fieldname": "access_url",
@@ -223,14 +216,72 @@
   {
    "fieldname": "admin_password_secret_reference",
    "fieldtype": "Data",
-   "label": "Admin Password Secret Reference",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Admin Password Secret Reference"
+  },
+  {
+   "fieldname": "subscription",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Subscription",
+   "options": "Subscription"
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Environment",
+   "options": "Environment"
+  },
+  {
+   "fieldname": "site_control_profile",
+   "fieldtype": "Link",
+   "label": "Site Control Profile",
+   "options": "Site Control Profile",
+   "read_only": 1
+  },
+  {
+   "fieldname": "policy_hash",
+   "fieldtype": "Data",
+   "label": "Policy Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_laho",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_eldn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "domain_tab",
+   "fieldtype": "Tab Break",
+   "label": "Domain"
+  },
+  {
+   "fieldname": "operator_and_dns_tab",
+   "fieldtype": "Tab Break",
+   "label": "Operator and DNS"
+  },
+  {
+   "fieldname": "column_break_otrd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_bunf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "lifecycle_state_tab",
+   "fieldtype": "Tab Break",
+   "label": "Lifecycle State"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-04 20:13:28.104126",
+ "modified": "2026-06-23 14:58:45.305213",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Site",

@@ -11,6 +11,7 @@ from frappe import _
 from frappe.utils import now_datetime
 
 from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientError, RESOURCE_PATHS, kubeconfig_path, sanitize_error
+from lenscloud.api.policy import get_free_bench
 
 
 SAFE_NAME_PATTERN = re.compile(r"[^a-z0-9-]+")
@@ -234,7 +235,9 @@ def validate_database_server_placement_doc(bench, database_server, allow_pending
 	if bench.cluster and bench.cluster != database_server.cluster:
 		frappe.throw(_("Bench Cluster must match Database Server Cluster."))
 	if bench.privacy and bench.privacy != database_server.privacy:
-		frappe.throw(_("Bench Privacy must match Database Server Privacy."))
+		frappe.throw(_("Bench Privacy Profile must match Database Server Privacy Profile."))
+	if getattr(bench, "database_placement_key", None) and getattr(database_server, "database_placement_key", None) and bench.database_placement_key != database_server.database_placement_key:
+		frappe.throw(_("Bench and Database Server resolved placement keys do not match."))
 	if not allow_pending and database_server.database_status not in READY_DATABASE_STATES and database_server.health_status not in READY_DATABASE_STATES:
 		frappe.throw(_("Only ready Database Server capacity can be used for live apply."))
 	filters = {"database_server": database_server.name}
@@ -1328,7 +1331,7 @@ def get_customer_portal_context():
 	customer_name = frappe.db.get_value("Customer", {"user": user}, "name")
 	customer = frappe.db.get_value("Customer", customer_name, ["name", "first_name", "last_name", "region"], as_dict=True) if customer_name else None
 	regions = frappe.get_all("Region", filters={"deployment_status": "Active", "cluster": ["!=", ""]}, fields=["name", "title", "cluster"], order_by="lft asc")
-	plans = frappe.get_all("Plan", filters={"status": "Active"}, fields=["name", "title", "plan_code", "is_default", "is_free", "monthly_price", "site_limit", "bench_policy", "description"])
+	plans = frappe.get_all("Plan", filters={"status": "Active", "availability": ["in", ["Public", "Beta"]]}, fields=["name", "title", "plan_code", "is_default", "is_free", "monthly_price", "site_limit", "subscription_limit", "bench_policy", "description", "availability", "release_group", "landscape", "default_privacy_profile"])
 	return {
 		"customer": customer,
 		"regions": regions,
@@ -1342,20 +1345,22 @@ def get_customer_portal_context():
 	}
 
 
-def eligible_customer_bench(region, customer):
+def eligible_customer_bench(region, customer, plan=None):
+	if plan:
+		plan_doc = frappe.get_doc("Plan", plan)
+		if plan_doc.is_free:
+			return get_free_bench(plan_doc.name, region)
 	for row in frappe.get_all("Bench", filters={"region": region, "bench_status": "Ready"}, fields=["name"], order_by="modified desc"):
 		bench = frappe.get_doc("Bench", row.name)
 		if not bench.database_server:
 			continue
 		database_server = frappe.get_doc("Database Server", bench.database_server)
-		if database_server.privacy != "Public":
-			continue
 		try:
 			validate_database_server_placement_doc(bench, database_server, allow_pending=False)
 			return bench
 		except frappe.ValidationError:
 			continue
-	frappe.throw(_("No ready Public Bench capacity is available in Region {0}.").format(region))
+	frappe.throw(_("No ready Plan capacity is available in Region {0}.").format(region))
 
 
 @frappe.whitelist()
@@ -1372,16 +1377,24 @@ def request_customer_site(site_name, company_name=None, subdomain=None, region=N
 	if not customer:
 		customer_doc = frappe.get_doc({"doctype": "Customer", "first_name": frappe.db.get_value("User", user, "first_name") or user, "user": user, "region": region}); customer_doc.insert(ignore_permissions=True); customer = customer_doc.name
 	plan_doc = frappe.get_doc("Plan", plan); limit = int(plan_doc.site_limit or 0)
+	if plan_doc.availability == "Beta":
+		frappe.throw(_("Beta Plans require enrollment and Platform approval before Site provisioning."))
 	if limit and frappe.db.count("Site", {"customer": customer, "plan": plan, "site_status": ["!=", "Deleted"]}) >= limit:
 		frappe.throw(_("The {0} Plan Site limit has been reached.").format(plan_doc.title))
+	subscription_name = frappe.db.exists("Subscription", {"customer": customer, "plan": plan, "region": region, "status": ["not in", ["Cancelled", "Failed"]]})
+	if subscription_name:
+		subscription = frappe.get_doc("Subscription", subscription_name)
+	else:
+		subscription = frappe.get_doc({"doctype": "Subscription", "customer": customer, "plan": plan, "region": region, "status": "Approved", "effective_from": now_datetime()})
+		subscription.insert(ignore_permissions=True)
 	subdomain = slugify(subdomain or site_name or company_name)
 	if not subdomain:
 		frappe.throw(_("Subdomain could not be derived."))
 	domain = settings.root_domain.strip().lower().strip("."); title = f"{subdomain}.{domain}"
 	if frappe.db.exists("Site", {"title": title}):
 		frappe.throw(_("Hostname {0} is already reserved.").format(title))
-	bench = eligible_customer_bench(region, customer)
-	site_doc = frappe.get_doc({"doctype": "Site", "customer": customer, "bench": bench.name, "region": region, "cluster": cluster.name, "plan": plan, "subdomain": subdomain, "domain": domain, "site_status": "Requested", "provisioning_status": "Pending", "hostname_reservation_status": "Reserved", "route_status": "Pending", "tls_status": "Inherited", "operator_resource_name": subdomain, "access_url": f"https://{title}"})
+	bench = eligible_customer_bench(region, customer, plan)
+	site_doc = frappe.get_doc({"doctype": "Site", "customer": customer, "subscription": subscription.name, "environment": "Prod", "bench": bench.name, "region": region, "cluster": cluster.name, "plan": plan, "subdomain": subdomain, "domain": domain, "site_status": "Requested", "provisioning_status": "Pending", "hostname_reservation_status": "Reserved", "route_status": "Pending", "tls_status": "Inherited", "operator_resource_name": subdomain, "access_url": f"https://{title}"})
 	site_doc.insert(ignore_permissions=True)
 	request_log = create_action_log("Site Request", "Succeeded", site=site_doc.name, dry_run=False, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan Site request captured and hostname reserved.", resource_kind="Site", operation="request")
 	reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))

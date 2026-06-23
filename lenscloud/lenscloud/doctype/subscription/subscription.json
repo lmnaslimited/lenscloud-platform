@@ -1,0 +1,141 @@
+{
+ "doctype": "DocType",
+ "name": "Subscription",
+ "module": "Lenscloud",
+ "engine": "InnoDB",
+ "allow_rename": 1,
+ "grid_page_length": 50,
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "SUB-.#####",
+   "default": "SUB-.#####"
+  },
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Plan",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "label": "Region",
+   "options": "Region",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "release_group",
+   "fieldtype": "Link",
+   "label": "Release Group",
+   "options": "Release Group",
+   "read_only": 1
+  },
+  {
+   "fieldname": "landscape",
+   "fieldtype": "Link",
+   "label": "Landscape",
+   "options": "Landscape",
+   "read_only": 1
+  },
+  {
+   "fieldname": "privacy_profile",
+   "fieldtype": "Link",
+   "label": "Privacy Profile",
+   "options": "Privacy",
+   "read_only": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Requested\nPending Approval\nApproved\nProvisioning\nActive\nSuspended\nCancelled\nFailed",
+   "default": "Requested",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "effective_policy_snapshot",
+   "fieldtype": "Code",
+   "label": "Effective Policy Snapshot",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "policy_hash",
+   "fieldtype": "Data",
+   "label": "Policy Hash",
+   "read_only": 1
+  },
+  {
+   "fieldname": "effective_from",
+   "fieldtype": "Datetime",
+   "label": "Effective From"
+  },
+  {
+   "fieldname": "effective_to",
+   "fieldtype": "Datetime",
+   "label": "Effective To"
+  },
+  {
+   "fieldname": "approved_by",
+   "fieldtype": "Link",
+   "label": "Approved By",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "approved_on",
+   "fieldtype": "Datetime",
+   "label": "Approved On",
+   "read_only": 1
+  }
+ ],
+ "field_order": [
+  "naming_series",
+  "customer",
+  "plan",
+  "region",
+  "release_group",
+  "landscape",
+  "privacy_profile",
+  "status",
+  "effective_policy_snapshot",
+  "policy_hash",
+  "effective_from",
+  "effective_to",
+  "approved_by",
+  "approved_on"
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "autoname": "naming_series:naming_series",
+ "naming_rule": "By \"Naming Series\" field"
+}

@@ -223,3 +223,18 @@ cd /Users/arunkumar.ganesan/lensk8s/lenscloud-infra
 ```
 
 Then rerun Python preflight and proceed sequentially with lifecycle create/inspect/delete, Private Shared, cleanup, Private, and cleanup. Never use manager cleanup as the normal path, and never mutate `MariaDB/default/frappe-mariadb`.
+
+## June 22 Launch Topology Handoff
+
+The current worktree adds versioned Environments, Site Control Profiles, Single through Four Tier Landscapes, independent Bench/Database Privacy rules, immutable Subscriptions, beta approval, policy-bound test gates, Free capacity rules, authoritative dashboard aggregates, native grouped Workspace Sidebar navigation, and a simplified customer launch journey.
+
+Read next:
+
+- `docs/product-topology-model.md`
+- `docs/operator-sop/launch-reset-and-acceptance.md`
+- `docs/launch-reset-evidence-20260622.md`
+- `docs/design/stitch-customer-portal-prompt.md`
+
+Migration, 32 backend tests, and the production frontend build passed before this handoff update. Live reset, fresh Free acceptance, sequential topology acceptance, and final authenticated browser evidence remain pending and must not be inferred from dry-run or unit-test results. Apply must remain disabled outside the controlled window. The operator CRD does not yet expose the complete Site Control Profile runtime contract.
+
+Metadata-driven center editor: Platform forms now load LensCloud DocType field order and render Tab Break, Section Break, Column Break, Table, and Table MultiSelect fields. Release Group Included Apps is visible as a compact value-help chip control. Wide child grids keep row identity/primary/actions fixed and scroll remaining columns horizontally.

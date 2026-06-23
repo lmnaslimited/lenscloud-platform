@@ -105,3 +105,22 @@ Build a Frappe-based platform application that serves both customer self-service
 - Whether the first version is single-cluster or multi-cluster aware.
 - Whether upgrade orchestration is synchronous or job-based.
 - How customer-owned custom domains will be verified and automated in a later phase.
+
+## 11. Product Topology And Launch
+
+- Plans must select a versioned Landscape and default/allowed versioned Privacy Profiles.
+- Landscapes compose ordered Dev, QA, Pre-Prod, and Prod Environments with versioned Site Control Profiles.
+- Privacy rules must resolve Bench and Database sharing independently per Environment.
+- A Subscription must freeze Customer, Plan, Region, Landscape version, Privacy version, policy JSON, and policy hash.
+- A Site must belong to one Subscription and Environment; only one active Site is allowed for each pair.
+- Policy changes must not silently alter active Subscriptions.
+- Enabled Bench Test and LATP runs are promotion gates. Production LATP must be non-destructive.
+- Exactly one active Free Plan is allowed per Release Group. It must use Single Tier, Prod, and Public.
+- Each Free Plan and Region must have exactly one Ready shared Free Bench before customer creation is offered.
+- Customers choose Plan, Region, and Site identity only. Runtime placement is Platform-owned.
+- Non-Free Beta enrollment requires Platform approval before provisioning.
+- Platform dashboard aggregates must use authoritative counts rather than capped list results.
+- Platform navigation must come from permission-protected Frappe Workspace Sidebar configuration.
+- Customer UX must hide Kubernetes and runtime implementation details.
+
+Detailed rules: `docs/product-topology-model.md`.

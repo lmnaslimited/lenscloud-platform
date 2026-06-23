@@ -1,0 +1,56 @@
+{
+ "doctype": "DocType",
+ "name": "Landscape Environment",
+ "module": "Lenscloud",
+ "engine": "InnoDB",
+ "allow_rename": 1,
+ "grid_page_length": 50,
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "fields": [
+  {
+   "fieldname": "environment",
+   "fieldtype": "Link",
+   "label": "Environment",
+   "options": "Environment",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "site_control_profile",
+   "fieldtype": "Link",
+   "label": "Site Control Profile",
+   "options": "Site Control Profile",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "label": "Sequence",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bench_group",
+   "fieldtype": "Data",
+   "label": "Bench Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "database_group",
+   "fieldtype": "Data",
+   "label": "Database Group",
+   "reqd": 1
+  }
+ ],
+ "field_order": [
+  "environment",
+  "site_control_profile",
+  "sequence",
+  "bench_group",
+  "database_group"
+ ],
+ "permissions": [],
+ "istable": 1,
+ "editable_grid": 1
+}

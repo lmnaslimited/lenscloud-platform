@@ -247,3 +247,25 @@ Platform runtime views summarize CR conditions, related workloads/Jobs, PVCs, Se
 Database Server, Bench, and Site are control-plane documents. Their operator resource identity, selected Cluster, provisioning state, health/access state, last error, and Orchestration Action Log evidence are stored in LensCloud. Kubernetes remains the runtime source of truth and is read or reconciled only through a restricted server-side Cluster credential reference.
 
 Site does not select Database Server directly. Site inherits database placement from Bench. Region determines Cluster for Database Server, Bench, and Site.
+
+## Product Topology State
+
+### Subscription
+
+Subscription is the durable customer service boundary. On creation it snapshots the active Plan's Release Group, Landscape version, Privacy version, Region, Environment policies, control-profile versions, and promotion gates. The canonical policy hash binds Sites, placement, and test evidence.
+
+States: Requested, Pending Approval, Approved, Provisioning, Active, Suspended, Cancelled, and Failed.
+
+### Environment And Landscape
+
+Environment is ordered master data. Landscape is versioned and contains exact Environment and Site Control Profile rows. The seeded Single, Two, Three, and Four Tier Landscapes contain Prod; QA/Prod; Dev/QA/Prod; and Dev/QA/Pre-Prod/Prod respectively.
+
+### Privacy Profile
+
+Privacy is a versioned placement profile. Each Environment independently resolves Bench and Database boundaries and groups. Placement keys, not privacy display names, enforce sharing. Production database groups must not be shared with non-production environments.
+
+### Site Control And Tests
+
+Site Control Profile describes typed Site settings and Bench Test/LATP requirements. Environment Test Run records are valid only for the matching Subscription policy hash and Release. Prod LATP is non-destructive.
+
+See `docs/product-topology-model.md`.

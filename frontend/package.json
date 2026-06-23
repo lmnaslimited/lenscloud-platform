@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "vite build",
     "test:auth": "node tests/live-auth.mjs",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:child-tables": "node tests/child-tables-auth.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "^5.2.4",

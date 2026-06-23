@@ -868,6 +868,12 @@ export const platformResources = [
 			{ key: 'status', label: 'Status', default: 'Active', ...selectField(planStatusOptions) },
 			{ key: 'is_default', label: 'Is default', ...checkField },
 			{ key: 'is_free', label: 'Is free', ...checkField },
+			{ key: 'release_group', label: 'Release Group', ...linkField('Release Group', ['title']) },
+			{ key: 'landscape', label: 'Landscape', ...linkField('Landscape', ['title']) },
+			{ key: 'allowed_privacy_profiles', label: 'Allowed Privacy Profiles', type: 'table', description: 'Privacy Profiles customers may receive through this Plan.', columns: [{ key: 'privacy', label: 'Privacy Profile', required: true, ...linkField('Privacy', ['title']) }] },
+			{ key: 'default_privacy_profile', label: 'Default Privacy Profile', ...linkField('Privacy', ['title']) },
+			{ key: 'availability', label: 'Availability', default: 'Invite Only', ...selectField(['Public','Beta','Invite Only','Retired']) },
+			{ key: 'subscription_limit', label: 'Subscription limit', default: '1', type: 'number' },
 			{ key: 'monthly_price', label: 'Monthly price', default: '0' },
 			{ key: 'site_limit', label: 'Site limit', default: '1' },
 			{ key: 'bench_policy', label: 'Bench policy', default: 'Shared Bench', ...selectField(benchPolicyOptions) },
@@ -888,6 +894,7 @@ export const platformResources = [
 			{ key: 'status', label: 'Status', ...selectField(planStatusOptions) },
 			{ key: 'is_default', label: 'Is default', ...checkField },
 			{ key: 'is_free', label: 'Is free', ...checkField },
+			{ key: 'release_group', label: 'Release Group' }, { key: 'landscape', label: 'Landscape' }, { key: 'allowed_privacy_profiles', label: 'Allowed Privacy Profiles' }, { key: 'default_privacy_profile', label: 'Default Privacy Profile' }, { key: 'availability', label: 'Availability' }, { key: 'subscription_limit', label: 'Subscription limit' },
 			{ key: 'monthly_price', label: 'Monthly price' },
 			{ key: 'site_limit', label: 'Site limit' },
 			{ key: 'bench_policy', label: 'Bench policy', ...selectField(benchPolicyOptions) },
@@ -898,6 +905,81 @@ export const platformResources = [
 			{ label: 'Sites', doctype: 'Site', linkField: 'plan', sourceField: 'name', fields: ['name', 'title', 'domain', 'site_status'], route: (name) => `/platform/sites/${encodeURIComponent(name)}` },
 		],
 		actions: [],
+	},
+	{
+		key: 'subscriptions', scope: 'platform', label: 'Subscriptions', doctype: 'Subscription', route: '/platform/subscriptions',
+		detailRoute: (name) => `/platform/subscriptions/${encodeURIComponent(name)}`, icon: Users,
+		listHelp: 'Customer Plan enrollment, approval, policy snapshot, and environment lifecycle.',
+		summaryFields: [
+			{ key: 'customer', label: 'Customer', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'plan', label: 'Plan', ...linkField('Plan', ['title']) },
+			{ key: 'region', label: 'Region', ...linkField('Region', ['title']) },
+			{ key: 'status', label: 'Status' },
+		],
+		detailFields: [
+			{ key: 'name', label: 'Subscription' }, { key: 'customer', label: 'Customer' }, { key: 'plan', label: 'Plan' },
+			{ key: 'region', label: 'Region' }, { key: 'release_group', label: 'Release Group' }, { key: 'landscape', label: 'Landscape' },
+			{ key: 'privacy_profile', label: 'Privacy Profile' }, { key: 'status', label: 'Status' }, { key: 'policy_hash', label: 'Policy version' },
+		], relations: [], actions: [],
+	},
+	{
+		key: 'environments', scope: 'platform', label: 'Environments', doctype: 'Environment', route: '/platform/environments',
+		detailRoute: (name) => `/platform/environments/${encodeURIComponent(name)}`, icon: Layers3, creatable: true, editable: true,
+		listHelp: 'Stable Dev, QA, Pre-Prod, and Prod deployment classifications.',
+		lifecycleFields: [
+			{ key: 'title', label: 'Title', required: true }, { key: 'code', label: 'Code', required: true },
+			{ key: 'deployment_tier', label: 'Deployment Tier', ...selectField(['development','testing','staging','production']) },
+			{ key: 'sequence', label: 'Sequence', type: 'number' }, { key: 'protection_level', label: 'Protection Level', ...selectField(['Permissive','Test','Production-like','Restricted']) },
+			{ key: 'is_production', label: 'Production', ...checkField }, { key: 'status', label: 'Status', ...selectField(activeStatusOptions) },
+		],
+		summaryFields: [{ key: 'title', label: 'Title' }, { key: 'deployment_tier', label: 'Tier' }, { key: 'protection_level', label: 'Protection' }, { key: 'status', label: 'Status' }],
+		detailFields: [{ key: 'name', label: 'Environment' }, { key: 'code', label: 'Code' }, { key: 'sequence', label: 'Sequence' }, { key: 'is_production', label: 'Production' }], relations: [], actions: [],
+	},
+	{
+		key: 'landscapes', scope: 'platform', label: 'Landscapes', doctype: 'Landscape', route: '/platform/landscapes',
+		detailRoute: (name) => `/platform/landscapes/${encodeURIComponent(name)}`, icon: Layers3, creatable: true, editable: true,
+		listHelp: 'Versioned Single through Four Tier environment topologies.',
+		lifecycleFields: [
+			{ key: 'title', label: 'Title', required: true }, { key: 'tier_count', label: 'Tier Count', type: 'number', required: true }, { key: 'version', label: 'Version', type: 'number', default: 1, required: true }, { key: 'status', label: 'Status', default: 'Draft', ...selectField(['Draft','Active','Retired']) },
+			{ key: 'environments', label: 'Environments', type: 'table', description: 'Order the environments and assign controls plus independent placement groups.', columns: [
+				{ key: 'environment', label: 'Environment', required: true, ...linkField('Environment', ['title']) }, { key: 'site_control_profile', label: 'Site Control Profile', required: true, ...linkField('Site Control Profile', ['title']) }, { key: 'sequence', label: 'Sequence', type: 'number', required: true }, { key: 'bench_group', label: 'Bench Group', required: true }, { key: 'database_group', label: 'Database Group', required: true },
+			] },
+		],
+		summaryFields: [{ key: 'title', label: 'Title' }, { key: 'tier_count', label: 'Tiers', type: 'number' }, { key: 'version', label: 'Version', type: 'number' }, { key: 'status', label: 'Status' }],
+		detailFields: [{ key: 'name', label: 'Landscape' }, { key: 'title', label: 'Title' }, { key: 'tier_count', label: 'Tier Count' }, { key: 'version', label: 'Version' }, { key: 'status', label: 'Status' }, { key: 'environments', label: 'Environment policy rows' }], relations: [], actions: [],
+	},
+	{
+		key: 'site-control-profiles', scope: 'platform', label: 'Site Control Profiles', doctype: 'Site Control Profile', route: '/platform/site-control-profiles',
+		detailRoute: (name) => `/platform/site-control-profiles/${encodeURIComponent(name)}`, icon: Settings2, creatable: true, editable: true,
+		listHelp: 'Versioned environment controls and Bench Test/LATP promotion gates.',
+		lifecycleFields: [
+			{ key: 'title', label: 'Title', required: true }, { key: 'version', label: 'Version', type: 'number', default: 1, required: true }, { key: 'status', label: 'Status', default: 'Draft', ...selectField(['Draft','Active','Retired']) }, { key: 'protection_level', label: 'Protection Level', required: true, ...selectField(['Permissive','Test','Production-like','Restricted']) },
+			{ key: 'enable_developer_mode', label: 'Enable Developer Mode', ...checkField }, { key: 'allow_client_scripts', label: 'Allow Client Scripts', ...checkField }, { key: 'allow_server_scripts', label: 'Allow Server Scripts', ...checkField }, { key: 'cors_policy', label: 'CORS Policy', default: 'Disabled', ...selectField(['Disabled','Allowlist']) }, { key: 'cors_origins', label: 'CORS Origins', type: 'textarea' },
+			{ key: 'enable_bench_test', label: 'Enable Bench Test', ...checkField }, { key: 'require_bench_test', label: 'Require Bench Test Gate', ...checkField }, { key: 'enable_latp', label: 'Enable LATP', ...checkField }, { key: 'require_latp', label: 'Require LATP Gate', ...checkField }, { key: 'latp_mode', label: 'LATP Mode', default: 'Non-destructive', ...selectField(['Non-destructive','Full']) },
+			{ key: 'settings', label: 'Allowlisted Site Settings', type: 'table', description: 'Secret-like keys are rejected server-side.', columns: [{ key: 'setting_key', label: 'Setting Key', required: true }, { key: 'target', label: 'Target', default: 'Site Config', ...selectField(['Site Config','Common Site Config']) }, { key: 'value_type', label: 'Value Type', default: 'String', ...selectField(['String','Integer','Float','Boolean','JSON']) }, { key: 'value', label: 'Value', required: true, type: 'textarea' }] },
+		],
+		summaryFields: [{ key: 'title', label: 'Title' }, { key: 'version', label: 'Version', type: 'number' }, { key: 'protection_level', label: 'Protection' }, { key: 'status', label: 'Status' }],
+		detailFields: [{ key: 'name', label: 'Profile' }, { key: 'title', label: 'Title' }, { key: 'version', label: 'Version' }, { key: 'status', label: 'Status' }, { key: 'protection_level', label: 'Protection Level' }, { key: 'enable_developer_mode', label: 'Developer Mode' }, { key: 'allow_client_scripts', label: 'Client Scripts' }, { key: 'allow_server_scripts', label: 'Server Scripts' }, { key: 'cors_policy', label: 'CORS Policy' }, { key: 'cors_origins', label: 'CORS Origins' }, { key: 'enable_bench_test', label: 'Bench Test' }, { key: 'require_bench_test', label: 'Require Bench Test' }, { key: 'enable_latp', label: 'LATP' }, { key: 'require_latp', label: 'Require LATP' }, { key: 'latp_mode', label: 'LATP Mode' }, { key: 'settings', label: 'Site settings' }], relations: [], actions: [],
+	},
+	{
+		key: 'privacy-profiles', scope: 'platform', label: 'Privacy Profiles', doctype: 'Privacy', route: '/platform/privacy-profiles',
+		detailRoute: (name) => `/platform/privacy-profiles/${encodeURIComponent(name)}`, icon: ShieldAlert, creatable: true, editable: true,
+		listHelp: 'Independent Bench and Database isolation rules by Environment.',
+		lifecycleFields: [
+			{ key: 'title', label: 'Title', required: true }, { key: 'version', label: 'Version', type: 'number', default: 1, required: true }, { key: 'status', label: 'Status', default: 'Draft', ...selectField(['Draft','Active','Retired']) }, { key: 'customer_summary', label: 'Customer-facing Isolation Summary', type: 'textarea' },
+			{ key: 'environment_rules', label: 'Environment Rules', type: 'table', description: 'Bench and Database isolation are configured independently for each Environment.', columns: [
+				{ key: 'environment', label: 'Environment', required: true, ...linkField('Environment', ['title']) }, { key: 'bench_boundary', label: 'Bench Boundary', required: true, ...selectField(['Platform','Customer','Subscription','Environment','Site']) }, { key: 'bench_group', label: 'Bench Group', required: true }, { key: 'database_boundary', label: 'Database Boundary', required: true, ...selectField(['Platform','Customer','Subscription','Environment','Bench']) }, { key: 'database_group', label: 'Database Group', required: true },
+			] },
+		],
+		summaryFields: [{ key: 'title', label: 'Title' }, { key: 'version', label: 'Version', type: 'number' }, { key: 'status', label: 'Status' }, { key: 'customer_summary', label: 'Customer summary' }],
+		detailFields: [{ key: 'name', label: 'Privacy Profile' }, { key: 'title', label: 'Title' }, { key: 'version', label: 'Version' }, { key: 'status', label: 'Status' }, { key: 'customer_summary', label: 'Customer summary' }, { key: 'environment_rules', label: 'Environment isolation rules' }], relations: [], actions: [],
+	},
+	{
+		key: 'environment-test-runs', scope: 'platform', label: 'Environment Test Runs', doctype: 'Environment Test Run', route: '/platform/environment-test-runs',
+		detailRoute: (name) => `/platform/environment-test-runs/${encodeURIComponent(name)}`, icon: ScrollText,
+		listHelp: 'Bench Test and LATP evidence tied to release and policy versions.',
+		summaryFields: [{ key: 'subscription', label: 'Subscription' }, { key: 'environment', label: 'Environment' }, { key: 'test_type', label: 'Test' }, { key: 'status', label: 'Status' }],
+		detailFields: [{ key: 'name', label: 'Run' }, { key: 'release', label: 'Release' }, { key: 'execution_mode', label: 'Mode' }, { key: 'policy_hash', label: 'Policy version' }, { key: 'evidence', label: 'Evidence' }], relations: [], actions: [],
 	},
 	{
 		key: 'orchestration-logs',
@@ -1083,25 +1165,38 @@ export const customerResources = [
 ]
 
 export const platformNav = [
-	{
-		heading: 'Platform console',
-		items: [
-			{ key: 'platform-dashboard', label: 'Dashboard', note: 'System status and record shortcuts', route: '/platform/dashboard', icon: LayoutDashboard },
-			{ key: 'platform-customers', label: 'Customers', note: 'Identity and access', route: '/platform/customers', icon: Users },
-			{ key: 'platform-release-groups', label: 'Release Groups', note: 'Image family master data', route: '/platform/release-groups', icon: Layers3 },
-			{ key: 'platform-apps', label: 'Apps', note: 'Included app master data', route: '/platform/apps', icon: Package },
-			{ key: 'platform-releases', label: 'Releases', note: 'Deployable versions', route: '/platform/releases', icon: GitBranch },
-			{ key: 'platform-clusters', label: 'Clusters', note: 'Runtime targets', route: '/platform/clusters', icon: Server },
-			{ key: 'platform-runtime-namespaces', label: 'Runtime Namespaces', note: 'Synced Cluster namespaces', route: '/platform/runtime-namespaces', icon: Server },
-			{ key: 'platform-database-servers', label: 'Database Servers', note: 'MariaDB capacity and isolation', route: '/platform/database-servers', icon: Database },
-			{ key: 'platform-benches', label: 'Benches', note: 'Runtime grouping', route: '/platform/benches', icon: Server },
-			{ key: 'platform-sites', label: 'Sites', note: 'Tenant instances', route: '/platform/sites', icon: Globe2 },
-			{ key: 'platform-regions', label: 'Regions', note: 'Placement hierarchy', route: '/platform/regions', icon: Globe2 },
-			{ key: 'platform-plans', label: 'Plans', note: 'Commercial tiers', route: '/platform/plans', icon: Package },
-			{ key: 'platform-orchestration-logs', label: 'Orchestration Logs', note: 'Dry-run and action evidence', route: '/platform/orchestration-logs', icon: ScrollText },
-			{ key: 'platform-settings', label: 'Platform Settings', note: 'Wildcard edge and integrations', route: '/platform/settings', icon: Settings2 },
-		],
-	},
+	{ heading: 'Home', collapsible: false, items: [
+		{ key: 'platform-dashboard', label: 'Dashboard', route: '/platform/dashboard', icon: LayoutDashboard },
+	] },
+	{ heading: 'Customers and Commerce', collapsible: true, items: [
+		{ key: 'platform-customers', label: 'Customers', route: '/platform/customers', icon: Users },
+		{ key: 'platform-plans', label: 'Plans', route: '/platform/plans', icon: Package },
+		{ key: 'platform-subscriptions', label: 'Subscriptions', route: '/platform/subscriptions', icon: Users },
+	] },
+	{ heading: 'Product and Delivery', collapsible: true, keep_closed: true, items: [
+		{ key: 'platform-landscapes', label: 'Landscapes', route: '/platform/landscapes', icon: Layers3 },
+		{ key: 'platform-environments', label: 'Environments', route: '/platform/environments', icon: Layers3 },
+		{ key: 'platform-site-control-profiles', label: 'Site Control Profiles', route: '/platform/site-control-profiles', icon: Settings2 },
+		{ key: 'platform-privacy-profiles', label: 'Privacy Profiles', route: '/platform/privacy-profiles', icon: ShieldAlert },
+		{ key: 'platform-release-groups', label: 'Release Groups', route: '/platform/release-groups', icon: Layers3 },
+		{ key: 'platform-releases', label: 'Releases', route: '/platform/releases', icon: GitBranch },
+		{ key: 'platform-apps', label: 'Apps', route: '/platform/apps', icon: Package },
+	] },
+	{ heading: 'Runtime', collapsible: true, keep_closed: true, items: [
+		{ key: 'platform-clusters', label: 'Clusters', route: '/platform/clusters', icon: Server },
+		{ key: 'platform-runtime-namespaces', label: 'Runtime Namespaces', route: '/platform/runtime-namespaces', icon: Server },
+		{ key: 'platform-database-servers', label: 'Database Servers', route: '/platform/database-servers', icon: Database },
+		{ key: 'platform-benches', label: 'Benches', route: '/platform/benches', icon: Server },
+		{ key: 'platform-sites', label: 'Sites', route: '/platform/sites', icon: Globe2 },
+	] },
+	{ heading: 'Operations', collapsible: true, keep_closed: true, items: [
+		{ key: 'platform-environment-test-runs', label: 'Test Runs', route: '/platform/environment-test-runs', icon: ScrollText },
+		{ key: 'platform-orchestration-logs', label: 'Orchestration Logs', route: '/platform/orchestration-logs', icon: ScrollText },
+	] },
+	{ heading: 'Configuration', collapsible: true, keep_closed: true, items: [
+		{ key: 'platform-regions', label: 'Regions', route: '/platform/regions', icon: Globe2 },
+		{ key: 'platform-settings', label: 'Platform Settings', route: '/platform/settings', icon: Settings2 },
+	] },
 ]
 
 export const customerNav = [

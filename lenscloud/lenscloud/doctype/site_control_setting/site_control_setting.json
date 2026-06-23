@@ -1,0 +1,52 @@
+{
+ "doctype": "DocType",
+ "name": "Site Control Setting",
+ "module": "Lenscloud",
+ "engine": "InnoDB",
+ "allow_rename": 1,
+ "grid_page_length": 50,
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "fields": [
+  {
+   "fieldname": "setting_key",
+   "fieldtype": "Data",
+   "label": "Setting Key",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "target",
+   "fieldtype": "Select",
+   "label": "Target",
+   "options": "Site Config\nCommon Site Config",
+   "default": "Site Config",
+   "reqd": 1
+  },
+  {
+   "fieldname": "value_type",
+   "fieldtype": "Select",
+   "label": "Value Type",
+   "options": "String\nInteger\nFloat\nBoolean\nJSON",
+   "default": "String",
+   "reqd": 1
+  },
+  {
+   "fieldname": "value",
+   "fieldtype": "Code",
+   "label": "Value",
+   "options": "JSON",
+   "reqd": 1
+  }
+ ],
+ "field_order": [
+  "setting_key",
+  "target",
+  "value_type",
+  "value"
+ ],
+ "permissions": [],
+ "istable": 1,
+ "editable_grid": 1
+}

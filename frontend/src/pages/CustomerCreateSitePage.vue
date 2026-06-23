@@ -8,6 +8,7 @@ import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
 const loading = ref(true)
 const submitted = ref(false)
+const enrollment = ref(null)
 const error = ref(null)
 const customer = ref(null)
 const regions = ref([])
@@ -30,17 +31,13 @@ const rootDomain = computed(() => platformSettings.value?.root_domain || '')
 const normalizedSubdomain = computed(() => form.subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, ''))
 const domainPreview = computed(() => (normalizedSubdomain.value && rootDomain.value ? `${normalizedSubdomain.value}.${rootDomain.value}` : ''))
 const rootDomainMissing = computed(() => !rootDomain.value)
-const canSubmit = computed(() => form.site_name.trim() && form.company_name.trim() && form.region && selectedPlan.value && normalizedSubdomain.value && rootDomain.value)
-const integrationStatus = computed(() => [
-	{ label: 'Billing', value: platformSettings.value?.billing_system || 'Not configured' },
-	{ label: 'CRM', value: platformSettings.value?.crm_system || 'Not configured' },
-	{ label: 'Support', value: platformSettings.value?.support_system || 'Not configured' },
-])
+const canSubmit = computed(() => form.site_name.trim() && form.company_name.trim() && form.region && selectedPlanRecord.value?.is_free && normalizedSubdomain.value && rootDomain.value)
+const betaPlans = computed(() => plans.value.filter((plan) => plan.availability === 'Beta'))
+
 
 const assistantContext = computed(() => {
 	const gaps = []
 	if (rootDomainMissing.value) gaps.push('Platform Settings root_domain is missing')
-	integrationStatus.value.filter((system) => system.value === 'Not configured').forEach((system) => gaps.push(`${system.label} system not configured`))
 	if (!customer.value) gaps.push('Signed-in user has no linked Customer record')
 
 	return {
@@ -58,7 +55,7 @@ const assistantContext = computed(() => {
 		gaps,
 		nextSteps: submitted.value
 			? ['View Sites to track operator and route status.', 'A dry-run result means Kubernetes apply is still gated by cluster credentials/settings.']
-			: ['Enter site name, company, preferred subdomain, plan, and region.', 'Configure Platform Settings root_domain before normal submission.', 'Use support path for questions; billing and CRM are summary-only for customers.'],
+			: ['Confirm the Free Plan, Site name, preferred subdomain, and Region.', 'Submit when the review is complete.', 'Use beta enrollment separately for multi-environment Plans.'],
 	}
 })
 
@@ -107,6 +104,14 @@ async function submitRequest() {
 	}
 }
 
+async function requestBeta(plan) {
+	error.value = null
+	try {
+		const response = await callMethod('lenscloud.api.launch.request_beta_enrollment', { plan: plan.name, region: form.region }, 'POST')
+		enrollment.value = response.message || response
+	} catch (err) { error.value = err?.message || 'Unable to request beta enrollment.' }
+}
+
 onMounted(load)
 </script>
 
@@ -116,7 +121,7 @@ onMounted(load)
 		subtitle="Start a new LensCloud site request from a guided customer flow."
 		inspector-kicker="Request context"
 		inspector-title="Site activation"
-		inspector-subtitle="The request creates a Site, selects ready public capacity, and enters the gated operator reconcile path."
+		inspector-subtitle="The Free Plan uses one production Site in your Region. LensCloud manages capacity and isolation."
 		assistant-label="Assistant"
 		assistant-hint="The assistant will help customers choose regions, plans, DNS settings, and next steps."
 		:assistant-context="assistantContext"
@@ -148,8 +153,8 @@ onMounted(load)
 									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ form.company_name }}</p>
 								</div>
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
-									<p class="text-xs text-ink-gray-5">Cluster</p>
-									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ submitted.cluster || selectedRegion?.cluster || 'Derived from region' }}</p>
+									<p class="text-xs text-ink-gray-5">Region</p>
+									<p class="mt-1 text-sm font-medium text-ink-gray-9">{{ selectedRegion?.title || selectedRegion?.name }}</p>
 								</div>
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 									<p class="text-xs text-ink-gray-5">Domain</p>
@@ -194,32 +199,15 @@ onMounted(load)
 					</section>
 
 					<section class="rounded border border-outline-gray-2 bg-surface-white p-4">
-						<div class="flex items-center gap-2">
-							<Package class="size-4 text-ink-gray-5" />
-							<h2 class="text-base font-semibold text-ink-gray-9">Product plan</h2>
+						<div class="flex items-center gap-2"><Package class="size-4 text-ink-gray-5" /><h2 class="text-base font-semibold text-ink-gray-9">Your Plan</h2></div>
+						<div v-if="selectedPlanRecord" class="mt-4 rounded border border-emerald-200 bg-emerald-50 p-3">
+							<div class="flex items-center justify-between gap-3"><p class="text-sm font-semibold text-emerald-900">{{ selectedPlanRecord.title }}</p><Badge class="bg-white text-emerald-700">Single Tier · Public</Badge></div>
+							<p class="mt-1 text-sm leading-5 text-emerald-800">{{ selectedPlanRecord.description || 'One production Site on shared LensCloud capacity, selected automatically for your Region.' }}</p>
 						</div>
-						<div class="mt-4 grid gap-2">
-							<button
-								v-for="plan in plans"
-								:key="plan.name"
-								class="rounded border px-3 py-2 text-left transition hover:bg-surface-gray-1"
-								:class="selectedPlan === plan.name ? 'border-ink-gray-8 bg-surface-gray-1' : 'border-outline-gray-2 bg-surface-white'"
-								@click="selectedPlan = plan.name"
-							>
-								<div class="flex items-center justify-between gap-3">
-									<p class="text-sm font-medium text-ink-gray-9">{{ plan.title || plan.name }}</p>
-									<Badge v-if="selectedPlan === plan.name" class="bg-ink-gray-8 text-white">Selected</Badge>
-								</div>
-								<p class="mt-1 text-xs leading-5 text-ink-gray-5">{{ plan.description || (plan.is_free ? 'Free self-service starter plan' : plan.bench_policy) }}</p>
-							</button>
+						<div v-if="betaPlans.length" class="mt-4 border-t border-outline-gray-2 pt-3">
+							<p class="text-sm font-medium text-ink-gray-8">Explore beta Plans</p><p class="mt-1 text-xs text-ink-gray-5">Multi-environment Plans require capacity approval before provisioning.</p>
+							<div class="mt-2 space-y-2"><div v-for="plan in betaPlans" :key="plan.name" class="flex items-center justify-between gap-3 rounded bg-surface-gray-1 px-3 py-2"><div><p class="text-sm font-medium text-ink-gray-8">{{ plan.title }}</p><p class="text-xs text-ink-gray-5">{{ plan.description || plan.landscape }}</p></div><Button size="sm" variant="subtle" :disabled="!form.region || enrollment" @click="requestBeta(plan)">{{ enrollment ? 'Requested' : 'Request access' }}</Button></div></div>
 						</div>
-						<div class="mt-3 grid gap-2">
-							<div v-for="system in integrationStatus" :key="system.label" class="flex items-center justify-between rounded border border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
-								<span class="text-sm text-ink-gray-5">{{ system.label }}</span>
-								<span class="truncate text-sm font-medium text-ink-gray-9">{{ system.value }}</span>
-							</div>
-						</div>
-						<Alert class="mt-3" theme="yellow" title="Billing integration gap" description="Plan and invoice data will come from the billing system configured in Platform Settings. Direct billing-system access is not exposed to customers here." />
 					</section>
 
 					<section class="rounded border border-outline-gray-2 bg-surface-white p-4">

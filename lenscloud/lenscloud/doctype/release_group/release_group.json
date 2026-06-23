@@ -8,12 +8,12 @@
  "field_order": [
   "title",
   "status",
-  "image_section",
+  "release_policy",
+  "column_break_msqn",
   "registry_url",
   "image_repository",
   "supported_frappe_major_version",
-  "release_policy",
-  "apps_section",
+  "column_break_prbw",
   "included_apps",
   "apps_metadata"
  ],
@@ -31,11 +31,6 @@
    "in_list_view": 1,
    "label": "Status",
    "options": "Active\nInactive"
-  },
-  {
-   "fieldname": "image_section",
-   "fieldtype": "Section Break",
-   "label": "Image Family"
   },
   {
    "fieldname": "registry_url",
@@ -62,11 +57,6 @@
    "options": "Manual\nQuality First\nProduction Eligible\nLTS"
   },
   {
-   "fieldname": "apps_section",
-   "fieldtype": "Section Break",
-   "label": "Apps"
-  },
-  {
    "fieldname": "included_apps",
    "fieldtype": "Table MultiSelect",
    "label": "Included Apps",
@@ -77,12 +67,20 @@
    "fieldtype": "Code",
    "label": "Apps Metadata",
    "options": "JSON"
+  },
+  {
+   "fieldname": "column_break_msqn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_prbw",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-03 13:04:35.610604",
+ "modified": "2026-06-23 15:07:17.031209",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Release Group",

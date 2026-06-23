@@ -16,6 +16,11 @@
   "cluster",
   "cluster_derivation_note",
   "privacy",
+  "plan",
+  "subscription",
+  "environment",
+  "bench_placement_key",
+  "database_placement_key",
   "owner_customer",
   "privacy_boundary",
   "database_server",
@@ -169,6 +174,37 @@
    "label": "Database Server",
    "options": "Database Server",
    "in_list_view": 1
+  },
+  {
+   "fieldname": "plan",
+   "fieldtype": "Link",
+   "label": "Plan",
+   "options": "Plan"
+  },
+  {
+   "fieldname": "subscription",
+   "fieldtype": "Link",
+   "label": "Subscription",
+   "options": "Subscription"
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Link",
+   "label": "Environment",
+   "options": "Environment",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "bench_placement_key",
+   "fieldtype": "Data",
+   "label": "Bench Placement Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "database_placement_key",
+   "fieldtype": "Data",
+   "label": "Database Placement Key",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

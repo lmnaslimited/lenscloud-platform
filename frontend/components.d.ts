@@ -8,9 +8,12 @@ export {}
 /* prettier-ignore */
 declare module 'vue' {
   export interface GlobalComponents {
+    ChildTableGrid: typeof import('./src/components/ChildTableGrid.vue')['default']
+    DocumentLayoutEditor: typeof import('./src/components/DocumentLayoutEditor.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     ShellLayout: typeof import('./src/components/ShellLayout.vue')['default']
+    TableMultiSelectField: typeof import('./src/components/TableMultiSelectField.vue')['default']
     WorkspaceLayout: typeof import('./src/components/WorkspaceLayout.vue')['default']
   }
 }

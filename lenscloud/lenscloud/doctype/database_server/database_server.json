@@ -5,10 +5,312 @@
  "creation": "2026-06-06 00:00:00",
  "doctype": "DocType",
  "engine": "InnoDB",
+ "field_order": [
+  "title",
+  "identity_section",
+  "database_engine",
+  "provisioning_type",
+  "column_break_ezxn",
+  "region",
+  "cluster",
+  "owner_customer",
+  "column_break_hbsf",
+  "privacy",
+  "privacy_boundary",
+  "database_placement_key",
+  "operator_mapping_tab",
+  "kubernetes_namespace",
+  "storage_class",
+  "replica_count",
+  "column_break_ssbt",
+  "operator_resource_name",
+  "image",
+  "storage_size",
+  "data_retention_policy",
+  "column_break_uqtl",
+  "root_credential_secret_reference",
+  "root_credential_secret_key",
+  "application_credential_policy",
+  "application_credential_secret_reference",
+  "node_placement_policy",
+  "service_and_capacity_tab",
+  "service_host",
+  "service_port",
+  "column_break_xlsv",
+  "maximum_bench_count",
+  "attached_bench_count",
+  "column_break_wlbw",
+  "runtime_status_tab",
+  "database_status",
+  "health_status",
+  "provisioning_status",
+  "backup_status",
+  "column_break_uruy",
+  "last_sync_time",
+  "last_error",
+  "column_break_bqkm"
+ ],
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "identity_section",
+   "fieldtype": "Section Break",
+   "label": "Runtime Identity"
+  },
+  {
+   "default": "MariaDB",
+   "fieldname": "database_engine",
+   "fieldtype": "Select",
+   "label": "Database Engine",
+   "options": "MariaDB",
+   "reqd": 1
+  },
+  {
+   "default": "Operator Managed",
+   "fieldname": "provisioning_type",
+   "fieldtype": "Select",
+   "label": "Provisioning Type",
+   "options": "Operator Managed\nExternal",
+   "reqd": 1
+  },
+  {
+   "fieldname": "region",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Region",
+   "options": "Region",
+   "reqd": 1
+  },
+  {
+   "fieldname": "cluster",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Cluster",
+   "options": "Cluster",
+   "read_only": 1
+  },
+  {
+   "fieldname": "privacy",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Privacy",
+   "options": "Privacy",
+   "reqd": 1
+  },
+  {
+   "fieldname": "owner_customer",
+   "fieldtype": "Link",
+   "label": "Owner Customer",
+   "options": "Customer"
+  },
+  {
+   "fieldname": "privacy_boundary",
+   "fieldtype": "Data",
+   "label": "Privacy Boundary"
+  },
+  {
+   "fieldname": "kubernetes_namespace",
+   "fieldtype": "Link",
+   "label": "Runtime Namespace",
+   "options": "Runtime Namespace",
+   "reqd": 1
+  },
+  {
+   "fieldname": "operator_resource_name",
+   "fieldtype": "Data",
+   "label": "MariaDB Resource Name",
+   "reqd": 1
+  },
+  {
+   "default": "mariadb:10.11",
+   "fieldname": "image",
+   "fieldtype": "Data",
+   "label": "MariaDB Image"
+  },
+  {
+   "fieldname": "storage_class",
+   "fieldtype": "Data",
+   "label": "Storage Class"
+  },
+  {
+   "default": "8Gi",
+   "fieldname": "storage_size",
+   "fieldtype": "Data",
+   "label": "Storage Size"
+  },
+  {
+   "default": "Retain",
+   "fieldname": "data_retention_policy",
+   "fieldtype": "Select",
+   "label": "Data Retention Policy",
+   "options": "Retain\nDelete",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "replica_count",
+   "fieldtype": "Int",
+   "label": "Replica Count"
+  },
+  {
+   "fieldname": "root_credential_secret_reference",
+   "fieldtype": "Data",
+   "label": "Root Secret Reference"
+  },
+  {
+   "default": "password",
+   "fieldname": "root_credential_secret_key",
+   "fieldtype": "Data",
+   "label": "Root Secret Key"
+  },
+  {
+   "default": "Operator Managed",
+   "fieldname": "application_credential_policy",
+   "fieldtype": "Select",
+   "label": "Application Credential Policy",
+   "options": "Operator Managed\nExternal Secret"
+  },
+  {
+   "fieldname": "application_credential_secret_reference",
+   "fieldtype": "Data",
+   "label": "Application Secret Reference"
+  },
+  {
+   "fieldname": "node_placement_policy",
+   "fieldtype": "Code",
+   "label": "Node Placement Policy",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "service_host",
+   "fieldtype": "Data",
+   "label": "Service Host"
+  },
+  {
+   "default": "3306",
+   "fieldname": "service_port",
+   "fieldtype": "Int",
+   "label": "Service Port"
+  },
+  {
+   "default": "0",
+   "description": "Zero means no explicit platform limit.",
+   "fieldname": "maximum_bench_count",
+   "fieldtype": "Int",
+   "label": "Maximum Bench Count"
+  },
+  {
+   "fieldname": "attached_bench_count",
+   "fieldtype": "Int",
+   "label": "Attached Bench Count",
+   "read_only": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "database_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Database Status",
+   "options": "Draft\nPending\nProvisioning\nReady\nMaintenance\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown"
+  },
+  {
+   "default": "Not Started",
+   "fieldname": "provisioning_status",
+   "fieldtype": "Select",
+   "label": "Provisioning Status",
+   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown"
+  },
+  {
+   "default": "Unknown",
+   "fieldname": "health_status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Health Status",
+   "options": "Unknown\nHealthy\nDegraded\nFailed"
+  },
+  {
+   "default": "Not Configured",
+   "fieldname": "backup_status",
+   "fieldtype": "Select",
+   "label": "Backup Status",
+   "options": "Not Configured\nConfigured\nRunning\nHealthy\nFailed"
+  },
+  {
+   "fieldname": "last_sync_time",
+   "fieldtype": "Datetime",
+   "label": "Last Sync Time",
+   "read_only": 1
+  },
+  {
+   "fieldname": "last_error",
+   "fieldtype": "Text",
+   "label": "Last Error",
+   "read_only": 1
+  },
+  {
+   "fieldname": "database_placement_key",
+   "fieldtype": "Data",
+   "label": "Database Placement Key",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_ezxn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_hbsf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "operator_mapping_tab",
+   "fieldtype": "Tab Break",
+   "label": "Operator Mapping"
+  },
+  {
+   "fieldname": "column_break_ssbt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_uqtl",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "service_and_capacity_tab",
+   "fieldtype": "Tab Break",
+   "label": "Service and Capacity"
+  },
+  {
+   "fieldname": "column_break_xlsv",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_wlbw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "runtime_status_tab",
+   "fieldtype": "Tab Break",
+   "label": "Runtime Status"
+  },
+  {
+   "fieldname": "column_break_uruy",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_bqkm",
+   "fieldtype": "Column Break"
+  }
+ ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-06 00:00:00.000000",
+ "modified": "2026-06-23 13:22:08.190873",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Database Server",
@@ -33,260 +335,5 @@
  "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
- "title_field": "title",
- "fields": [
-  {
-   "fieldname": "title",
-   "fieldtype": "Data",
-   "label": "Title",
-   "unique": 1,
-   "reqd": 1
-  },
-  {
-   "fieldname": "identity_section",
-   "fieldtype": "Section Break",
-   "label": "Runtime Identity"
-  },
-  {
-   "fieldname": "database_engine",
-   "fieldtype": "Select",
-   "label": "Database Engine",
-   "options": "MariaDB",
-   "default": "MariaDB",
-   "reqd": 1
-  },
-  {
-   "fieldname": "provisioning_type",
-   "fieldtype": "Select",
-   "label": "Provisioning Type",
-   "options": "Operator Managed\nExternal",
-   "default": "Operator Managed",
-   "reqd": 1
-  },
-  {
-   "fieldname": "region",
-   "fieldtype": "Link",
-   "label": "Region",
-   "options": "Region",
-   "reqd": 1,
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "cluster",
-   "fieldtype": "Link",
-   "label": "Cluster",
-   "options": "Cluster",
-   "read_only": 1,
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "privacy",
-   "fieldtype": "Link",
-   "label": "Privacy",
-   "options": "Privacy",
-   "reqd": 1,
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "owner_customer",
-   "fieldtype": "Link",
-   "label": "Owner Customer",
-   "options": "Customer"
-  },
-  {
-   "fieldname": "privacy_boundary",
-   "fieldtype": "Data",
-   "label": "Privacy Boundary"
-  },
-  {
-   "fieldname": "operator_section",
-   "fieldtype": "Section Break",
-   "label": "Operator Mapping"
-  },
-  {
-   "fieldname": "kubernetes_namespace",
-   "fieldtype": "Link",
-   "label": "Runtime Namespace",
-   "reqd": 1,
-   "options": "Runtime Namespace"
-  },
-  {
-   "fieldname": "operator_resource_name",
-   "fieldtype": "Data",
-   "label": "MariaDB Resource Name",
-   "reqd": 1
-  },
-  {
-   "fieldname": "image",
-   "fieldtype": "Data",
-   "label": "MariaDB Image",
-   "default": "mariadb:10.11"
-  },
-  {
-   "fieldname": "storage_class",
-   "fieldtype": "Data",
-   "label": "Storage Class"
-  },
-  {
-   "fieldname": "storage_size",
-   "fieldtype": "Data",
-   "label": "Storage Size",
-   "default": "8Gi"
-  },
-  {
-   "fieldname": "data_retention_policy",
-   "fieldtype": "Select",
-   "label": "Data Retention Policy",
-   "options": "Retain\nDelete",
-   "default": "Retain",
-   "reqd": 1
-  },
-  {
-   "fieldname": "replica_count",
-   "fieldtype": "Int",
-   "label": "Replica Count",
-   "default": "1"
-  },
-  {
-   "fieldname": "root_credential_secret_reference",
-   "fieldtype": "Data",
-   "label": "Root Secret Reference"
-  },
-  {
-   "fieldname": "root_credential_secret_key",
-   "fieldtype": "Data",
-   "label": "Root Secret Key",
-   "default": "password"
-  },
-  {
-   "fieldname": "application_credential_policy",
-   "fieldtype": "Select",
-   "label": "Application Credential Policy",
-   "options": "Operator Managed\nExternal Secret",
-   "default": "Operator Managed"
-  },
-  {
-   "fieldname": "application_credential_secret_reference",
-   "fieldtype": "Data",
-   "label": "Application Secret Reference"
-  },
-  {
-   "fieldname": "node_placement_policy",
-   "fieldtype": "Code",
-   "label": "Node Placement Policy",
-   "options": "JSON"
-  },
-  {
-   "fieldname": "service_section",
-   "fieldtype": "Section Break",
-   "label": "Service And Capacity"
-  },
-  {
-   "fieldname": "service_host",
-   "fieldtype": "Data",
-   "label": "Service Host"
-  },
-  {
-   "fieldname": "service_port",
-   "fieldtype": "Int",
-   "label": "Service Port",
-   "default": "3306"
-  },
-  {
-   "fieldname": "maximum_bench_count",
-   "fieldtype": "Int",
-   "label": "Maximum Bench Count",
-   "default": "0",
-   "description": "Zero means no explicit platform limit."
-  },
-  {
-   "fieldname": "attached_bench_count",
-   "fieldtype": "Int",
-   "label": "Attached Bench Count",
-   "read_only": 1
-  },
-  {
-   "fieldname": "status_section",
-   "fieldtype": "Section Break",
-   "label": "Runtime Status"
-  },
-  {
-   "fieldname": "database_status",
-   "fieldtype": "Select",
-   "label": "Database Status",
-   "options": "Draft\nPending\nProvisioning\nReady\nMaintenance\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown",
-   "default": "Draft",
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "provisioning_status",
-   "fieldtype": "Select",
-   "label": "Provisioning Status",
-   "options": "Not Started\nPending\nAccepted\nRunning\nReady\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nUnknown",
-   "default": "Not Started"
-  },
-  {
-   "fieldname": "health_status",
-   "fieldtype": "Select",
-   "label": "Health Status",
-   "options": "Unknown\nHealthy\nDegraded\nFailed",
-   "default": "Unknown",
-   "in_list_view": 1
-  },
-  {
-   "fieldname": "backup_status",
-   "fieldtype": "Select",
-   "label": "Backup Status",
-   "options": "Not Configured\nConfigured\nRunning\nHealthy\nFailed",
-   "default": "Not Configured"
-  },
-  {
-   "fieldname": "last_sync_time",
-   "fieldtype": "Datetime",
-   "label": "Last Sync Time",
-   "read_only": 1
-  },
-  {
-   "fieldname": "last_error",
-   "fieldtype": "Text",
-   "label": "Last Error",
-   "read_only": 1
-  }
- ],
- "field_order": [
-  "title",
-  "identity_section",
-  "database_engine",
-  "provisioning_type",
-  "region",
-  "cluster",
-  "privacy",
-  "owner_customer",
-  "privacy_boundary",
-  "operator_section",
-  "kubernetes_namespace",
-  "operator_resource_name",
-  "image",
-  "storage_class",
-  "storage_size",
-  "data_retention_policy",
-  "replica_count",
-  "root_credential_secret_reference",
-  "root_credential_secret_key",
-  "application_credential_policy",
-  "application_credential_secret_reference",
-  "node_placement_policy",
-  "service_section",
-  "service_host",
-  "service_port",
-  "maximum_bench_count",
-  "attached_bench_count",
-  "status_section",
-  "database_status",
-  "provisioning_status",
-  "health_status",
-  "backup_status",
-  "last_sync_time",
-  "last_error"
- ]
+ "title_field": "title"
 }

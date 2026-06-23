@@ -1,0 +1,89 @@
+{
+ "doctype": "DocType",
+ "name": "Environment",
+ "module": "Lenscloud",
+ "engine": "InnoDB",
+ "allow_rename": 1,
+ "grid_page_length": 50,
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "fields": [
+  {
+   "fieldname": "title",
+   "fieldtype": "Data",
+   "label": "Title",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "code",
+   "fieldtype": "Data",
+   "label": "Code",
+   "reqd": 1,
+   "unique": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "deployment_tier",
+   "fieldtype": "Select",
+   "label": "Deployment Tier",
+   "options": "development\ntesting\nstaging\nproduction",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "sequence",
+   "fieldtype": "Int",
+   "label": "Sequence",
+   "reqd": 1
+  },
+  {
+   "fieldname": "protection_level",
+   "fieldtype": "Select",
+   "label": "Protection Level",
+   "options": "Permissive\nTest\nProduction-like\nRestricted",
+   "reqd": 1
+  },
+  {
+   "fieldname": "is_production",
+   "fieldtype": "Check",
+   "label": "Is Production"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Active\nInactive",
+   "default": "Active",
+   "in_list_view": 1
+  }
+ ],
+ "field_order": [
+  "title",
+  "code",
+  "deployment_tier",
+  "sequence",
+  "protection_level",
+  "is_production",
+  "status"
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "autoname": "field:title",
+ "naming_rule": "By fieldname",
+ "title_field": "title"
+}

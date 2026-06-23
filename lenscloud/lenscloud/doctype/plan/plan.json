@@ -12,6 +12,12 @@
   "is_default",
   "is_free",
   "monthly_price",
+  "release_group",
+  "landscape",
+  "allowed_privacy_profiles",
+  "default_privacy_profile",
+  "availability",
+  "subscription_limit",
   "site_limit",
   "bench_policy",
   "billing_system_reference",
@@ -79,6 +85,46 @@
    "fieldname": "description",
    "fieldtype": "Text",
    "label": "Description"
+  },
+  {
+   "fieldname": "release_group",
+   "fieldtype": "Link",
+   "label": "Release Group",
+   "options": "Release Group",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "landscape",
+   "fieldtype": "Link",
+   "label": "Landscape",
+   "options": "Landscape",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "allowed_privacy_profiles",
+   "fieldtype": "Table MultiSelect",
+   "label": "Allowed Privacy Profiles",
+   "options": "Plan Privacy Profile"
+  },
+  {
+   "fieldname": "default_privacy_profile",
+   "fieldtype": "Link",
+   "label": "Default Privacy Profile",
+   "options": "Privacy"
+  },
+  {
+   "fieldname": "availability",
+   "fieldtype": "Select",
+   "label": "Availability",
+   "options": "Public\nBeta\nInvite Only\nRetired",
+   "default": "Invite Only",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "subscription_limit",
+   "fieldtype": "Int",
+   "label": "Subscription Limit",
+   "default": "1"
   }
  ],
  "grid_page_length": 50,

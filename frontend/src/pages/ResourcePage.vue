@@ -6,7 +6,8 @@ import { listDocs, getDoc, saveDoc, createDoc, submitDoc, cancelDoc, callMethod,
 import { getResourceByDoctype, getResourceByKey, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
-import { ChevronDown, ChevronRight, CreditCard, Filter, FolderTree, LifeBuoy, List, Lock, MapPin, MoreHorizontal, Search, Users } from 'lucide-vue-next'
+import DocumentLayoutEditor from '@/components/DocumentLayoutEditor.vue'
+import { ChevronDown, ChevronRight, CreditCard, Filter, FolderTree, LifeBuoy, List, Lock, MapPin, Maximize2, Minimize2, MoreHorizontal, Search, X } from 'lucide-vue-next'
 
 const props = defineProps({
 	resourceKey: { type: String, required: true },
@@ -38,7 +39,14 @@ const formState = reactive({})
 const actionState = reactive({})
 const createForm = reactive({})
 const fieldOptions = reactive({})
+const editorSchema = ref([])
+const editorMeta = ref({})
+const renameMode = ref(false)
+const renameValue = ref('')
+const renameState = ref('idle')
 const isCreating = ref(false)
+const editorHeight = ref(58)
+const editorExpanded = ref(false)
 const lifecycleState = ref('idle')
 const actionExecutionState = ref('idle')
 const actionResult = ref(null)
@@ -371,7 +379,38 @@ const treeRows = computed(() => {
 
 const visibleRowCount = computed(() => (displayMode.value === 'tree' && isTreeResource.value ? treeRows.value.length : visibleRecords.value.length))
 
-const documentLifecycleFields = computed(() => resource.value?.lifecycleFields || (resource.value?.detailFields || []).filter((field) => !['name', 'docstatus', 'amended_from'].includes(field.key)))
+const catalogLifecycleFields = computed(() => resource.value?.lifecycleFields || (resource.value?.detailFields || []).filter((field) => !['name', 'docstatus', 'amended_from'].includes(field.key)))
+const catalogFieldMap = computed(() => new Map(catalogLifecycleFields.value.map((field) => [field.key, field])))
+const frappeTypeMap = {
+	'Data': 'text', 'Small Text': 'textarea', 'Long Text': 'textarea', 'Text': 'textarea', 'Text Editor': 'textarea', 'Code': 'textarea',
+	'Link': 'link', 'Select': 'select', 'Check': 'check', 'Int': 'number', 'Float': 'number', 'Currency': 'number',
+	'Date': 'date', 'Datetime': 'datetime', 'Table': 'table', 'Table MultiSelect': 'table_multiselect',
+	'Section Break': 'section_break', 'Column Break': 'column_break', 'Tab Break': 'tab_break',
+}
+function schemaFieldToUi(field, override = {}) {
+	const type = frappeTypeMap[field.fieldtype] || 'text'
+	const value = {
+		key: field.fieldname, label: field.label || field.fieldname, type,
+		required: Boolean(field.required), readOnly: Boolean(field.read_only), default: field.default,
+		description: field.description || '', collapsible: Boolean(field.collapsible),
+	}
+	if (type === 'select') value.options = String(field.options || '').split('\n').filter(Boolean)
+	else if (type === 'link') value.options = field.options
+	if (['table', 'table_multiselect'].includes(type)) {
+		value.options = field.options
+		const overrideColumns = new Map((override.columns || []).map((column) => [column.key, column]))
+		value.columns = (field.columns || []).map((column) => schemaFieldToUi(column, overrideColumns.get(column.fieldname) || {}))
+	}
+	return { ...value, ...override, columns: value.columns || override.columns }
+}
+const namingField = computed(() => editorMeta.value.naming_field || '')
+const canRenameDocument = computed(() => Boolean(record.value && editorMeta.value.allow_rename && namingField.value))
+const editorLayoutFields = computed(() => {
+	if (!editorSchema.value.length) return catalogLifecycleFields.value
+	return editorSchema.value.map((field) => schemaFieldToUi(field, catalogFieldMap.value.get(field.fieldname) || {}))
+})
+const existingEditorLayoutFields = computed(() => editorLayoutFields.value.filter((field) => field.key !== namingField.value))
+const documentLifecycleFields = computed(() => editorLayoutFields.value.filter((field) => !['section_break', 'column_break', 'tab_break'].includes(field.type)))
 const lifecycleFieldMap = computed(() => new Map(documentLifecycleFields.value.map((field) => [field.key, field])))
 const canCreateDocument = computed(() => props.scope === 'platform' && Boolean(resource.value?.creatable))
 const canEditDocument = computed(() => Boolean(resource.value?.editable) && (!resource.value?.submittable || Number(record.value?.docstatus || 0) === 0))
@@ -389,7 +428,7 @@ const documentStatusLabel = computed(() => {
 function resetCreateForm(source = {}) {
 	for (const key of Object.keys(createForm)) delete createForm[key]
 	for (const field of documentLifecycleFields.value) {
-		createForm[field.key] = source[field.key] ?? field.default ?? ''
+		createForm[field.key] = cloneFieldValue(source[field.key] ?? field.default ?? (['table', 'table_multiselect'].includes(field.type) ? [] : ''))
 	}
 	if (source.amended_from) createForm.amended_from = source.amended_from
 }
@@ -406,12 +445,18 @@ function stopCreate() {
 	resetCreateForm()
 }
 
-function buildDocumentPayload(source) {
+function buildDocumentPayload(source, includeNamingField = true) {
 	const payload = {}
 	for (const field of documentLifecycleFields.value) {
-		if (field.readOnly) continue
+		if (field.readOnly || (!includeNamingField && field.key === namingField.value)) continue
 		if (field.type === 'check') {
 			payload[field.key] = source[field.key] ? 1 : 0
+		} else if (['table', 'table_multiselect'].includes(field.type)) {
+			payload[field.key] = (source[field.key] || []).map((row) => {
+				const child = row.name ? { name: row.name } : {}
+				for (const column of field.columns || []) child[column.key] = column.type === 'check' ? (row[column.key] ? 1 : 0) : (row[column.key] ?? '')
+				return child
+			})
 		} else {
 			payload[field.key] = source[field.key] ?? ''
 		}
@@ -439,14 +484,25 @@ function optionLabelForDoc(doc, field) {
 	return label && label !== doc.name ? `${label} · ${doc.name}` : doc.name
 }
 
+async function loadEditorSchema() {
+	editorSchema.value = []
+	editorMeta.value = {}
+	if (props.scope !== 'platform' || !resource.value?.doctype) return
+	const response = await callMethod('lenscloud.api.launch.get_doctype_editor_schema', { doctype: resource.value.doctype })
+	const schema = response.message || response || {}
+	editorMeta.value = schema
+	editorSchema.value = schema.fields || []
+}
+
 async function loadFieldOptions() {
 	const actionFields = (resource.value?.actions || []).flatMap((action) => action.fields || [])
-	const linkFields = [...allResourceFields.value, ...documentLifecycleFields.value, ...actionFields].filter((field) => field.type === 'link' && field.options)
+	const childFields = documentLifecycleFields.value.flatMap((field) => ['table', 'table_multiselect'].includes(field.type) ? field.columns || [] : [])
+	const linkFields = [...allResourceFields.value, ...documentLifecycleFields.value, ...childFields, ...actionFields].filter((field) => field.type === 'link' && field.options)
 	await Promise.all(linkFields.map(async (field) => {
 		const key = fieldOptionKey(field)
 		if (fieldOptions[key]) return
 
-		const fields = Array.from(new Set(['name', ...(field.labelFields || ['title', 'first_name', 'last_name', 'image_tag', 'cluster_name', 'plan_code']), ...(field.optionFields || [])]))
+		const fields = Array.from(new Set(['name', ...(field.labelFields || []), ...(field.optionFields || [])]))
 		const rows = await listDocs(field.options, {
 			fields,
 			limit: field.limit || 100,
@@ -684,7 +740,7 @@ async function loadDetail(name) {
 	if (record.value && resource.value.editable) {
 		for (const key of Object.keys(formState)) delete formState[key]
 		for (const field of documentLifecycleFields.value || []) {
-			formState[field.key] = record.value[field.key] ?? field.default ?? ''
+			formState[field.key] = cloneFieldValue(record.value[field.key] ?? field.default ?? (['table', 'table_multiselect'].includes(field.type) ? [] : ''))
 		}
 	}
 
@@ -720,6 +776,7 @@ async function load() {
 	error.value = null
 	related.value = []
 	try {
+		await loadEditorSchema()
 		await Promise.all([loadList(), loadSettingsContext(), loadFieldOptions()])
 		applyRouteFilter()
 		const previewName = route.params.name || ''
@@ -743,7 +800,7 @@ const title = computed(() => resource.value?.label || 'Records')
 const subtitle = computed(() => resource.value?.listHelp || 'Native Frappe document surface.')
 const activeAction = computed(() => (resource.value?.actions || []).find((action) => action.key === activeActionKey.value) || null)
 const inspectorTabs = computed(() => {
-	const tabs = [{ label: 'Overview' }, { label: 'Edit' }]
+	const tabs = [{ label: 'Overview' }]
 	tabs.push({ label: `Actions${resource.value?.actions?.length ? ` (${resource.value.actions.length})` : ''}` })
 	tabs.push({ label: `Related${related.value.length ? ` (${related.value.length})` : ''}` })
 	tabs.push({ label: 'Diagnostics' })
@@ -885,7 +942,7 @@ function toggleTreeNode(name) {
 
 const hasUnsavedChanges = computed(() => {
 	if (!record.value || !resource.value?.editable || saveState.value === 'saving') return false
-	return documentLifecycleFields.value.some((field) => !field.readOnly && String(formState[field.key] ?? '') !== String(record.value[field.key] ?? field.default ?? ''))
+	return documentLifecycleFields.value.some((field) => !field.readOnly && JSON.stringify(formState[field.key] ?? (['table', 'table_multiselect'].includes(field.type) ? [] : '')) !== JSON.stringify(record.value[field.key] ?? field.default ?? (['table', 'table_multiselect'].includes(field.type) ? [] : '')))
 })
 
 function confirmRecordSwitch() {
@@ -1055,6 +1112,34 @@ function updateModelField(model, field, value) {
 	model[field.key] = value
 }
 
+function cloneFieldValue(value) {
+	if (value === null || value === undefined || typeof value !== 'object') return value
+	return JSON.parse(JSON.stringify(value))
+}
+
+function addChildRow(model, field) {
+	if (!Array.isArray(model[field.key])) model[field.key] = []
+	const row = {}
+	for (const column of field.columns || []) row[column.key] = column.default ?? (column.type === 'check' ? 0 : '')
+	model[field.key].push(row)
+}
+
+function removeChildRow(model, field, index) {
+	model[field.key].splice(index, 1)
+}
+
+function moveChildRow(model, field, index, direction) {
+	const target = index + direction
+	if (target < 0 || target >= model[field.key].length) return
+	const rows = model[field.key]
+	const [row] = rows.splice(index, 1)
+	rows.splice(target, 0, row)
+}
+
+function childRowKey(row, index) {
+	return row.name || `new-child-${index}`
+}
+
 
 async function createCurrentRecord() {
 	if (!resource.value) return
@@ -1116,7 +1201,7 @@ async function saveCurrentRecord() {
 
 	saveState.value = 'saving'
 	try {
-		const saved = await saveDoc(resource.value.doctype, record.value.name, buildDocumentPayload(formState))
+		const saved = await saveDoc(resource.value.doctype, record.value.name, buildDocumentPayload(formState, false))
 		record.value = saved
 		await load()
 		saveState.value = 'saved'
@@ -1125,6 +1210,70 @@ async function saveCurrentRecord() {
 		error.value = err?.message || 'Unable to save record.'
 	}
 }
+
+function startRenameDocument() {
+	if (!canRenameDocument.value || hasUnsavedChanges.value) return
+	renameValue.value = record.value.name
+	renameState.value = 'idle'
+	renameMode.value = true
+}
+
+async function renameCurrentDocument() {
+	const nextName = renameValue.value.trim()
+	if (!record.value || !nextName || nextName === record.value.name) return
+	renameState.value = 'renaming'
+	error.value = null
+	try {
+		const response = await callMethod('frappe.client.rename_doc', { doctype: resource.value.doctype, old_name: record.value.name, new_name: nextName, merge: 0 }, 'POST')
+		const renamed = response.message || response
+		renameMode.value = false
+		renameState.value = 'renamed'
+		await router.replace(resource.value.detailRoute(renamed))
+		await load()
+	} catch (err) {
+		renameState.value = 'error'
+		error.value = err?.message || 'Unable to rename document.'
+	}
+}
+
+async function discardCurrentEdits() {
+	if (!record.value) return
+	await loadDetail(record.value.name)
+	saveState.value = 'idle'
+	error.value = null
+}
+
+async function closeCenterEditor() {
+	if (!confirmRecordSwitch()) return
+	editorExpanded.value = false
+	record.value = null
+	await router.push(resource.value.route)
+}
+
+function startEditorResize(event) {
+	if (editorExpanded.value) return
+	event.preventDefault()
+	const container = event.currentTarget.closest('[data-resource-split]')
+	if (!container) return
+	const resize = (pointerEvent) => {
+		const bounds = container.getBoundingClientRect()
+		const next = ((bounds.bottom - pointerEvent.clientY) / bounds.height) * 100
+		editorHeight.value = Math.min(75, Math.max(35, next))
+	}
+	const stop = () => {
+		window.removeEventListener('pointermove', resize)
+		window.removeEventListener('pointerup', stop)
+	}
+	window.addEventListener('pointermove', resize)
+	window.addEventListener('pointerup', stop)
+}
+
+function resizeEditorByKeyboard(event) {
+	if (event.key === 'ArrowUp') editorHeight.value = Math.min(75, editorHeight.value + 5)
+	else if (event.key === 'ArrowDown') editorHeight.value = Math.max(35, editorHeight.value - 5)
+	else return
+	event.preventDefault()
+}
 </script>
 
 <template>
@@ -1132,8 +1281,8 @@ async function saveCurrentRecord() {
 		:title="title"
 		:subtitle="subtitle"
 		inspector-kicker="Selected record"
-		:inspector-title="record ? `Editing ${resource.doctype}: ${record.title || record.first_name || record.name}` : `No ${resource.doctype} selected`"
-		:inspector-subtitle="record ? 'Review, edit, and run actions only for the visibly selected record.' : 'Select a row from the list before editing or running actions.'"
+		:inspector-title="record ? `${resource.doctype}: ${record.title || record.first_name || record.name}` : `No ${resource.doctype} selected`"
+		:inspector-subtitle="record ? 'Review status, related records, diagnostics, and actions for the selected record.' : 'Select a row from the list before editing or running actions.'"
 		assistant-label="Assistant"
 		assistant-hint="This drawer will eventually provide context-aware help for the selected doctype, record, and action path."
 		:assistant-context="assistantContext"
@@ -1157,19 +1306,7 @@ async function saveCurrentRecord() {
 						<Badge v-if="createForm.amended_from" class="bg-amber-50 text-amber-700">Amending {{ createForm.amended_from }}</Badge>
 					</div>
 
-					<div class="mt-4 grid gap-3 md:grid-cols-2">
-						<div v-for="field in documentLifecycleFields" :key="field.key" :class="field.type === 'textarea' ? 'md:col-span-2' : ''">
-							<div class="flex items-end gap-2">
-								<FormControl
-									v-bind="fieldControlProps(createForm, field)"
-									:class="field.type === 'check' ? '' : 'min-w-0 flex-1'"
-									@update:modelValue="(value) => updateModelField(createForm, field, value)"
-								/>
-								<Button v-if="canClearField(createForm, field)" size="sm" variant="subtle" class="mb-0.5 shrink-0" @click="clearModelField(createForm, field)">Clear</Button>
-							</div>
-							<p v-if="field.description" class="mt-1 text-xs leading-5 text-ink-gray-5">{{ field.description }}</p>
-						</div>
-					</div>
+					<div class="mt-4"><DocumentLayoutEditor :fields="editorLayoutFields" :model="createForm" :control-props="fieldControlProps" /></div>
 
 					<div class="mt-4 flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
 						<Button :disabled="lifecycleState === 'creating'" @click="createCurrentRecord">{{ lifecycleState === 'creating' ? 'Creating...' : 'Create document' }}</Button>
@@ -1179,7 +1316,7 @@ async function saveCurrentRecord() {
 					</div>
 				</div>
 
-				<div v-else class="flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-outline-gray-2 bg-surface-white">
+				<div v-else class="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-outline-gray-2 bg-surface-white" data-resource-split>
 				<div class="shrink-0 border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
 					<div class="flex flex-wrap items-center justify-between gap-2">
 						<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
@@ -1335,6 +1472,35 @@ async function saveCurrentRecord() {
 						</div>
 					</template>
 				</ListView>
+
+				<section
+					v-if="record && resource.editable"
+					data-testid="center-document-editor"
+					class="shrink-0 overflow-hidden border-t border-outline-gray-2 bg-surface-white max-lg:absolute max-lg:inset-0 max-lg:z-40 max-lg:!h-full max-lg:border-t-0"
+					:class="editorExpanded ? 'absolute inset-0 z-40 h-full border-t-0' : ''"
+					:style="editorExpanded ? {} : { height: `${editorHeight}%` }"
+				>
+					<div
+						v-if="!editorExpanded"
+						role="separator"
+						tabindex="0"
+						aria-label="Resize document editor"
+						aria-orientation="horizontal"
+						class="group flex h-2 cursor-row-resize items-center justify-center bg-surface-gray-1 hover:bg-blue-50 focus:bg-blue-50 focus:outline-none max-lg:hidden"
+						@pointerdown="startEditorResize"
+						@keydown="resizeEditorByKeyboard"
+					><span class="h-0.5 w-10 rounded bg-ink-gray-3 group-hover:bg-blue-500"></span></div>
+
+					<header class="flex h-14 items-center justify-between gap-3 border-b border-outline-gray-2 px-4">
+						<div class="min-w-0"><div class="flex items-center gap-2"><p class="truncate text-sm font-semibold text-ink-gray-9">Editing {{ resource.doctype }}: {{ record.title || record.first_name || record.name }}</p><Badge v-if="hasUnsavedChanges" class="shrink-0 bg-amber-50 text-amber-700">Unsaved</Badge><Badge v-else class="shrink-0 bg-surface-gray-1 text-ink-gray-6">{{ documentStatusLabel }}</Badge></div><p class="mt-0.5 truncate text-xs text-ink-gray-5">Parent fields and child tables save together as one Frappe document.</p></div>
+						<div class="flex shrink-0 items-center gap-2"><Button v-if="canRenameDocument" size="sm" variant="subtle" :disabled="hasUnsavedChanges" @click="startRenameDocument">Rename</Button><Button size="sm" variant="subtle" :disabled="!hasUnsavedChanges || saveState === 'saving'" @click="discardCurrentEdits">Discard</Button><Button size="sm" :disabled="!canEditDocument || saveState === 'saving'" @click="saveCurrentRecord">{{ saveState === 'saving' ? 'Saving...' : 'Save' }}</Button><button type="button" :aria-label="editorExpanded ? 'Restore split editor' : 'Expand editor'" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="editorExpanded = !editorExpanded"><component :is="editorExpanded ? Minimize2 : Maximize2" class="size-4" /></button><button type="button" aria-label="Close editor" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="closeCenterEditor"><X class="size-4" /></button></div>
+					</header>
+
+					<div v-if="renameMode" class="flex flex-wrap items-end gap-2 border-b border-blue-200 bg-blue-50 px-4 py-3"><TextInput v-model="renameValue" class="min-w-72" label="New document name" placeholder="New document name" /><Button size="sm" :disabled="renameState === 'renaming' || !renameValue.trim()" @click="renameCurrentDocument">{{ renameState === 'renaming' ? 'Renaming...' : 'Confirm rename' }}</Button><Button size="sm" variant="ghost" @click="renameMode = false">Cancel</Button><p class="w-full text-xs text-blue-700">Frappe updates links and the field-based document title through its rename workflow.</p></div>
+					<div class="h-[calc(100%-3.5rem)] overflow-y-auto p-4">
+						<DocumentLayoutEditor :fields="existingEditorLayoutFields" :model="formState" :control-props="fieldControlProps" :disabled="!canEditDocument" />
+					</div>
+				</section>
 				</div>
 			</div>
 		</template>
@@ -1376,49 +1542,6 @@ async function saveCurrentRecord() {
 								<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ selectedName || '-' }}</p>
 							</div>
 						</div>
-					</div>
-
-					<div v-else-if="tab.label.startsWith('Edit')" class="space-y-3">
-						<div v-if="!record" class="rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-3">
-							<p class="text-sm font-medium text-ink-gray-8">No record selected</p>
-							<p class="mt-1 text-sm leading-5 text-ink-gray-5">Choose a row to inspect fields here.</p>
-						</div>
-
-						<template v-else>
-							<div class="flex items-center justify-between gap-2">
-								<div>
-									<p class="text-sm font-medium text-ink-gray-9">Edit selected record</p>
-									<p class="text-xs text-ink-gray-5">{{ canEditDocument ? 'Local edits stay in this rail until Save.' : 'Read-only in the current document state.' }}</p>
-								</div>
-								<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ canEditDocument ? 'Editable' : 'Read only' }}</Badge>
-							</div>
-
-							<div class="space-y-2">
-								<div v-for="field in resource.detailFields || []" :key="field.key" class="space-y-1">
-									<div v-if="canEditDocument && documentLifecycleFields.some((item) => item.key === field.key) && !Array.isArray(record[field.key])" class="flex items-end gap-2">
-										<FormControl
-											v-bind="fieldControlProps(formState, editableField(field))"
-											:class="editableField(field).type === 'check' ? '' : 'min-w-0 flex-1'"
-											@update:modelValue="(value) => updateModelField(formState, editableField(field), value)"
-										/>
-										<Button v-if="canClearField(formState, editableField(field))" size="sm" variant="subtle" class="mb-0.5 shrink-0" @click="clearModelField(formState, editableField(field))">Clear</Button>
-									</div>
-									<div v-else>
-										<label class="text-xs font-medium text-ink-gray-5">{{ field.label }}</label>
-										<div class="mt-1 truncate rounded bg-surface-gray-1 px-2.5 py-1.5 text-sm text-ink-gray-7">
-											{{ formatFieldValue(record[field.key]) }}
-										</div>
-									</div>
-									<p v-if="editableField(field).description" class="mt-1 text-xs leading-5 text-ink-gray-5">{{ editableField(field).description }}</p>
-								</div>
-							</div>
-
-							<div v-if="resource.editable" class="flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
-								<Button size="sm" :label="saveState === 'saving' ? 'Saving...' : 'Save'" :disabled="saveState === 'saving' || !canEditDocument" @click="saveCurrentRecord" />
-								<Badge v-if="saveState === 'saved'" class="bg-emerald-50 text-emerald-700">Saved</Badge>
-								<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Failed</Badge>
-							</div>
-						</template>
 					</div>
 
 

@@ -1,0 +1,122 @@
+{
+ "doctype": "DocType",
+ "name": "Environment Test Run",
+ "module": "Lenscloud",
+ "engine": "InnoDB",
+ "allow_rename": 1,
+ "grid_page_length": 50,
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "fields": [
+  {
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "label": "Naming Series",
+   "options": "ETR-.#####",
+   "default": "ETR-.#####"
+  },
+  {
+   "fieldname": "subscription",
+   "fieldtype": "Link",
+   "label": "Subscription",
+   "options": "Subscription",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Link",
+   "label": "Environment",
+   "options": "Environment",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "release",
+   "fieldtype": "Link",
+   "label": "Release",
+   "options": "Release",
+   "reqd": 1
+  },
+  {
+   "fieldname": "test_type",
+   "fieldtype": "Select",
+   "label": "Test Type",
+   "options": "Bench Test\nLATP",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "execution_mode",
+   "fieldtype": "Select",
+   "label": "Execution Mode",
+   "options": "Non-destructive\nFull",
+   "default": "Non-destructive"
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Queued\nRunning\nPassed\nFailed\nCancelled",
+   "default": "Queued",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "external_run_reference",
+   "fieldtype": "Data",
+   "label": "External Run Reference"
+  },
+  {
+   "fieldname": "started_on",
+   "fieldtype": "Datetime",
+   "label": "Started On"
+  },
+  {
+   "fieldname": "completed_on",
+   "fieldtype": "Datetime",
+   "label": "Completed On"
+  },
+  {
+   "fieldname": "policy_hash",
+   "fieldtype": "Data",
+   "label": "Policy Hash",
+   "reqd": 1
+  },
+  {
+   "fieldname": "evidence",
+   "fieldtype": "Small Text",
+   "label": "Sanitized Evidence"
+  }
+ ],
+ "field_order": [
+  "naming_series",
+  "subscription",
+  "environment",
+  "release",
+  "test_type",
+  "execution_mode",
+  "status",
+  "external_run_reference",
+  "started_on",
+  "completed_on",
+  "policy_hash",
+  "evidence"
+ ],
+ "permissions": [
+  {
+   "role": "System Manager",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "report": 1,
+   "share": 1
+  }
+ ],
+ "autoname": "naming_series:naming_series",
+ "naming_rule": "By \"Naming Series\" field"
+}

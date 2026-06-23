@@ -265,3 +265,6 @@ website_route_rules = [
 
 # Seed LensCloud runtime reference data after doctypes are synced.
 after_migrate = "lenscloud.setup.seed_defaults"
+
+
+after_migrate = "lenscloud.setup.after_migrate"

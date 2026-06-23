@@ -318,3 +318,26 @@ to `lenscloud-runtime-eu`.
 The remaining work is controlled live apply, status synchronization,
 two-Bench shared-MariaDB validation, the three privacy acceptance scenarios,
 and end-to-end HTTPS Site creation.
+
+## Launch Subscription Workflow
+
+1. Native Frappe authentication creates or identifies the user.
+2. Customer onboarding creates or links one Customer.
+3. Public onboarding presents the active Free Plan and its customer-friendly isolation summary.
+4. Customer chooses Region and Site/subdomain; Platform resolves the Subscription, Prod Environment, and the Region's unique Ready Free Bench.
+5. Site creation records the immutable policy hash and enters the existing orchestration lifecycle.
+6. Customer sees product-level progress and recovery guidance only.
+7. A non-Free Beta selection creates Pending Approval and provisions nothing until a Platform operator approves it.
+
+## Policy Promotion Workflow
+
+1. Create a new Landscape, Privacy, or Site Control Profile version.
+2. Assign it to a Plan for new Subscriptions.
+3. Existing Subscriptions retain their policy snapshot.
+4. An audited upgrade resolves a new snapshot.
+5. Run required Bench Test and LATP evidence for the target Release and policy hash.
+6. Reject promotion when evidence is missing or when a Prod LATP run is destructive.
+
+## Launch Reset Workflow
+
+Use `docs/operator-sop/launch-reset-and-acceptance.md`. Runtime is retired Site, Bench, then managed Database Server through Platform. Tenant records are removed only after runtime absence. Protected and unlabelled resources remain untouched.

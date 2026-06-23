@@ -34,6 +34,18 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Lifecycle create/inspect/delete acceptance | Platform completes owned resource lifecycle without manager or Infra intervention | Blocked |
 | Runtime namespace registry | Infra-approved namespaces are synced with customer/purpose metadata and filtered for Database Server and Bench placement | In Progress |
 | Platform list and inspector UX | Operators can filter by fields, see the selected record clearly, use status/cell click filters, sort columns, filter by related documents, and edit from a simplified inspector rail | In Progress |
+| Launch tenant and runtime reset | Test tenants and exactly owned runtime resources are retired while Cluster handoff data and protected infrastructure remain intact | In Progress |
+| Metadata-driven document editor | Center editing follows DocType tabs, sections, columns, Table, and Table MultiSelect metadata with compact Frappe-style controls | Complete |
+| Center document and child-table editor | Selected documents edit below the list or expanded in the center; child grids use fixed columns and horizontal scrolling | Complete |
+| Platform topology child-table editing | Operators can configure Plan privacy choices, Landscape environments, Privacy rules, and Site settings with typed value help and safe row operations | Complete |
+| Configurable environment and landscape model | Dev, QA, Pre-Prod, and Prod compose versioned Single through Four Tier landscapes with safe Site controls | In Progress |
+| Configurable privacy profiles | Plans resolve independent Bench and Database sharing policies without hardcoded privacy-name behavior | In Progress |
+| Subscription and beta enrollment | Customer, Plan, Region, Landscape, policy snapshot, approval, and environment Sites are tracked as one service lifecycle | In Progress |
+| Free Plan launch topology | Each Release Group has at most one active Free Plan and each Region has one eligible shared Free Bench | In Progress |
+| Truthful launch dashboard | Platform launch readiness, accurate aggregates, action-required queues, capacity, and recent actions replace capped-list counts | In Progress |
+| Configurable grouped navigation | LensCloud consumes permission-filtered Frappe Workspace Sidebar groups with compact desktop and mobile behavior | In Progress |
+| Customer launch experience | Signup leads to guided Free Site onboarding, visible provisioning progress, friendly Sites, Account, and beta enrollment | In Progress |
+| Customer portal design track | Stitch brief and Frappe UI implementation contract cover responsive launch, failure, retry, and approval states | In Progress |
 
 ## Execution Order
 

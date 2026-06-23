@@ -1,0 +1,57 @@
+{
+ "doctype": "DocType",
+ "name": "Privacy Environment Rule",
+ "module": "Lenscloud",
+ "engine": "InnoDB",
+ "allow_rename": 1,
+ "grid_page_length": 50,
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "fields": [
+  {
+   "fieldname": "environment",
+   "fieldtype": "Link",
+   "label": "Environment",
+   "options": "Environment",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "bench_boundary",
+   "fieldtype": "Select",
+   "label": "Bench Boundary",
+   "options": "Platform\nCustomer\nSubscription\nEnvironment\nSite",
+   "reqd": 1
+  },
+  {
+   "fieldname": "bench_group",
+   "fieldtype": "Data",
+   "label": "Bench Group",
+   "reqd": 1
+  },
+  {
+   "fieldname": "database_boundary",
+   "fieldtype": "Select",
+   "label": "Database Boundary",
+   "options": "Platform\nCustomer\nSubscription\nEnvironment\nBench",
+   "reqd": 1
+  },
+  {
+   "fieldname": "database_group",
+   "fieldtype": "Data",
+   "label": "Database Group",
+   "reqd": 1
+  }
+ ],
+ "field_order": [
+  "environment",
+  "bench_boundary",
+  "bench_group",
+  "database_boundary",
+  "database_group"
+ ],
+ "permissions": [],
+ "istable": 1,
+ "editable_grid": 1
+}

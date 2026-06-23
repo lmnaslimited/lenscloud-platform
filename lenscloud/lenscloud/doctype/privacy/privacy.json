@@ -6,14 +6,47 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
-  "title"
+  "title",
+  "version",
+  "status",
+  "customer_summary",
+  "environment_rules"
  ],
  "fields": [
   {
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
-   "unique": 1
+   "unique": 1,
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "version",
+   "fieldtype": "Int",
+   "label": "Version",
+   "default": "1",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Draft\nActive\nRetired",
+   "default": "Active",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "customer_summary",
+   "fieldtype": "Small Text",
+   "label": "Customer-facing Isolation Summary"
+  },
+  {
+   "fieldname": "environment_rules",
+   "fieldtype": "Table",
+   "label": "Environment Rules",
+   "options": "Privacy Environment Rule"
   }
  ],
  "grid_page_length": 50,
