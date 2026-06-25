@@ -7,6 +7,10 @@
  "engine": "InnoDB",
  "field_order": [
   "title",
+  "environment",
+  "profile_code",
+  "is_default",
+  "amended_from",
   "version",
   "status",
   "column_break_uzpf",
@@ -47,7 +51,8 @@
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Status",
-   "options": "Draft\nActive\nRetired"
+   "options": "Draft\nActive\nRetired\nDeprecated",
+   "allow_on_submit": 1
   },
   {
    "fieldname": "protection_level",
@@ -130,6 +135,36 @@
   {
    "fieldname": "column_break_agrd",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "environment",
+   "fieldtype": "Link",
+   "label": "Environment",
+   "options": "Environment",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "profile_code",
+   "fieldtype": "Data",
+   "label": "Profile Code",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "is_default",
+   "fieldtype": "Check",
+   "label": "Default for Environment",
+   "allow_on_submit": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "amended_from",
+   "fieldtype": "Link",
+   "label": "Amended From",
+   "options": "Site Control Profile",
+   "read_only": 1,
+   "no_copy": 1
   }
  ],
  "grid_page_length": 50,
@@ -151,12 +186,16 @@
    "report": 1,
    "role": "System Manager",
    "share": 1,
-   "write": 1
+   "write": 1,
+   "submit": 1,
+   "cancel": 1,
+   "amend": 1
   }
  ],
  "row_format": "Dynamic",
  "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
- "title_field": "title"
+ "title_field": "title",
+ "is_submittable": 1
 }

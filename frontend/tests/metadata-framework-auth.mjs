@@ -23,6 +23,13 @@ page.on('pageerror', (error) => errors.push(error.message))
 page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
 
 try {
+	await page.goto(`${baseURL}/lenscloud/platform/privacy-profiles/${encodeURIComponent('PP-Public-01')}`)
+	const submittedProfileEditor = page.getByTestId('center-document-editor')
+	await submittedProfileEditor.waitFor()
+	await submittedProfileEditor.getByText(/Viewing Privacy Profile:/).waitFor()
+	const submittedSave = submittedProfileEditor.getByRole('button', { name: 'Save', exact: true })
+	if (!(await submittedSave.isDisabled())) throw new Error('Submitted Privacy Profile editor must be visible but read-only.')
+
 	await page.goto(`${baseURL}/lenscloud/platform/plans/${encodeURIComponent('Free')}`)
 	const planEditor = page.getByTestId('center-document-editor')
 	await planEditor.waitFor()
@@ -30,6 +37,11 @@ try {
 	await allowedPrivacy.waitFor()
 	if (await allowedPrivacy.getByTestId('child-table-scroll').count()) throw new Error('Plan Table MultiSelect rendered as a regular child table.')
 	if (!(await allowedPrivacy.locator('button').count())) throw new Error('Plan Table MultiSelect has no value-help trigger.')
+	await page.getByText('Add Privacy Profile', { exact: true }).click()
+	await page.locator('[role="option"]').filter({ hasText: /Public Default .*PP-Public-01/ }).waitFor()
+	if (await page.getByText(/Group Private/).count()) throw new Error('Draft Privacy Profile document was offered in Plan Allowed Privacy Profiles.')
+	if (await page.getByText(/Public · Public/).count()) throw new Error('Cancelled Privacy Profile document was offered in Plan Allowed Privacy Profiles.')
+	await page.keyboard.press('Escape')
 
 	const siteCustomer = await page.evaluate(async () => {
 		const url = new URL('/api/resource/Site', location.origin)

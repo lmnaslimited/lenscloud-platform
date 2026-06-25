@@ -115,6 +115,8 @@ def _editor_field(df):
             for child_df in child.fields
             if child_df.fieldtype not in _LAYOUT_FIELDTYPES and not child_df.hidden
         ]
+    elif df.fieldtype == "Link" and df.options:
+        value["target_is_submittable"] = bool(frappe.get_meta(df.options).is_submittable)
     return value
 
 
@@ -132,6 +134,8 @@ def get_doctype_editor_schema(doctype):
         "autoname": autoname,
         "naming_field": naming_field,
         "allow_rename": bool(meta.allow_rename),
+        "is_submittable": bool(meta.is_submittable),
+        "can_read": bool(frappe.has_permission(doctype, "read")),
         "can_create": bool(frappe.has_permission(doctype, "create")),
         "can_write": bool(frappe.has_permission(doctype, "write")),
         "links": [
@@ -193,4 +197,3 @@ def get_document_connections(doctype, name):
             "items": items,
         })
     return connections
-

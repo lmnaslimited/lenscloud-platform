@@ -73,7 +73,7 @@
    "fieldname": "privacy_profile",
    "fieldtype": "Link",
    "label": "Privacy Profile",
-   "options": "Privacy",
+   "options": "Privacy Profile",
    "read_only": 1
   },
   {
@@ -147,7 +147,7 @@
    "link_fieldname": "subscription"
   }
  ],
- "modified": "2026-06-23 17:25:10.787784",
+ "modified": "2026-06-25 12:03:42.616949",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Subscription",

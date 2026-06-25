@@ -21,6 +21,7 @@ import {
 } from 'lucide-vue-next'
 
 const linkField = (options, labelFields = ['title']) => ({ type: 'link', options, labelFields })
+const submittedLinkField = (options, labelFields = ['title']) => ({ ...linkField(options, labelFields), targetIsSubmittable: true })
 const selectField = (options) => ({ type: 'select', options })
 const checkField = { type: 'check' }
 
@@ -649,6 +650,21 @@ export const platformResources = [
 			{ key: 'sync-site', label: 'Sync provisioning and access', icon: RefreshCcw, description: 'Read operator status and verify the HTTPS route.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_site_status', paramsFromRecord: { site: 'name' }, fields: [] },
 			{ key: 'inspect-site', label: 'Inspect runtime', icon: ScrollText, description: 'Show secret-safe FrappeSite CR, finalizer, related workload, PVC, Service, Ingress, Job, and warning Event state.', backendSupported: true, method: 'lenscloud.api.orchestration.inspect_site_runtime', paramsFromRecord: { site: 'name' }, fields: [] },
 			{
+				key: 'site-control-command',
+				label: 'Run Site Control command',
+				icon: ScrollText,
+				description: 'Run an approved Bench Command Job/API action for this Site. bench_test.status is the current positive contract path; runner-pending commands return Unsupported.',
+				backendSupported: true,
+				method: 'lenscloud.api.bench_command.run_site_control_command',
+				paramsFromRecord: { site: 'name' },
+				fields: [
+					{ key: 'command', label: 'Command', type: 'select', default: 'bench_test.status', options: ['bench_test.status', 'backup.status', 'backup.create', 'restore.preview', 'restore.execute', 'restore.status', 'maintenance_mode.status', 'maintenance_mode.enable', 'maintenance_mode.disable', 'developer_mode.status', 'developer_mode.enable', 'developer_mode.disable', 'site_config.get', 'site_config.set', 'site_config.unset', 'cors.allowlist.get', 'cors.allowlist.update', 'bench_test.trigger', 'latp.status', 'latp.trigger'] },
+					{ key: 'args', label: 'Args JSON', type: 'textarea', default: '{"mode":"status"}', placeholder: '{"mode":"status"}' },
+					{ key: 'timeout_seconds', label: 'Timeout seconds', type: 'number', default: 60 },
+					{ key: 'reason', label: 'Reason', type: 'textarea', placeholder: 'Why is this Site Control command being run?' },
+				],
+			},
+			{
 				key: 'create-site',
 				label: 'Create site',
 				icon: SquareArrowOutUpRight,
@@ -774,8 +790,8 @@ export const platformResources = [
 			{ key: 'is_free', label: 'Is free', ...checkField },
 			{ key: 'release_group', label: 'Release Group', ...linkField('Release Group', ['title']) },
 			{ key: 'landscape', label: 'Landscape', ...linkField('Landscape', ['title']) },
-			{ key: 'allowed_privacy_profiles', label: 'Allowed Privacy Profiles', type: 'table', description: 'Privacy Profiles customers may receive through this Plan.', columns: [{ key: 'privacy', label: 'Privacy Profile', required: true, ...linkField('Privacy', ['title']) }] },
-			{ key: 'default_privacy_profile', label: 'Default Privacy Profile', ...linkField('Privacy', ['title']) },
+			{ key: 'allowed_privacy_profiles', label: 'Allowed Privacy Profiles', type: 'table', description: 'Submitted Privacy Profiles customers may receive through this Plan.', columns: [{ key: 'privacy', label: 'Privacy Profile', required: true, ...submittedLinkField('Privacy Profile', ['title', 'privacy']) }] },
+			{ key: 'default_privacy_profile', label: 'Default Privacy Profile', ...submittedLinkField('Privacy Profile', ['title', 'privacy']) },
 			{ key: 'availability', label: 'Availability', default: 'Invite Only', ...selectField(['Public','Beta','Invite Only','Retired']) },
 			{ key: 'subscription_limit', label: 'Subscription limit', default: '1', type: 'number' },
 			{ key: 'monthly_price', label: 'Monthly price', default: '0' },
@@ -851,29 +867,40 @@ export const platformResources = [
 	},
 	{
 		key: 'site-control-profiles', scope: 'platform', label: 'Site Control Profiles', doctype: 'Site Control Profile', route: '/platform/site-control-profiles',
-		detailRoute: (name) => `/platform/site-control-profiles/${encodeURIComponent(name)}`, icon: Settings2, creatable: true, editable: true,
+		detailRoute: (name) => `/platform/site-control-profiles/${encodeURIComponent(name)}`, icon: Settings2, creatable: true, editable: true, submittable: true,
 		listHelp: 'Versioned environment controls and Bench Test/LATP promotion gates.',
 		lifecycleFields: [
-			{ key: 'title', label: 'Title', required: true }, { key: 'version', label: 'Version', type: 'number', default: 1, required: true }, { key: 'status', label: 'Status', default: 'Draft', ...selectField(['Draft','Active','Retired']) }, { key: 'protection_level', label: 'Protection Level', required: true, ...selectField(['Permissive','Test','Production-like','Restricted']) },
+			{ key: 'title', label: 'Title', required: true }, { key: 'environment', label: 'Environment', required: true, ...linkField('Environment', ['title']) }, { key: 'profile_code', label: 'Profile Code', required: true }, { key: 'version', label: 'Version', type: 'number', default: 1, required: true }, { key: 'status', label: 'Status', default: 'Draft', ...selectField(['Draft','Active','Retired','Deprecated']) }, { key: 'is_default', label: 'Default for Environment', ...checkField }, { key: 'protection_level', label: 'Protection Level', required: true, ...selectField(['Permissive','Test','Production-like','Restricted']) },
 			{ key: 'enable_developer_mode', label: 'Enable Developer Mode', ...checkField }, { key: 'allow_client_scripts', label: 'Allow Client Scripts', ...checkField }, { key: 'allow_server_scripts', label: 'Allow Server Scripts', ...checkField }, { key: 'cors_policy', label: 'CORS Policy', default: 'Disabled', ...selectField(['Disabled','Allowlist']) }, { key: 'cors_origins', label: 'CORS Origins', type: 'textarea' },
 			{ key: 'enable_bench_test', label: 'Enable Bench Test', ...checkField }, { key: 'require_bench_test', label: 'Require Bench Test Gate', ...checkField }, { key: 'enable_latp', label: 'Enable LATP', ...checkField }, { key: 'require_latp', label: 'Require LATP Gate', ...checkField }, { key: 'latp_mode', label: 'LATP Mode', default: 'Non-destructive', ...selectField(['Non-destructive','Full']) },
 			{ key: 'settings', label: 'Allowlisted Site Settings', type: 'table', description: 'Secret-like keys are rejected server-side.', columns: [{ key: 'setting_key', label: 'Setting Key', required: true }, { key: 'target', label: 'Target', default: 'Site Config', ...selectField(['Site Config','Common Site Config']) }, { key: 'value_type', label: 'Value Type', default: 'String', ...selectField(['String','Integer','Float','Boolean','JSON']) }, { key: 'value', label: 'Value', required: true, type: 'textarea' }] },
 		],
-		summaryFields: [{ key: 'title', label: 'Title' }, { key: 'version', label: 'Version', type: 'number' }, { key: 'protection_level', label: 'Protection' }, { key: 'status', label: 'Status' }],
-		detailFields: [{ key: 'name', label: 'Profile' }, { key: 'title', label: 'Title' }, { key: 'version', label: 'Version' }, { key: 'status', label: 'Status' }, { key: 'protection_level', label: 'Protection Level' }, { key: 'enable_developer_mode', label: 'Developer Mode' }, { key: 'allow_client_scripts', label: 'Client Scripts' }, { key: 'allow_server_scripts', label: 'Server Scripts' }, { key: 'cors_policy', label: 'CORS Policy' }, { key: 'cors_origins', label: 'CORS Origins' }, { key: 'enable_bench_test', label: 'Bench Test' }, { key: 'require_bench_test', label: 'Require Bench Test' }, { key: 'enable_latp', label: 'LATP' }, { key: 'require_latp', label: 'Require LATP' }, { key: 'latp_mode', label: 'LATP Mode' }, { key: 'settings', label: 'Site settings' }], relations: [], actions: [],
+		summaryFields: [{ key: 'title', label: 'Title' }, { key: 'environment', label: 'Environment' }, { key: 'profile_code', label: 'Profile Code' }, { key: 'version', label: 'Version', type: 'number' }, { key: 'status', label: 'Status' }],
+		detailFields: [{ key: 'name', label: 'Profile' }, { key: 'title', label: 'Title' }, { key: 'environment', label: 'Environment' }, { key: 'profile_code', label: 'Profile Code' }, { key: 'version', label: 'Version' }, { key: 'status', label: 'Status' }, { key: 'is_default', label: 'Default' }, { key: 'protection_level', label: 'Protection Level' }, { key: 'enable_developer_mode', label: 'Developer Mode' }, { key: 'allow_client_scripts', label: 'Client Scripts' }, { key: 'allow_server_scripts', label: 'Server Scripts' }, { key: 'cors_policy', label: 'CORS Policy' }, { key: 'cors_origins', label: 'CORS Origins' }, { key: 'enable_bench_test', label: 'Bench Test' }, { key: 'require_bench_test', label: 'Require Bench Test' }, { key: 'enable_latp', label: 'LATP' }, { key: 'require_latp', label: 'Require LATP' }, { key: 'latp_mode', label: 'LATP Mode' }, { key: 'settings', label: 'Site settings' }], relations: [], actions: [],
 	},
 	{
-		key: 'privacy-profiles', scope: 'platform', label: 'Privacy Profiles', doctype: 'Privacy', route: '/platform/privacy-profiles',
-		detailRoute: (name) => `/platform/privacy-profiles/${encodeURIComponent(name)}`, icon: ShieldAlert, creatable: true, editable: true,
-		listHelp: 'Independent Bench and Database isolation rules by Environment.',
+		key: 'privacy', scope: 'platform', label: 'Privacy', doctype: 'Privacy', route: '/platform/privacy',
+		detailRoute: (name) => `/platform/privacy/${encodeURIComponent(name)}`, icon: ShieldAlert, creatable: true, editable: true,
+		listHelp: 'First-class privacy families such as Public, Private Shared, and Private.',
 		lifecycleFields: [
-			{ key: 'title', label: 'Title', required: true }, { key: 'version', label: 'Version', type: 'number', default: 1, required: true }, { key: 'status', label: 'Status', default: 'Draft', ...selectField(['Draft','Active','Retired']) }, { key: 'customer_summary', label: 'Customer-facing Isolation Summary', type: 'textarea' },
+			{ key: 'title', label: 'Title', required: true },
+		],
+		summaryFields: [{ key: 'title', label: 'Title' }],
+		detailFields: [{ key: 'name', label: 'Privacy' }, { key: 'title', label: 'Title' }],
+		relations: [], actions: [],
+	},
+	{
+		key: 'privacy-profiles', scope: 'platform', label: 'Privacy Profiles', doctype: 'Privacy Profile', route: '/platform/privacy-profiles',
+		detailRoute: (name) => `/platform/privacy-profiles/${encodeURIComponent(name)}`, icon: ShieldAlert, creatable: true, editable: true, submittable: true,
+		listHelp: 'Submitted Bench and Database isolation policies by Privacy and Environment.',
+		lifecycleFields: [
+			{ key: 'title', label: 'Title' }, { key: 'privacy', label: 'Privacy', required: true, ...linkField('Privacy', ['title']) }, { key: 'is_default', label: 'Default', ...checkField }, { key: 'customer_summary', label: 'Customer-facing Isolation Summary', type: 'textarea' },
 			{ key: 'environment_rules', label: 'Environment Rules', type: 'table', description: 'Bench and Database isolation are configured independently for each Environment.', columns: [
 				{ key: 'environment', label: 'Environment', required: true, ...linkField('Environment', ['title']) }, { key: 'bench_boundary', label: 'Bench Boundary', required: true, ...selectField(['Platform','Customer','Subscription','Environment','Site']) }, { key: 'bench_group', label: 'Bench Group', required: true }, { key: 'database_boundary', label: 'Database Boundary', required: true, ...selectField(['Platform','Customer','Subscription','Environment','Bench']) }, { key: 'database_group', label: 'Database Group', required: true },
 			] },
 		],
-		summaryFields: [{ key: 'title', label: 'Title' }, { key: 'version', label: 'Version', type: 'number' }, { key: 'status', label: 'Status' }, { key: 'customer_summary', label: 'Customer summary' }],
-		detailFields: [{ key: 'name', label: 'Privacy Profile' }, { key: 'title', label: 'Title' }, { key: 'version', label: 'Version' }, { key: 'status', label: 'Status' }, { key: 'customer_summary', label: 'Customer summary' }, { key: 'environment_rules', label: 'Environment isolation rules' }], relations: [], actions: [],
+		summaryFields: [{ key: 'name', label: 'Profile' }, { key: 'privacy', label: 'Privacy' }, { key: 'is_default', label: 'Default' }],
+		detailFields: [{ key: 'name', label: 'Privacy Profile' }, { key: 'title', label: 'Title' }, { key: 'privacy', label: 'Privacy' }, { key: 'is_default', label: 'Default' }, { key: 'customer_summary', label: 'Customer summary' }, { key: 'environment_rules', label: 'Environment isolation rules' }], relations: [], actions: [],
 	},
 	{
 		key: 'environment-test-runs', scope: 'platform', label: 'Environment Test Runs', doctype: 'Environment Test Run', route: '/platform/environment-test-runs',
@@ -1067,6 +1094,7 @@ export const platformNav = [
 		{ key: 'platform-landscapes', label: 'Landscapes', route: '/platform/landscapes', icon: Layers3 },
 		{ key: 'platform-environments', label: 'Environments', route: '/platform/environments', icon: Layers3 },
 		{ key: 'platform-site-control-profiles', label: 'Site Control Profiles', route: '/platform/site-control-profiles', icon: Settings2 },
+		{ key: 'platform-privacy', label: 'Privacy', route: '/platform/privacy', icon: ShieldAlert },
 		{ key: 'platform-privacy-profiles', label: 'Privacy Profiles', route: '/platform/privacy-profiles', icon: ShieldAlert },
 		{ key: 'platform-release-groups', label: 'Release Groups', route: '/platform/release-groups', icon: Layers3 },
 		{ key: 'platform-releases', label: 'Releases', route: '/platform/releases', icon: GitBranch },

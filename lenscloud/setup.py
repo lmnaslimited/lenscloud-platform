@@ -8,10 +8,10 @@ ENVIRONMENTS = [
 ]
 
 CONTROL_PROFILES = {
-    "Dev Controls v1": {"protection_level": "Permissive", "enable_developer_mode": 1, "allow_client_scripts": 1, "allow_server_scripts": 1, "enable_bench_test": 1, "require_bench_test": 1, "enable_latp": 1, "require_latp": 1, "latp_mode": "Full"},
-    "QA Controls v1": {"protection_level": "Test", "allow_client_scripts": 1, "allow_server_scripts": 1, "enable_bench_test": 1, "require_bench_test": 1, "enable_latp": 1, "require_latp": 1, "latp_mode": "Full"},
-    "Pre-Prod Controls v1": {"protection_level": "Production-like", "enable_latp": 1, "require_latp": 1, "latp_mode": "Non-destructive"},
-    "Prod Controls v1": {"protection_level": "Restricted", "enable_latp": 1, "require_latp": 1, "latp_mode": "Non-destructive"},
+    "Dev Controls v1": {"environment": "Dev", "profile_code": "Dev Controls", "is_default": 1, "protection_level": "Permissive", "enable_developer_mode": 1, "allow_client_scripts": 1, "allow_server_scripts": 1, "enable_bench_test": 1, "require_bench_test": 1, "enable_latp": 1, "require_latp": 1, "latp_mode": "Full"},
+    "QA Controls v1": {"environment": "QA", "profile_code": "QA Controls", "is_default": 1, "protection_level": "Test", "allow_client_scripts": 1, "allow_server_scripts": 1, "enable_bench_test": 1, "require_bench_test": 1, "enable_latp": 1, "require_latp": 1, "latp_mode": "Full"},
+    "Pre-Prod Controls v1": {"environment": "Pre-Prod", "profile_code": "Pre-Prod Controls", "is_default": 1, "protection_level": "Production-like", "enable_latp": 1, "require_latp": 1, "latp_mode": "Non-destructive"},
+    "Prod Controls v1": {"environment": "Prod", "profile_code": "Prod Controls", "is_default": 1, "protection_level": "Restricted", "enable_latp": 1, "require_latp": 1, "latp_mode": "Non-destructive"},
 }
 
 LANDSCAPES = {
@@ -33,11 +33,32 @@ def upsert(doctype, name, values):
     return doc
 
 
+def upsert_policy(doctype, name, values):
+    if frappe.db.exists(doctype, name):
+        doc = frappe.get_doc(doctype, name)
+        if int(doc.docstatus or 0) == 1:
+            return doc
+        doc.update(values)
+        doc.save(ignore_permissions=True)
+    else:
+        doc = frappe.get_doc({"doctype": doctype, "name": name, **values})
+        doc.insert(ignore_permissions=True)
+    should_submit = int(doc.docstatus or 0) == 0 and (doctype == "Privacy Profile" or doc.get("status") == "Active")
+    if should_submit:
+        doc.flags.ignore_permissions = True
+        doc.submit()
+    return doc
+
+
+def submitted_default_privacy_profile(privacy):
+    return frappe.db.exists("Privacy Profile", {"privacy": privacy, "is_default": 1, "docstatus": 1})
+
+
 def seed_environments():
     for title, code, tier, sequence, protection, production in ENVIRONMENTS:
         upsert("Environment", title, {"title": title, "code": code, "deployment_tier": tier, "sequence": sequence, "protection_level": protection, "is_production": production, "status": "Active"})
     for title, values in CONTROL_PROFILES.items():
-        upsert("Site Control Profile", title, {"title": title, "version": 1, "status": "Active", "cors_policy": "Disabled", **values})
+        upsert_policy("Site Control Profile", title, {"title": title, "version": 1, "status": "Active", "cors_policy": "Disabled", **values})
     for title, rows in LANDSCAPES.items():
         values = {"doctype": "Landscape", "title": title, "tier_count": len(rows), "version": 1, "status": "Active", "environments": []}
         for index, (environment, control, bench_group, database_group) in enumerate(rows, 1):
@@ -60,32 +81,42 @@ def seed_privacy_profiles():
         "Private": ("Subscription", "Bench"),
     }
     groups = {"Dev": ("dev", "nonprod"), "QA": ("qa", "nonprod"), "Pre-Prod": ("preprod", "preprod"), "Prod": ("prod", "prod")}
-    for existing in frappe.get_all("Privacy", pluck="name"):
-        if existing not in summaries and not frappe.db.count("Privacy Environment Rule", {"parent": existing}):
-            frappe.db.set_value("Privacy", existing, "status", "Draft", update_modified=False)
+    default_profiles = {}
     for title, summary in summaries.items():
+        upsert("Privacy", title, {"title": title})
+        existing_default = submitted_default_privacy_profile(title)
+        if existing_default:
+            default_profiles[title] = existing_default
+            continue
         bench_boundary, database_boundary = boundaries[title]
-        doc = upsert("Privacy", title, {"title": title, "version": 1, "status": "Active", "customer_summary": summary})
-        doc.set("environment_rules", [])
+        values = {"title": f"{title} Default", "privacy": title, "is_default": 1, "customer_summary": summary, "environment_rules": []}
         for environment, (bench_group, database_group) in groups.items():
-            doc.append("environment_rules", {"environment": environment, "bench_boundary": bench_boundary, "bench_group": bench_group, "database_boundary": database_boundary, "database_group": database_group})
-        doc.save(ignore_permissions=True)
+            values["environment_rules"].append({"environment": environment, "bench_boundary": bench_boundary, "bench_group": bench_group, "database_boundary": database_boundary, "database_group": database_group})
+        doc = frappe.get_doc({"doctype": "Privacy Profile", **values})
+        doc.insert(ignore_permissions=True)
+        doc.flags.ignore_permissions = True
+        doc.submit()
+        default_profiles[title] = doc.name
+    return default_profiles
 
 
 def seed_free_plan():
     if not frappe.db.exists("Plan", "Free") or not frappe.db.exists("Release Group", "lens-pure"):
         return
+    public_profile = submitted_default_privacy_profile("Public")
+    if not public_profile:
+        return
     doc = frappe.get_doc("Plan", "Free")
     doc.release_group = "lens-pure"
     doc.landscape = "Single Tier"
-    doc.default_privacy_profile = "Public"
+    doc.default_privacy_profile = public_profile
     doc.availability = "Public"
     doc.subscription_limit = 1
     doc.site_limit = 1
     doc.status = "Active"
     doc.is_free = 1
     doc.set("allowed_privacy_profiles", [])
-    doc.append("allowed_privacy_profiles", {"privacy": "Public"})
+    doc.append("allowed_privacy_profiles", {"privacy": public_profile})
     doc.save(ignore_permissions=True)
 
 
@@ -100,7 +131,7 @@ def seed_sidebar():
     groups = [
         ("Home", [("Dashboard", "/lenscloud/platform/dashboard")], False),
         ("Customers and Commerce", [("Customers", "/lenscloud/platform/customers"), ("Plans", "/lenscloud/platform/plans"), ("Subscriptions", "/lenscloud/platform/subscriptions")], False),
-        ("Product and Delivery", [("Landscapes", "/lenscloud/platform/landscapes"), ("Environments", "/lenscloud/platform/environments"), ("Site Control Profiles", "/lenscloud/platform/site-control-profiles"), ("Privacy Profiles", "/lenscloud/platform/privacy-profiles"), ("Release Groups", "/lenscloud/platform/release-groups"), ("Releases", "/lenscloud/platform/releases"), ("Apps", "/lenscloud/platform/apps")], True),
+        ("Product and Delivery", [("Landscapes", "/lenscloud/platform/landscapes"), ("Environments", "/lenscloud/platform/environments"), ("Site Control Profiles", "/lenscloud/platform/site-control-profiles"), ("Privacy", "/lenscloud/platform/privacy"), ("Privacy Profiles", "/lenscloud/platform/privacy-profiles"), ("Release Groups", "/lenscloud/platform/release-groups"), ("Releases", "/lenscloud/platform/releases"), ("Apps", "/lenscloud/platform/apps")], True),
         ("Runtime", [("Clusters", "/lenscloud/platform/clusters"), ("Runtime Namespaces", "/lenscloud/platform/runtime-namespaces"), ("Database Servers", "/lenscloud/platform/database-servers"), ("Benches", "/lenscloud/platform/benches"), ("Sites", "/lenscloud/platform/sites")], True),
         ("Operations", [("Test Runs", "/lenscloud/platform/environment-test-runs"), ("Orchestration Logs", "/lenscloud/platform/orchestration-logs")], True),
         ("Configuration", [("Regions", "/lenscloud/platform/regions"), ("Platform Settings", "/lenscloud/platform/settings")], True),

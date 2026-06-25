@@ -235,10 +235,39 @@ Read next:
 - `docs/launch-reset-evidence-20260622.md`
 - `docs/design/stitch-customer-portal-prompt.md`
 
-Migration, 32 backend tests, and the production frontend build passed before this handoff update. Live reset, fresh Free acceptance, sequential topology acceptance, and final authenticated browser evidence remain pending and must not be inferred from dry-run or unit-test results. Apply must remain disabled outside the controlled window. The operator CRD does not yet expose the complete Site Control Profile runtime contract.
+Migration, 32 backend tests, and the production frontend build passed before this handoff update. Live reset, fresh Free acceptance, sequential topology acceptance, and final authenticated browser evidence remain pending and must not be inferred from dry-run or unit-test results. Apply must remain disabled outside the controlled window. Site Control Profile runtime enforcement is now expected to use an Infra/operator-provided Bench Command Job/API, not invented FrappeSite CR fields.
 
 Metadata-driven center editor: Platform forms now load LensCloud DocType field order and render Tab Break, Section Break, Column Break, Table, and Table MultiSelect fields. Release Group Included Apps is visible as a compact value-help chip control. Wide child grids keep row identity/primary/actions fixed and scroll remaining columns horizontally.
 
 Customer/Site Platform visibility: restored the missing `Users` icon import that caused both ResourcePage routes to crash before rendering. Customer and Site now grant `LensCloud Platform User` read/create/write but not raw delete; Site deletion remains guarded by lifecycle APIs. Authenticated list regression coverage requires nonzero Customer and Site totals.
 
 Metadata-driven permissions and connections: Resource creation/editing now follows Frappe DocType permissions rather than catalog flags. Related records come only from canonical DocType Links, return permission-filtered counts plus the latest five records, and count navigation opens the target list with the correct link-field filter. Customer editing and Subscription creation are available to LensCloud Platform User; Plan Table MultiSelect metadata remains authoritative over legacy catalog hints. Focused authenticated Playwright, generic metadata-editor Playwright, desktop/mobile Platform Playwright, production build, and 9 backend policy tests passed.
+
+Policy/versioning decision: Subscription remains a regular DocType for the launch path, but native Frappe Workflow approval is now tracked as pending work for Free self-approval and paid/beta multi-level approval/rejection. Site Control Profile and Privacy should move to submitted, BOM-like immutable policy versions with amend/create-version flows, active/default selection, and Subscription snapshot stability. The design anchor is documented in `docs/product-topology-model.md`; canonical rows are in `docs/platform-workitems.md`.
+
+Submitted policy/profile implementation: Site Control Profile and Privacy are now submittable policy documents. Site Control Profile has Environment, Profile Code, Default, and Amended From fields; Privacy has Privacy Family/Profile Code, Default, and Amended From fields. Seeded v1 controls/privacy profiles are submitted, Active, and defaulted. Landscape rows auto-pick an Environment default Site Control Profile when omitted. Plan and Subscription policy resolution reject non-submitted or non-Active policy versions. Backend policy tests pass 13/13 and production frontend build passes. Authenticated Playwright was attempted but blocked because `/tmp/lenscloud_credential_file.json` currently returns invalid Platform login credentials.
+
+Privacy remodel implementation: submitted document detail editors now remain visible read-only, with Save disabled and Amend available from lifecycle controls. Privacy is first-class master data, Privacy Profile is the submitted policy document linked to Privacy, and seeded defaults are `PP-Public-01`, `PP-Private Shared-01`, and `PP-Private-01`. Plan Free now points to `PP-Public-01`; policy snapshots store both `privacy_profile` and `privacy`. Backend tests, frontend build, authenticated metadata/editor tests, and desktop/mobile authenticated Playwright passed.
+
+## June 25 Bench Command Platform Handoff
+
+Infra revision `a7de2ad` was pulled in `/workspace/lenscloud-infra`. Platform consumed INF-010 from:
+
+- `/workspace/lenscloud-infra/docs/infra-workitems.md`
+- `/workspace/lenscloud-infra/docs/platform-bench-command-handoff.md`
+- `/workspace/lenscloud-infra/docs/bench-command-job-evidence-20260625.md`
+
+Platform-side implementation now exists for the Bench Command Job/API contract:
+
+- `lenscloud.api.bench_command.run_site_control_command`
+- Python Kubernetes API-only request ConfigMap and labelled Job creation;
+- Site/Bench/Subscription/Environment/Runtime Namespace validation;
+- typed args and bounded timeout validation;
+- `bench_test.status` positive contract path;
+- structured `Unsupported` result for contracted but runner-pending commands;
+- sanitized termination summary parsing;
+- action-log evidence;
+- best-effort cleanup of command Job and request ConfigMap after terminal state or failure;
+- Site action surfaced as `Run Site Control command`.
+
+This does not invent FrappeSite CR fields and does not use `kubectl`. Live command acceptance still depends on Infra completing live verification/apply for INF-010 RBAC/admission and publishing a production bench-command runner for commands beyond the `bench_test.status` verification stub. Current Platform evidence is `docs/bench-command-platform-evidence-20260625.md`.

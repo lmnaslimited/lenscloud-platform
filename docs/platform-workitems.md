@@ -41,8 +41,11 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Center document and child-table editor | Selected documents edit below the list or expanded in the center; child grids use fixed columns and horizontal scrolling | Complete |
 | Platform topology child-table editing | Operators can configure Plan privacy choices, Landscape environments, Privacy rules, and Site settings with typed value help and safe row operations | Complete |
 | Configurable environment and landscape model | Dev, QA, Pre-Prod, and Prod compose versioned Single through Four Tier landscapes with safe Site controls | In Progress |
-| Configurable privacy profiles | Plans resolve independent Bench and Database sharing policies without hardcoded privacy-name behavior | In Progress |
+| Configurable privacy profiles | Plans resolve independent Bench and Database sharing policies through submitted Privacy Profile records linked to first-class Privacy master data | Complete |
+| Submitted policy/profile documents | Site Control Profile and Privacy are submittable policy versions with environment/family anchors, active/default selection, submitted-only consumption, and snapshot-safe subscription resolution | Complete |
+| Bench Command Job/API for Site Controls | Platform consumes INF-010 via Python Kubernetes API, validates policy/target/args, runs `bench_test.status`, records action logs, cleans Job/ConfigMap, and reports runner-pending commands as Unsupported | In Progress |
 | Subscription and beta enrollment | Customer, Plan, Region, Landscape, policy snapshot, approval, and environment Sites are tracked as one service lifecycle | In Progress |
+| Subscription workflow approval | Subscription remains a regular DocType initially, then uses native Frappe Workflow for Free self-approval, paid/beta approval levels, rejection, cancellation, and audited state transitions | Pending |
 | Free Plan launch topology | Each Release Group has at most one active Free Plan and each Region has one eligible shared Free Bench | In Progress |
 | Truthful launch dashboard | Platform launch readiness, accurate aggregates, action-required queues, capacity, and recent actions replace capped-list counts | In Progress |
 | Configurable grouped navigation | LensCloud consumes permission-filtered Frappe Workspace Sidebar groups with compact desktop and mobile behavior | In Progress |

@@ -2,7 +2,7 @@ import frappe
 from frappe import _
 from frappe.model.document import Document
 
-from lenscloud.api.policy import allowed_privacy_names
+from lenscloud.api.policy import allowed_privacy_names, is_active_submitted_policy
 
 
 class Plan(Document):
@@ -20,9 +20,15 @@ class Plan(Document):
                 frappe.throw(_("Only one active Free Plan is allowed per Release Group."))
             if self.landscape and self.landscape != "Single Tier":
                 frappe.throw(_("Free Plan must use the Single Tier Landscape."))
-            if self.default_privacy_profile and self.default_privacy_profile != "Public":
-                frappe.throw(_("Free Plan must use the Public Privacy Profile."))
+            if self.default_privacy_profile:
+                profile = frappe.get_doc("Privacy Profile", self.default_privacy_profile)
+                if profile.privacy != "Public":
+                    frappe.throw(_("Free Plan must use a Public Privacy Profile."))
             self.availability = "Public"
         allowed = allowed_privacy_names(self)
         if self.default_privacy_profile and self.default_privacy_profile not in allowed:
             frappe.throw(_("Default Privacy Profile must be included in Allowed Privacy Profiles."))
+        for privacy_name in allowed:
+            profile = frappe.get_doc("Privacy Profile", privacy_name)
+            if not is_active_submitted_policy(profile):
+                frappe.throw(_("Allowed Privacy Profile {0} must be submitted.").format(profile.name))

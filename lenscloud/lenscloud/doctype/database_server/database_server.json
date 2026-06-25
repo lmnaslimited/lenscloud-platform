@@ -100,7 +100,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Privacy",
-   "options": "Privacy",
+   "options": "Privacy Profile",
    "reqd": 1
   },
   {
@@ -316,7 +316,7 @@
    "link_fieldname": "database_server"
   }
  ],
- "modified": "2026-06-23 13:22:08.190873",
+ "modified": "2026-06-25 12:03:42.767462",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Database Server",

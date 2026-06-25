@@ -21,8 +21,7 @@
    "fieldname": "site_control_profile",
    "fieldtype": "Link",
    "label": "Site Control Profile",
-   "options": "Site Control Profile",
-   "reqd": 1
+   "options": "Site Control Profile"
   },
   {
    "fieldname": "sequence",

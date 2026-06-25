@@ -393,6 +393,7 @@ function schemaFieldToUi(field, override = {}) {
 		key: field.fieldname, label: field.label || field.fieldname, type,
 		required: Boolean(field.required), readOnly: Boolean(field.read_only), default: field.default,
 		description: field.description || '', collapsible: Boolean(field.collapsible),
+		targetIsSubmittable: Boolean(field.target_is_submittable),
 	}
 	if (type === 'select') value.options = String(field.options || '').split('\n').filter(Boolean)
 	else if (type === 'link') value.options = field.options
@@ -413,12 +414,14 @@ const existingEditorLayoutFields = computed(() => editorLayoutFields.value.filte
 const documentLifecycleFields = computed(() => editorLayoutFields.value.filter((field) => !['section_break', 'column_break', 'tab_break'].includes(field.type)))
 const lifecycleFieldMap = computed(() => new Map(documentLifecycleFields.value.map((field) => [field.key, field])))
 const canCreateDocument = computed(() => props.scope === 'platform' && Boolean(resource.value?.creatable ?? editorMeta.value.can_create))
-const canEditDocument = computed(() => Boolean(resource.value?.editable ?? editorMeta.value.can_write) && (!resource.value?.submittable || Number(record.value?.docstatus || 0) === 0))
-const canSubmitDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 0))
-const canCancelDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 1))
-const canAmendDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 2))
+const isSubmittableDocument = computed(() => Boolean(resource.value?.submittable ?? editorMeta.value.is_submittable))
+const canOpenDocumentEditor = computed(() => Boolean(record.value && (editorMeta.value.can_read || editorMeta.value.can_write || resource.value?.editable)))
+const canEditDocument = computed(() => Boolean(resource.value?.editable ?? editorMeta.value.can_write) && (!isSubmittableDocument.value || Number(record.value?.docstatus || 0) === 0))
+const canSubmitDocument = computed(() => Boolean(isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 0))
+const canCancelDocument = computed(() => Boolean(isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 1))
+const canAmendDocument = computed(() => Boolean(isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 2))
 const documentStatusLabel = computed(() => {
-	if (!resource.value?.submittable) return record.value ? 'Saved' : 'No document'
+	if (!isSubmittableDocument.value) return record.value ? 'Saved' : 'No document'
 	const status = Number(record.value?.docstatus || 0)
 	if (status === 1) return 'Submitted'
 	if (status === 2) return 'Cancelled'
@@ -502,12 +505,16 @@ async function loadFieldOptions() {
 		const key = fieldOptionKey(field)
 		if (fieldOptions[key]) return
 
-		const fields = Array.from(new Set(['name', ...(field.labelFields || []), ...(field.optionFields || [])]))
+		const fields = Array.from(new Set(['name', ...(field.targetIsSubmittable ? ['docstatus'] : []), ...(field.labelFields || []), ...(field.optionFields || [])]))
+		const filters = [...(field.filters || [])]
+		if (field.targetIsSubmittable && !filters.some((filter) => Array.isArray(filter) && filter[0] === 'docstatus')) {
+			filters.push(['docstatus', '=', 1])
+		}
 		const rows = await listDocs(field.options, {
 			fields,
 			limit: field.limit || 100,
 			orderBy: field.orderBy || 'modified desc',
-			filters: field.filters,
+			filters,
 		}).catch(() => [])
 
 		fieldOptions[key] = rows.map((row) => ({
@@ -1480,7 +1487,7 @@ function resizeEditorByKeyboard(event) {
 				</ListView>
 
 				<section
-					v-if="record && canEditDocument"
+					v-if="record && canOpenDocumentEditor"
 					data-testid="center-document-editor"
 					class="shrink-0 overflow-hidden border-t border-outline-gray-2 bg-surface-white max-lg:absolute max-lg:inset-0 max-lg:z-40 max-lg:!h-full max-lg:border-t-0"
 					:class="editorExpanded ? 'absolute inset-0 z-40 h-full border-t-0' : ''"
@@ -1498,7 +1505,7 @@ function resizeEditorByKeyboard(event) {
 					><span class="h-0.5 w-10 rounded bg-ink-gray-3 group-hover:bg-blue-500"></span></div>
 
 					<header class="flex h-14 items-center justify-between gap-3 border-b border-outline-gray-2 px-4">
-						<div class="min-w-0"><div class="flex items-center gap-2"><p class="truncate text-sm font-semibold text-ink-gray-9">Editing {{ resource.doctype }}: {{ record.title || record.first_name || record.name }}</p><Badge v-if="hasUnsavedChanges" class="shrink-0 bg-amber-50 text-amber-700">Unsaved</Badge><Badge v-else class="shrink-0 bg-surface-gray-1 text-ink-gray-6">{{ documentStatusLabel }}</Badge></div><p class="mt-0.5 truncate text-xs text-ink-gray-5">Parent fields and child tables save together as one Frappe document.</p></div>
+						<div class="min-w-0"><div class="flex items-center gap-2"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ canEditDocument ? 'Editing' : 'Viewing' }} {{ resource.doctype }}: {{ record.title || record.first_name || record.name }}</p><Badge v-if="hasUnsavedChanges" class="shrink-0 bg-amber-50 text-amber-700">Unsaved</Badge><Badge v-else class="shrink-0 bg-surface-gray-1 text-ink-gray-6">{{ documentStatusLabel }}</Badge></div><p class="mt-0.5 truncate text-xs text-ink-gray-5">{{ canEditDocument ? 'Parent fields and child tables save together as one Frappe document.' : 'Submitted and cancelled documents are shown read-only. Use Amend to create the next editable document.' }}</p></div>
 						<div class="flex shrink-0 items-center gap-2"><Button v-if="canRenameDocument" size="sm" variant="subtle" :disabled="hasUnsavedChanges" @click="startRenameDocument">Rename</Button><Button size="sm" variant="subtle" :disabled="!hasUnsavedChanges || saveState === 'saving'" @click="discardCurrentEdits">Discard</Button><Button size="sm" :disabled="!canEditDocument || saveState === 'saving'" @click="saveCurrentRecord">{{ saveState === 'saving' ? 'Saving...' : 'Save' }}</Button><button type="button" :aria-label="editorExpanded ? 'Restore split editor' : 'Expand editor'" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="editorExpanded = !editorExpanded"><component :is="editorExpanded ? Minimize2 : Maximize2" class="size-4" /></button><button type="button" aria-label="Close editor" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="closeCenterEditor"><X class="size-4" /></button></div>
 					</header>
 
@@ -1569,7 +1576,7 @@ function resizeEditorByKeyboard(event) {
 							</div>
 							<div class="flex items-center justify-between rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
 								<span class="text-sm text-ink-gray-5">Submit / Cancel</span>
-								<Badge :class="resource.submittable ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-gray-2 text-ink-gray-6'">{{ resource.submittable ? 'Submittable' : 'Not submittable' }}</Badge>
+								<Badge :class="isSubmittableDocument ? 'bg-emerald-50 text-emerald-700' : 'bg-surface-gray-2 text-ink-gray-6'">{{ isSubmittableDocument ? 'Submittable' : 'Not submittable' }}</Badge>
 							</div>
 							<div v-if="record?.amended_from" class="rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
 								<p class="text-sm text-ink-gray-5">Amended from</p>

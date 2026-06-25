@@ -40,8 +40,8 @@
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
-   "unique": 1,
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "release_section",
@@ -95,13 +95,13 @@
    "fieldname": "privacy",
    "fieldtype": "Link",
    "label": "Privacy",
-   "options": "Privacy"
+   "options": "Privacy Profile"
   },
   {
    "fieldname": "cluster_runtime_target",
    "fieldtype": "Data",
-   "label": "Legacy Cluster/Runtime Target",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Legacy Cluster/Runtime Target"
   },
   {
    "fieldname": "operator_section",
@@ -126,12 +126,12 @@
    "label": "Storage Class"
   },
   {
+   "default": "Draft",
    "fieldname": "bench_status",
    "fieldtype": "Select",
    "in_list_view": 1,
    "label": "Bench Status",
-   "options": "Draft\nPending\nAccepted\nProvisioning\nReady\nUpgrading\nSuspended\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nRetired\nUnknown",
-   "default": "Draft"
+   "options": "Draft\nPending\nAccepted\nProvisioning\nReady\nUpgrading\nSuspended\nDeletion Requested\nQuiescing\nDeleting\nDeleted\nDeletion Failed\nFailed\nRetired\nUnknown"
   },
   {
    "fieldname": "upgrade_section",
@@ -144,18 +144,18 @@
    "label": "Upgrade Schedule / Window"
   },
   {
+   "default": "Manual",
    "fieldname": "upgrade_policy",
    "fieldtype": "Select",
    "label": "Upgrade Policy",
-   "options": "Manual\nScheduled\nAuto Quality\nAuto Production Eligible",
-   "default": "Manual"
+   "options": "Manual\nScheduled\nAuto Quality\nAuto Production Eligible"
   },
   {
+   "default": "Draft",
    "fieldname": "upgrade_sop_status",
    "fieldtype": "Select",
    "label": "Upgrade/SOP Status",
-   "options": "Draft\nScheduled\nPrecheck\nReady\nRunning\nVerifying\nCompleted\nRolled Back\nFailed",
-   "default": "Draft"
+   "options": "Draft\nScheduled\nPrecheck\nReady\nRunning\nVerifying\nCompleted\nRolled Back\nFailed"
   },
   {
    "fieldname": "owner_customer",
@@ -171,9 +171,9 @@
   {
    "fieldname": "database_server",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Database Server",
-   "options": "Database Server",
-   "in_list_view": 1
+   "options": "Database Server"
   },
   {
    "fieldname": "plan",
@@ -190,9 +190,9 @@
   {
    "fieldname": "environment",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Environment",
-   "options": "Environment",
-   "in_list_view": 1
+   "options": "Environment"
   },
   {
    "fieldname": "bench_placement_key",
@@ -216,7 +216,7 @@
    "link_fieldname": "bench"
   }
  ],
- "modified": "2026-06-03 00:00:00.000000",
+ "modified": "2026-06-25 12:03:42.930448",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Bench",

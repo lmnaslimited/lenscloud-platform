@@ -138,6 +138,9 @@ class KubernetesClient:
 			params["fieldSelector"] = field_selector
 		return self.request("GET", self.namespaced_path(resource, namespace, group=group, version=version), params=params or None).get("items", [])
 
+	def create_namespaced(self, resource, namespace, body, group="", version="v1"):
+		return self.request("POST", self.namespaced_path(resource, namespace, group=group, version=version), json=body)
+
 	def delete_namespaced(self, resource, namespace, name, group="", version="v1"):
 		return self.request("DELETE", self.namespaced_path(resource, namespace, name, group=group, version=version))
 

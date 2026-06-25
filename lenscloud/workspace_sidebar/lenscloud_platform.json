@@ -118,6 +118,17 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
+   "label": "Privacy",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/privacy"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
    "label": "Privacy Profiles",
    "link_type": "URL",
    "show_arrow": 0,
@@ -287,7 +298,7 @@
    "url": "/lenscloud/platform/settings"
   }
  ],
- "modified": "2026-06-23 16:55:26.620676",
+ "modified": "2026-06-25 18:36:29.159443",
  "modified_by": "Administrator",
  "name": "LensCloud Platform",
  "owner": "Administrator",

@@ -20,8 +20,78 @@ class TestTopologyPolicy(FrappeTestCase):
             doc = frappe.get_doc("Landscape", landscape)
             self.assertEqual([row.environment for row in sorted(doc.environments, key=lambda row: row.sequence)], environments)
 
+
+    def test_seeded_policy_profiles_are_submitted_defaults(self):
+        for environment in ("Dev", "QA", "Pre-Prod", "Prod"):
+            profile_name = frappe.db.exists("Site Control Profile", {"environment": environment, "is_default": 1, "status": "Active", "docstatus": 1})
+            profile = frappe.get_doc("Site Control Profile", profile_name)
+            self.assertEqual(profile.docstatus, 1)
+            self.assertEqual(profile.environment, environment)
+            self.assertTrue(profile.profile_code)
+        for privacy in ("Public", "Private Shared", "Private"):
+            self.assertTrue(frappe.db.exists("Privacy", privacy))
+            profile_name = frappe.db.exists("Privacy Profile", {"privacy": privacy, "is_default": 1, "docstatus": 1})
+            profile = frappe.get_doc("Privacy Profile", profile_name)
+            self.assertEqual(profile.docstatus, 1)
+            self.assertEqual(profile.privacy, privacy)
+            self.assertTrue(profile.is_default)
+
+    def test_site_control_default_is_unique_per_environment(self):
+        doc = frappe.get_doc({
+            "doctype": "Site Control Profile",
+            "title": "Duplicate Prod Controls Test",
+            "environment": "Prod",
+            "profile_code": "Prod Controls",
+            "version": 99,
+            "status": "Active",
+            "is_default": 1,
+            "protection_level": "Restricted",
+            "cors_policy": "Disabled",
+            "enable_latp": 1,
+            "require_latp": 1,
+            "latp_mode": "Non-destructive",
+        })
+        doc.insert()
+        with self.assertRaises(frappe.ValidationError):
+            doc.submit()
+
+    def test_privacy_default_is_unique_per_family(self):
+        source = frappe.get_doc("Privacy Profile", frappe.db.exists("Privacy Profile", {"privacy": "Public", "is_default": 1, "docstatus": 1}))
+        doc = frappe.get_doc({
+            "doctype": "Privacy Profile",
+            "title": "Duplicate Public Privacy Test",
+            "privacy": "Public",
+            "is_default": 1,
+            "customer_summary": source.customer_summary,
+            "environment_rules": [
+                {
+                    "environment": row.environment,
+                    "bench_boundary": row.bench_boundary,
+                    "bench_group": row.bench_group,
+                    "database_boundary": row.database_boundary,
+                    "database_group": row.database_group,
+                }
+                for row in source.environment_rules
+            ],
+        })
+        doc.insert()
+        with self.assertRaises(frappe.ValidationError):
+            doc.submit()
+
+    def test_landscape_autopicks_default_site_control_profile(self):
+        doc = frappe.get_doc({
+            "doctype": "Landscape",
+            "title": "Autopick Landscape Test",
+            "tier_count": 1,
+            "version": 1,
+            "status": "Draft",
+            "environments": [{"environment": "Prod", "sequence": 10, "bench_group": "prod", "database_group": "prod"}],
+        })
+        doc.insert()
+        self.assertEqual(doc.environments[0].site_control_profile, "Prod Controls v1")
+
     def test_private_shared_keeps_prod_database_separate(self):
-        profile = frappe.get_doc("Privacy", "Private Shared")
+        profile = frappe.get_doc("Privacy Profile", frappe.db.exists("Privacy Profile", {"privacy": "Private Shared", "is_default": 1, "docstatus": 1}))
         rules = {row.environment: row for row in profile.environment_rules}
         self.assertEqual(rules["Dev"].database_group, rules["QA"].database_group)
         self.assertNotEqual(rules["Prod"].database_group, rules["QA"].database_group)
@@ -81,8 +151,14 @@ class TestTopologyPolicy(FrappeTestCase):
             self.assertFalse(permission.delete)
     @patch("lenscloud.api.launch.require_platform")
     def test_customer_connections_are_metadata_driven_and_limited(self, _require_platform):
-        customer = frappe.get_all("Customer", pluck="name", limit=1)[0]
-        result = get_document_connections("Customer", customer)
+        customer_doc = frappe.get_doc({
+            "doctype": "Customer",
+            "first_name": "Connection",
+            "last_name": "Probe",
+            "region": "EU",
+        }).insert(ignore_permissions=True)
+        self.addCleanup(lambda: frappe.delete_doc("Customer", customer_doc.name, force=True, ignore_permissions=True, ignore_missing=True))
+        result = get_document_connections("Customer", customer_doc.name)
         by_doctype = {row["doctype"]: row for row in result}
         self.assertIn("Subscription", by_doctype)
         self.assertIn("Site", by_doctype)
@@ -97,4 +173,3 @@ class TestTopologyPolicy(FrappeTestCase):
                     frappe.get_meta(link.link_doctype).has_field(link.link_fieldname),
                     f"{doctype} connection {link.link_doctype}.{link.link_fieldname} is invalid",
                 )
-

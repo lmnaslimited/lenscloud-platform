@@ -116,7 +116,7 @@
    "fieldname": "default_privacy_profile",
    "fieldtype": "Link",
    "label": "Default Privacy Profile",
-   "options": "Privacy"
+   "options": "Privacy Profile"
   },
   {
    "default": "Invite Only",
@@ -169,7 +169,7 @@
    "link_fieldname": "plan"
   }
  ],
- "modified": "2026-06-23 16:35:52.349190",
+ "modified": "2026-06-25 12:03:42.856386",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Plan",

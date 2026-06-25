@@ -35,7 +35,7 @@ No cleanup is claimed by this document until these items are appended with actio
 
 ## Known Gap
 
-The current Frappe Operator CRD does not expose the full Site Control Profile contract. Platform stores and validates those policies but does not invent unsupported runtime fields. Operator-side typed configuration support remains required before these controls can be enforced on live Sites.
+The current runtime does not expose the full Site Control Profile enforcement contract. Platform stores and validates those policies but does not invent unsupported FrappeSite CR fields. The preferred gap closure is an Infra/operator Bench Command Job/API that safely executes approved `bench --site` style operations such as backup, restore, maintenance mode, developer mode, site config, CORS, Bench Test, and LATP operations with sanitized evidence.
 
 ## Metadata Framework Acceptance - 2026-06-23
 
@@ -46,3 +46,45 @@ The current Frappe Operator CRD does not expose the full Site Control Profile co
 - Production build passed; focused metadata Playwright, generic metadata-editor Playwright, and Platform desktop/mobile Playwright passed.
 - Backend policy suite passed 9/9, including metadata type, permission, connection-count, and link-integrity assertions.
 - Customer browser acceptance remained skipped because the supplied credential file contained Platform credentials only.
+
+## Submitted Policy/Profile Acceptance - 2026-06-25
+
+Implemented BOM-style submitted policy baselines for Site Control Profile and Privacy. Seeded v1 records are submitted, Active, and defaulted. Landscape auto-picks default Site Control Profile records by Environment when omitted, and policy resolution now rejects draft/cancelled policy versions.
+
+Validation:
+
+- `bench --site dev.localhost migrate` passed.
+- `bench --site dev.localhost run-tests --module lenscloud.api.test_policy` passed 13/13.
+- `npm --prefix apps/lenscloud/frontend run build` passed.
+- `lenscloud.api.policy.preview_subscription_topology` resolved the Free Plan against submitted `Public` Privacy and `Prod Controls v1`.
+
+Authenticated Playwright was attempted but did not complete because `/tmp/lenscloud_credential_file.json` currently fails Platform login with `Invalid Login. Try again.` No credentials were exposed.
+
+## Privacy Remodel Acceptance - 2026-06-25
+
+Implemented Privacy as first-class master data and Privacy Profile as the submitted policy document linked to Privacy. Removed Privacy Profile status/version dependence, used deterministic names such as `PP-Public-01`, and kept submitted document detail editors visible read-only in the center editor.
+
+Validation:
+
+- `bench --site dev.localhost migrate` passed.
+- Default submitted profiles exist: `PP-Public-01`, `PP-Private Shared-01`, `PP-Private-01`.
+- Free Plan resolves to `PP-Public-01` and policy snapshot includes `privacy: Public`.
+- `bench --site dev.localhost run-tests --module lenscloud.api.test_policy` passed 13/13.
+- `npm --prefix apps/lenscloud/frontend run build` passed.
+- Authenticated metadata framework, child-table editor, desktop Platform/Customer, and mobile Platform/Customer Playwright passed using `/tmp/lenscloud_credential_file.json`.
+
+## Bench Command Platform Integration - 2026-06-25
+
+Platform pulled Infra revision `a7de2ad` and consumed INF-010 from `lenscloud-infra/docs/platform-bench-command-handoff.md`.
+
+Implemented Platform-side contract support:
+
+- request ConfigMap and labelled Job creation through the Python Kubernetes API;
+- policy, target, namespace, timeout, command, and typed args validation;
+- `bench_test.status` as the first positive contract path;
+- sanitized termination summary parsing;
+- Orchestration Action Log evidence;
+- cleanup of temporary command Job and ConfigMap;
+- `Unsupported` response for contracted runner-pending commands.
+
+Remaining gap: live acceptance depends on Infra live verification of the INF-010 RBAC/admission contract and a production runner for commands beyond the `bench_test.status` verification stub.

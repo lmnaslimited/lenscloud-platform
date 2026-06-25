@@ -18,6 +18,15 @@ def allowed_privacy_names(plan):
     return {row.privacy for row in plan.get("allowed_privacy_profiles") or [] if row.privacy}
 
 
+def is_active_submitted_policy(doc):
+    return int(doc.docstatus or 0) == 1
+
+
+def require_active_submitted_policy(doc, label):
+    if not is_active_submitted_policy(doc):
+        frappe.throw(_("{0} {1} must be a submitted policy document.").format(label, doc.name))
+
+
 def environment_map(landscape):
     return {row.environment: row for row in landscape.get("environments") or []}
 
@@ -29,12 +38,13 @@ def privacy_rule_map(privacy):
 def resolve_subscription_policy_doc(subscription):
     plan = frappe.get_doc("Plan", subscription.plan)
     landscape = frappe.get_doc("Landscape", plan.landscape)
-    privacy = frappe.get_doc("Privacy", plan.default_privacy_profile)
+    privacy = frappe.get_doc("Privacy Profile", plan.default_privacy_profile)
     allowed = allowed_privacy_names(plan)
     if privacy.name not in allowed:
         frappe.throw(_("Default Privacy Profile must be allowed by the Plan."))
-    if landscape.status != "Active" or privacy.status != "Active":
-        frappe.throw(_("Plan Landscape and Privacy Profile must both be Active."))
+    if landscape.status != "Active":
+        frappe.throw(_("Plan Landscape must be Active."))
+    require_active_submitted_policy(privacy, "Privacy Profile")
 
     privacy_rules = privacy_rule_map(privacy)
     environments = []
@@ -44,8 +54,9 @@ def resolve_subscription_policy_doc(subscription):
         rule = privacy_rules.get(row.environment)
         if not rule:
             frappe.throw(_("Privacy Profile {0} has no rule for Environment {1}.").format(privacy.name, row.environment))
-        if control.status != "Active" or environment.status != "Active":
-            frappe.throw(_("Environment {0} and its Site Control Profile must be Active.").format(row.environment))
+        if environment.status != "Active":
+            frappe.throw(_("Environment {0} must be Active.").format(row.environment))
+        require_active_submitted_policy(control, "Site Control Profile")
         environments.append({
             "environment": environment.name,
             "environment_code": environment.code,
@@ -71,7 +82,7 @@ def resolve_subscription_policy_doc(subscription):
         "landscape": landscape.name,
         "landscape_version": landscape.version,
         "privacy_profile": privacy.name,
-        "privacy_version": privacy.version,
+        "privacy": privacy.privacy,
         "region": subscription.region,
         "environments": environments,
     }
