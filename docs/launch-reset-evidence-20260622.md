@@ -75,7 +75,7 @@ Validation:
 
 ## Bench Command Platform Integration - 2026-06-25
 
-Platform pulled Infra revision `a7de2ad` and consumed INF-010 from `lenscloud-infra/docs/platform-bench-command-handoff.md`.
+Platform pulled Infra revision `dcd94d8` and consumed INF-010 from `lenscloud-infra/docs/platform-bench-command-handoff.md`.
 
 Implemented Platform-side contract support:
 
@@ -87,4 +87,4 @@ Implemented Platform-side contract support:
 - cleanup of temporary command Job and ConfigMap;
 - `Unsupported` response for contracted runner-pending commands.
 
-Remaining gap: live acceptance depends on Infra live verification of the INF-010 RBAC/admission contract and a production runner for commands beyond the `bench_test.status` verification stub.
+Infra live verification of the INF-010 RBAC/admission contract is complete. Platform first recorded pre-firewall Kubernetes API reachability failure `ORCH-2026-00135`, then after the firewall update completed live `bench_test.status` successfully in `ORCH-2026-00137`. Unsupported-command behavior recorded `ORCH-2026-00136`. Remaining gap: publish a production runner for commands beyond the `bench_test.status` verification stub.

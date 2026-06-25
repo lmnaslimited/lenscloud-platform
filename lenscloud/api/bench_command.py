@@ -306,13 +306,36 @@ def unsupported_response(command, log, site_doc, reason="Production runner is no
 	}
 
 
+def failure_next_action(exc):
+	safe_error = sanitize_error(exc)
+	text = safe_error.lower()
+	if any(marker in text for marker in ("timed out", "connecttimeout", "connection refused", "max retries exceeded")):
+		return (
+			"Confirm the Kubernetes API is reachable from the Platform devcontainer and the host-side API authorization "
+			"watcher is current, then retry. If the operator network changed, ask Infra to run "
+			"`./scripts/52-authorize-platform-api.sh --watch` from the lenscloud-infra host checkout."
+		)
+	if "403" in text or "forbidden" in text:
+		return (
+			"Ask Infra to verify INF-010 RBAC/admission for the Platform service account, the target Runtime Namespace, "
+			"and the Bench Command Job/ConfigMap verbs, then retry."
+		)
+	if "denied" in text or "admission" in text:
+		return (
+			"Open the action log, compare the generated Job and ConfigMap with the INF-010 admission contract, "
+			"correct the rejected shape, then retry."
+		)
+	return "Open the action log, correct the reported target, namespace, or argument issue, then retry."
+
+
 @frappe.whitelist()
 def run_site_control_command(site, command="bench_test.status", args=None, timeout_seconds=60, reason=None, cleanup=True):
 	frappe.only_for("System Manager")
 	site_doc, bench, cluster, namespace, subscription, policy = validate_site_target(site)
 	args = command_args(command, args)
 	timeout = timeout_value(timeout_seconds)
-	validate_command_policy(command, site_doc, subscription, policy, args)
+	if command not in CONTRACTED_COMMANDS:
+		frappe.throw(_("Bench Command {0} is not in the Platform allowlist.").format(command))
 	log = create_action_log(
 		"Bench Command",
 		"Pending",
@@ -330,6 +353,7 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 	try:
 		if command not in SUPPORTED_COMMANDS:
 			return unsupported_response(command, log, site_doc)
+		validate_command_policy(command, site_doc, subscription, policy, args)
 		command_id_value = command_id(log.name)
 		request_name, job_name = command_resource_names(log.name)
 		labels = metadata_labels(command_id_value, site_doc)
@@ -392,4 +416,4 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 			log.save(ignore_permissions=True)
 		frappe.db.commit()
 		safe_error = sanitize_error(exc)
-		frappe.throw(_("{0} Action log: {1}. Next action: Verify RBAC/admission for INF-010, target namespace approval, and command args, then retry.").format(safe_error, log.name))
+		frappe.throw(_("{0} Action log: {1}. Next action: {2}").format(safe_error, log.name, failure_next_action(exc)))

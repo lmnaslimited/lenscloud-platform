@@ -251,7 +251,7 @@ Privacy remodel implementation: submitted document detail editors now remain vis
 
 ## June 25 Bench Command Platform Handoff
 
-Infra revision `a7de2ad` was pulled in `/workspace/lenscloud-infra`. Platform consumed INF-010 from:
+Infra revision `dcd94d8` was pulled in `/workspace/lenscloud-infra`. Platform consumed INF-010 from:
 
 - `/workspace/lenscloud-infra/docs/infra-workitems.md`
 - `/workspace/lenscloud-infra/docs/platform-bench-command-handoff.md`
@@ -270,4 +270,6 @@ Platform-side implementation now exists for the Bench Command Job/API contract:
 - best-effort cleanup of command Job and request ConfigMap after terminal state or failure;
 - Site action surfaced as `Run Site Control command`.
 
-This does not invent FrappeSite CR fields and does not use `kubectl`. Live command acceptance still depends on Infra completing live verification/apply for INF-010 RBAC/admission and publishing a production bench-command runner for commands beyond the `bench_test.status` verification stub. Current Platform evidence is `docs/bench-command-platform-evidence-20260625.md`.
+This does not invent FrappeSite CR fields and does not use `kubectl`. Infra live verification/apply for INF-010 is complete at `dcd94d8`; after the firewall refresh, Platform live smoke completed `bench_test.status` successfully. Action logs: `ORCH-2026-00135` for the pre-firewall reachability failure, `ORCH-2026-00136` for unsupported-command behavior, and `ORCH-2026-00137` for the successful live `bench_test.status` run. Temporary smoke Site, Bench, and Customer records are absent. The temporary Job and ConfigMap were deleted and verified absent through the Python Kubernetes API. Current Platform evidence is `docs/bench-command-platform-evidence-20260625.md`.
+
+Next action: production runner support for commands beyond the `bench_test.status` verification stub remains pending.

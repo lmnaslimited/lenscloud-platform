@@ -7,7 +7,7 @@ Implement the Platform consumer side of Infra INF-010 Bench Command Job/API for 
 Infra reference pulled:
 
 - repo: `/workspace/lenscloud-infra`
-- revision: `a7de2ad`
+- revision: `dcd94d8`
 - handoff: `docs/platform-bench-command-handoff.md`
 - evidence: `docs/bench-command-job-evidence-20260625.md`
 
@@ -87,6 +87,83 @@ Contracted but runner-pending commands return:
 
 Examples include production execution for backup, restore, maintenance mode, developer mode, site config, CORS, Bench Test trigger, and LATP trigger/status until Infra/operator publishes the runner support.
 
+## Live Smoke Attempts
+
+Infra INF-010 is complete at revision `dcd94d8`; the Infra evidence says:
+
+- `scripts/54-verify-platform-access.sh` passed;
+- `scripts/58-verify-platform-bench-command.sh` passed;
+- positive `bench_test.status` contract Job completed;
+- temporary Job and ConfigMap were cleaned;
+- negative RBAC/admission proof passed for unlabelled Jobs, Secret volumes, Secret listing, pod logs, default namespace mutation, and unapproved namespace mutation.
+
+Platform first attempted live `bench_test.status` through the Python Kubernetes API before the firewall was refreshed.
+
+Result:
+
+- action log: `ORCH-2026-00135`;
+- status: `Failed`;
+- failure point: ConfigMap creation in `lenscloud-runtime-eu`;
+- sanitized failure: connection timeout to Kubernetes API `116.203.22.81:6443`;
+- no kubeconfig, token, Secret, DB password, private key, pod log, or full environment dump was exposed.
+
+Because the timeout happened before ConfigMap creation completed, Platform did not receive live Job/ConfigMap creation or cleanup proof from this attempt.
+
+Post-firewall cleanup verification for the failed attempt:
+
+```text
+resource_id=bcmd-2026-00135
+job_count=0
+configmap_count=0
+```
+
+After the firewall update, Platform retried the live `bench_test.status` smoke through the Python Kubernetes API.
+
+Result:
+
+- action log: `ORCH-2026-00137`;
+- status: `Succeeded`;
+- command id: `BCMD-2026-00137`;
+- request ConfigMap: `lenscloud-runtime-eu/bcmd-2026-00137-request`;
+- Job: `lenscloud-runtime-eu/bcmd-2026-00137-job`;
+- sanitized summary: `Bench Test status contract check completed`;
+- changed: `false`;
+- redacted: `true`;
+- `secret_values_returned`: `false`.
+
+Cleanup returned:
+
+```text
+jobs/lenscloud-runtime-eu/bcmd-2026-00137-job
+configmaps/lenscloud-runtime-eu/bcmd-2026-00137-request
+```
+
+Post-cleanup Kubernetes API verification:
+
+```text
+job_count=0
+configmap_count=0
+```
+
+Temporary control-plane cleanup check:
+
+- smoke Site prefix `run-20260625-platform-bcmd%`: no records remained;
+- smoke Bench prefix `run-20260625-platform-bcmd%`: no records remained;
+- smoke Customer `Bench Command`: no records remained.
+
+Unsupported-command behavior was also exercised:
+
+- action log: `ORCH-2026-00136`;
+- status: `Unsupported`;
+- expected code: `COMMAND_UNSUPPORTED`;
+- behavior: Platform reports runner-pending commands truthfully and does not invent FrappeSite CR fields.
+
+Next action:
+
+```text
+Confirm the Kubernetes API is reachable from the Platform devcontainer and the host-side API authorization watcher is current, then retry. If the operator network changed, ask Infra to run ./scripts/52-authorize-platform-api.sh --watch from the lenscloud-infra host checkout.
+```
+
 ## Validation
 
 Completed:
@@ -100,8 +177,6 @@ Note: one parallel test run hit a transient Frappe `tabSingles` concurrency erro
 
 ## Remaining Gaps
 
-- Live command execution is pending Infra live verification/apply of INF-010 RBAC/admission.
 - Production bench-command runner image/API is pending.
-- Only `bench_test.status` is implemented as the positive Platform path.
+- Only `bench_test.status` is implemented as the positive live Platform path.
 - Authenticated browser proof for the new Site action remains pending.
-

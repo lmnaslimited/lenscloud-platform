@@ -50,3 +50,7 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertEqual(set(configmap["data"]), {"request.json"})
 		self.assertEqual(json.loads(configmap["data"]["request.json"])["command"], "bench_test.status")
 
+	def test_connection_failure_next_action_points_to_api_authorization(self):
+		message = bench_command.failure_next_action(Exception("Max retries exceeded with url: /api/v1/namespaces/x/configmaps"))
+		self.assertIn("Kubernetes API is reachable", message)
+		self.assertIn("52-authorize-platform-api.sh --watch", message)
