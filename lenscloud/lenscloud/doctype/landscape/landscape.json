@@ -70,5 +70,17 @@
  ],
  "autoname": "field:title",
  "naming_rule": "By fieldname",
- "title_field": "title"
+ "title_field": "title",
+ "links": [
+  {
+   "group": "Product",
+   "link_doctype": "Plan",
+   "link_fieldname": "landscape"
+  },
+  {
+   "group": "Commerce",
+   "link_doctype": "Subscription",
+   "link_fieldname": "landscape"
+  }
+ ]
 }

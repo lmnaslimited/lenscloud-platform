@@ -1,44 +1,59 @@
 {
- "doctype": "DocType",
- "name": "Subscription",
- "module": "Lenscloud",
- "engine": "InnoDB",
+ "actions": [],
  "allow_rename": 1,
- "grid_page_length": 50,
- "row_format": "Dynamic",
- "sort_field": "creation",
- "sort_order": "DESC",
+ "autoname": "naming_series:naming_series",
+ "creation": "2026-06-23 16:54:11.948497",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "naming_series",
+  "customer",
+  "plan",
+  "region",
+  "status",
+  "approved_by",
+  "approved_on",
+  "column_break_efyp",
+  "release_group",
+  "landscape",
+  "privacy_profile",
+  "effective_from",
+  "effective_to",
+  "column_break_tbkc",
+  "effective_policy_snapshot",
+  "policy_hash"
+ ],
  "fields": [
   {
+   "default": "SUB-.#####",
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "label": "Naming Series",
-   "options": "SUB-.#####",
-   "default": "SUB-.#####"
+   "options": "SUB-.#####"
   },
   {
    "fieldname": "customer",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Customer",
    "options": "Customer",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 1
   },
   {
    "fieldname": "plan",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Plan",
    "options": "Plan",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 1
   },
   {
    "fieldname": "region",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Region",
    "options": "Region",
-   "reqd": 1,
-   "in_list_view": 1
+   "reqd": 1
   },
   {
    "fieldname": "release_group",
@@ -62,12 +77,12 @@
    "read_only": 1
   },
   {
+   "default": "Requested",
    "fieldname": "status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Status",
-   "options": "Requested\nPending Approval\nApproved\nProvisioning\nActive\nSuspended\nCancelled\nFailed",
-   "default": "Requested",
-   "in_list_view": 1
+   "options": "Requested\nPending Approval\nApproved\nProvisioning\nActive\nSuspended\nCancelled\nFailed"
   },
   {
    "fieldname": "effective_policy_snapshot",
@@ -104,38 +119,64 @@
    "fieldtype": "Datetime",
    "label": "Approved On",
    "read_only": 1
+  },
+  {
+   "fieldname": "column_break_efyp",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_tbkc",
+   "fieldtype": "Column Break"
   }
  ],
- "field_order": [
-  "naming_series",
-  "customer",
-  "plan",
-  "region",
-  "release_group",
-  "landscape",
-  "privacy_profile",
-  "status",
-  "effective_policy_snapshot",
-  "policy_hash",
-  "effective_from",
-  "effective_to",
-  "approved_by",
-  "approved_on"
+ "grid_page_length": 50,
+ "links": [
+  {
+   "group": "Delivery",
+   "link_doctype": "Site",
+   "link_fieldname": "subscription"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Bench",
+   "link_fieldname": "subscription"
+  },
+  {
+   "group": "Validation",
+   "link_doctype": "Environment Test Run",
+   "link_fieldname": "subscription"
+  }
  ],
+ "modified": "2026-06-23 17:25:10.787784",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Subscription",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
  "permissions": [
   {
-   "role": "System Manager",
-   "read": 1,
-   "write": 1,
    "create": 1,
    "delete": 1,
    "email": 1,
    "export": 1,
    "print": 1,
+   "read": 1,
    "report": 1,
-   "share": 1
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  },
+  {
+   "create": 1,
+   "export": 1,
+   "read": 1,
+   "report": 1,
+   "role": "LensCloud Platform User",
+   "write": 1
   }
  ],
- "autoname": "naming_series:naming_series",
- "naming_rule": "By \"Naming Series\" field"
+ "row_format": "Dynamic",
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
 }

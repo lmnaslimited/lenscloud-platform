@@ -262,7 +262,33 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Placement",
+   "link_doctype": "Region",
+   "link_fieldname": "cluster"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Runtime Namespace",
+   "link_fieldname": "cluster"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Database Server",
+   "link_fieldname": "cluster"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Bench",
+   "link_fieldname": "cluster"
+  },
+  {
+   "group": "Delivery",
+   "link_doctype": "Site",
+   "link_fieldname": "cluster"
+  }
+ ],
  "modified": "2026-06-23 12:44:31.366099",
  "modified_by": "Administrator",
  "module": "Lenscloud",

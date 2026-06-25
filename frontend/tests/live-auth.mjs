@@ -22,13 +22,40 @@ async function login(page, user, password) {
 function collectErrors(page) {
 	const errors = []
 	page.on('pageerror', (error) => errors.push(error.message))
-	page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()) })
+	page.on('console', (message) => {
+		if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) errors.push(message.text())
+	})
+	page.on('response', (response) => {
+		const path = new URL(response.url()).pathname
+		if (response.status() >= 400 && path !== '/socket.io/') errors.push('HTTP ' + response.status() + ' ' + path)
+	})
+	page.on('response', (response) => { if (response.status() >= 400) errors.push() })
 	return errors
 }
 
 async function assertClean(errors, scope) {
 	await new Promise((resolve) => setTimeout(resolve, 300))
 	if (errors.length) throw new Error(`${scope} browser errors: ${errors.join('; ')}`)
+}
+
+async function assertPage(page, path, heading) {
+	const errors = collectErrors(page)
+	await page.goto(`${baseURL}${path}`)
+	await page.waitForTimeout(1500)
+	const headingLocator = page.getByRole('heading', { name: heading, exact: true })
+	if (!(await headingLocator.count())) {
+		const labels = (await page.locator('body').innerText()).split('\n').filter(Boolean).slice(0, 12).join(' | ')
+		throw new Error(`${heading} route did not render. Final URL: ${page.url()}. UI: ${labels}. Errors: ${errors.join('; ')}`)
+	}
+	await headingLocator.waitFor()
+	const count = page.getByText(/\d+ \/ \d+/).first()
+	await count.waitFor()
+	const text = await count.innerText()
+	const total = Number(text.split('/').at(-1).trim())
+	if (!total) throw new Error(`${heading} list contains no visible records.`)
+	const alert = page.getByText('Unable to load or save this surface', { exact: true })
+	if (await alert.count()) throw new Error(`${heading} list reported a load failure.`)
+	await assertClean(errors, heading)
 }
 
 async function testPlatform(browser) {
@@ -51,7 +78,9 @@ async function testPlatform(browser) {
 	await navigation.getByText('Customers and Commerce', { exact: true }).waitFor()
 	await navigation.getByText('Product and Delivery', { exact: true }).waitFor()
 	await navigation.getByText('Runtime', { exact: true }).waitFor()
-	await assertClean(errors, 'Platform')
+	await assertClean(errors, 'Platform dashboard')
+	await assertPage(page, '/lenscloud/platform/customers', 'Customers')
+	await assertPage(page, '/lenscloud/platform/sites', 'Sites')
 	await context.close()
 }
 

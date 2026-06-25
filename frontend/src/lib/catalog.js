@@ -107,16 +107,6 @@ export const platformResources = [
 			{ key: 'region', label: 'Primary region', linkPrefix: '/platform/regions/', ...linkField('Region') },
 			{ key: 'external_customer_id', label: 'External ID' },
 		],
-		relations: [
-			{
-				label: 'Sites',
-				doctype: 'Site',
-				linkField: 'customer',
-				sourceField: 'name',
-				fields: ['name', 'title', 'bench', 'modified'],
-				route: (name) => `/platform/sites/${encodeURIComponent(name)}`,
-			},
-		],
 		actions: [
 			{
 				key: 'request-site',
@@ -170,24 +160,6 @@ export const platformResources = [
 			{ key: 'supported_frappe_major_version', label: 'Supported Frappe major' },
 			{ key: 'release_policy', label: 'Release policy', ...selectField(releasePolicyOptions) },
 		],
-		relations: [
-			{
-				label: 'Releases',
-				doctype: 'Release',
-				linkField: 'release_group',
-				sourceField: 'name',
-				fields: ['name', 'image_tag', 'release_status', 'rollout_eligibility'],
-				route: (name) => `/platform/releases/${encodeURIComponent(name)}`,
-			},
-			{
-				label: 'Bench adoption by release group',
-				doctype: 'Bench',
-				linkField: 'release_group',
-				sourceField: 'name',
-				fields: ['name', 'title', 'current_release', 'next_release', 'bench_status'],
-				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-			},
-		],
 		actions: [
 			{
 				key: 'create-release',
@@ -227,7 +199,6 @@ export const platformResources = [
 			{ key: 'title', label: 'Title' },
 			{ key: 'repository_url', label: 'Repository URL' },
 		],
-		relations: [],
 		actions: [],
 	},
 	{
@@ -276,24 +247,6 @@ export const platformResources = [
 			{ key: 'release_notes', label: 'Changelog / release notes' },
 			{ key: 'compatibility_notes', label: 'Compatibility notes' },
 			{ key: 'rollout_eligibility', label: 'Rollout eligibility', ...selectField(rolloutEligibilityOptions) },
-		],
-		relations: [
-			{
-				label: 'Current benches',
-				doctype: 'Bench',
-				linkField: 'current_release',
-				sourceField: 'name',
-				fields: ['name', 'release_group', 'bench_status'],
-				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-			},
-			{
-				label: 'Next-release benches',
-				doctype: 'Bench',
-				linkField: 'next_release',
-				sourceField: 'name',
-				fields: ['name', 'release_group', 'upgrade_sop_status'],
-				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-			},
 		],
 		actions: [
 			{
@@ -373,11 +326,6 @@ export const platformResources = [
 			{ key: 'last_sync_time', label: 'Last sync' },
 			{ key: 'last_error', label: 'Last error' },
 		],
-		relations: [
-			{ label: 'Regions', doctype: 'Region', linkField: 'cluster', sourceField: 'name', fields: ['name', 'title', 'deployment_status'], route: (name) => `/platform/regions/${encodeURIComponent(name)}` },
-			{ label: 'Benches', doctype: 'Bench', linkField: 'cluster', sourceField: 'name', fields: ['name', 'title', 'bench_status'], route: (name) => `/platform/benches/${encodeURIComponent(name)}` },
-			{ label: 'Sites', doctype: 'Site', linkField: 'cluster', sourceField: 'name', fields: ['name', 'title', 'site_status', 'dns_status'], route: (name) => `/platform/sites/${encodeURIComponent(name)}` },
-		],
 		actions: [
 			{
 				key: 'sync-runtime-namespaces',
@@ -443,10 +391,6 @@ export const platformResources = [
 			{ key: 'is_default', label: 'Default runtime namespace', ...checkField },
 			{ key: 'last_sync_time', label: 'Last sync' },
 			{ key: 'last_error', label: 'Last sync warning' },
-		],
-		relations: [
-			{ label: 'Database Servers', doctype: 'Database Server', linkField: 'kubernetes_namespace', sourceField: 'name', fields: ['name', 'title', 'privacy', 'database_status'], route: (name) => `/platform/database-servers/${encodeURIComponent(name)}` },
-			{ label: 'Benches', doctype: 'Bench', linkField: 'kubernetes_namespace', sourceField: 'name', fields: ['name', 'title', 'bench_status'], route: (name) => `/platform/benches/${encodeURIComponent(name)}` },
 		],
 		actions: [],
 	},
@@ -523,9 +467,6 @@ export const platformResources = [
 			{ key: 'last_sync_time', label: 'Last sync', readOnly: true },
 			{ key: 'last_error', label: 'Last error', readOnly: true },
 		],
-		relations: [
-			{ label: 'Benches', doctype: 'Bench', linkField: 'database_server', sourceField: 'name', fields: ['name', 'title', 'owner_customer', 'privacy', 'bench_status'], route: (name) => `/platform/benches/${encodeURIComponent(name)}` },
-		],
 		actions: [
 			{ key: 'dry-run-database-server', label: 'Preview MariaDB manifest', icon: SquareArrowOutUpRight, description: 'Generate a secret-safe MariaDB Operator manifest.', backendSupported: true, method: 'lenscloud.api.orchestration.dry_run_database_server_manifest', paramsFromRecord: { database_server: 'name' }, fields: [] },
 			{ key: 'reconcile-database-server', label: 'Reconcile Database Server', icon: RefreshCcw, description: 'Idempotently apply when restricted Kubernetes access and apply are enabled; otherwise returns a dry-run.', backendSupported: true, method: 'lenscloud.api.orchestration.reconcile_database_server', paramsFromRecord: { database_server: 'name' }, fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }] },
@@ -591,15 +532,6 @@ export const platformResources = [
 			{ key: 'upgrade_window', label: 'Upgrade schedule/window' },
 			{ key: 'upgrade_policy', label: 'Upgrade policy', ...selectField(upgradePolicyOptions) },
 			{ key: 'upgrade_sop_status', label: 'Upgrade/SOP status', ...selectField(upgradeSopStatusOptions) },
-		],
-		relations: [
-			{
-				label: 'Sites',
-				doctype: 'Site',
-				field: 'bench',
-				fields: ['name', 'title', 'customer', 'modified'],
-				route: (name) => `/platform/sites/${encodeURIComponent(name)}`,
-			},
 		],
 		actions: [
 			{
@@ -701,16 +633,6 @@ export const platformResources = [
 			{ key: 'backup_state', label: 'Backup state', ...selectField(backupStateOptions) },
 			{ key: 'restore_state', label: 'Restore state', ...selectField(restoreStateOptions) },
 			{ key: 'upgrade_state', label: 'Upgrade state', ...selectField(upgradeStateOptions) },
-		],
-		relations: [
-			{
-				label: 'Bench',
-				doctype: 'Bench',
-				linkField: 'name',
-				sourceField: 'bench',
-				fields: ['name', 'title', 'release_group', 'region'],
-				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-			},
 		],
 		actions: [
 			{
@@ -830,24 +752,6 @@ export const platformResources = [
 			{ key: 'deployment_status', label: 'Deployment status', ...selectField(regionDeploymentOptions) },
 			{ key: 'is_group', label: 'Group', ...checkField },
 		],
-		relations: [
-			{
-				label: 'Customers',
-				doctype: 'Customer',
-				linkField: 'region',
-				sourceField: 'name',
-				fields: ['name', 'first_name', 'last_name', 'external_customer_id'],
-				route: (name) => `/platform/customers/${encodeURIComponent(name)}`,
-			},
-			{
-				label: 'Benches',
-				doctype: 'Bench',
-				linkField: 'region',
-				sourceField: 'name',
-				fields: ['name', 'title', 'release_group', 'privacy'],
-				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-			},
-		],
 		actions: [],
 	},
 
@@ -900,9 +804,6 @@ export const platformResources = [
 			{ key: 'bench_policy', label: 'Bench policy', ...selectField(benchPolicyOptions) },
 			{ key: 'billing_system_reference', label: 'Billing system reference' },
 			{ key: 'description', label: 'Description' },
-		],
-		relations: [
-			{ label: 'Sites', doctype: 'Site', linkField: 'plan', sourceField: 'name', fields: ['name', 'title', 'domain', 'site_status'], route: (name) => `/platform/sites/${encodeURIComponent(name)}` },
 		],
 		actions: [],
 	},
@@ -1017,7 +918,6 @@ export const platformResources = [
 			{ key: 'error', label: 'Error' },
 			{ key: 'manifest', label: 'Manifest' },
 		],
-		relations: [],
 		actions: [],
 	},
 
@@ -1135,16 +1035,6 @@ export const customerResources = [
 			{ key: 'backup_state', label: 'Backup state', ...selectField(backupStateOptions) },
 			{ key: 'restore_state', label: 'Restore state', ...selectField(restoreStateOptions) },
 			{ key: 'upgrade_state', label: 'Upgrade state', ...selectField(upgradeStateOptions) },
-		],
-		relations: [
-			{
-				label: 'Bench',
-				doctype: 'Bench',
-				linkField: 'name',
-				sourceField: 'bench',
-				fields: ['name', 'title', 'release_group', 'region'],
-				route: (name) => `/platform/benches/${encodeURIComponent(name)}`,
-			},
 		],
 		actions: [
 			{

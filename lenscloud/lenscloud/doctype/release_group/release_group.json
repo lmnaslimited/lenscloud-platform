@@ -79,7 +79,23 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Product",
+   "link_doctype": "Plan",
+   "link_fieldname": "release_group"
+  },
+  {
+   "group": "Delivery",
+   "link_doctype": "Release",
+   "link_fieldname": "release_group"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Bench",
+   "link_fieldname": "release_group"
+  }
+ ],
  "modified": "2026-06-23 15:07:17.031209",
  "modified_by": "Administrator",
  "module": "Lenscloud",

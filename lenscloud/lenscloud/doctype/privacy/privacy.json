@@ -51,7 +51,23 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Runtime",
+   "link_doctype": "Database Server",
+   "link_fieldname": "privacy"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Bench",
+   "link_fieldname": "privacy"
+  },
+  {
+   "group": "Commerce",
+   "link_doctype": "Subscription",
+   "link_fieldname": "privacy_profile"
+  }
+ ],
  "modified": "2026-05-31 14:30:02.326505",
  "modified_by": "Administrator",
  "module": "Lenscloud",

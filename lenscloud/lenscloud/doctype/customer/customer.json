@@ -57,7 +57,28 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Commerce",
+   "link_doctype": "Subscription",
+   "link_fieldname": "customer"
+  },
+  {
+   "group": "Delivery",
+   "link_doctype": "Site",
+   "link_fieldname": "customer"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Bench",
+   "link_fieldname": "owner_customer"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Database Server",
+   "link_fieldname": "owner_customer"
+  }
+ ],
  "modified": "2026-05-31 14:46:52.666540",
  "modified_by": "Administrator",
  "module": "Lenscloud",
@@ -76,6 +97,14 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "role": "LensCloud Platform User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1
   }
  ],
  "row_format": "Dynamic",

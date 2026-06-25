@@ -132,6 +132,65 @@ def get_doctype_editor_schema(doctype):
         "autoname": autoname,
         "naming_field": naming_field,
         "allow_rename": bool(meta.allow_rename),
+        "can_create": bool(frappe.has_permission(doctype, "create")),
+        "can_write": bool(frappe.has_permission(doctype, "write")),
+        "links": [
+            {
+                "group": link.group or "Related",
+                "link_doctype": link.link_doctype,
+                "link_fieldname": link.link_fieldname,
+                "table_fieldname": link.table_fieldname,
+            }
+            for link in meta.links or []
+            if link.link_doctype and link.link_fieldname
+        ],
         "fields": [_editor_field(df) for df in meta.fields if not df.hidden],
     }
+
+def _connection_preview_fields(meta):
+    fields = ["name"]
+    if meta.title_field and meta.has_field(meta.title_field):
+        fields.append(meta.title_field)
+    for df in meta.fields:
+        if len(fields) >= 4:
+            break
+        if df.in_list_view and df.fieldtype not in _LAYOUT_FIELDTYPES | {"Table", "Table MultiSelect"}:
+            fields.append(df.fieldname)
+    return list(dict.fromkeys(fields))
+
+
+@frappe.whitelist()
+def get_document_connections(doctype, name):
+    require_platform()
+    meta = frappe.get_meta(doctype)
+    if meta.module != "Lenscloud":
+        frappe.throw(_("Only LensCloud document connections are available."), frappe.PermissionError)
+    doc = frappe.get_doc(doctype, name)
+    doc.check_permission("read")
+    connections = []
+    for link in meta.links or []:
+        if not link.link_doctype or not link.link_fieldname or link.table_fieldname:
+            continue
+        if not frappe.has_permission(link.link_doctype, "read"):
+            continue
+        linked_meta = frappe.get_meta(link.link_doctype)
+        filters = {link.link_fieldname: name}
+        count_rows = frappe.get_list(link.link_doctype, filters=filters, fields=[{"COUNT": "*"}], limit=1)
+        count = int((next(iter(count_rows[0].values())) if count_rows else 0) or 0)
+        items = frappe.get_list(
+            link.link_doctype,
+            filters=filters,
+            fields=_connection_preview_fields(linked_meta),
+            order_by="modified desc",
+            limit=5,
+        )
+        connections.append({
+            "group": link.group or "Related",
+            "label": linked_meta.name,
+            "doctype": linked_meta.name,
+            "link_field": link.link_fieldname,
+            "count": count,
+            "items": items,
+        })
+    return connections
 

@@ -90,8 +90,6 @@ try {
 	await page.goto(`${baseURL}/lenscloud/platform/release-groups/${encodeURIComponent('lens-pure')}`)
 	const releaseEditor = page.getByTestId('center-document-editor')
 	await releaseEditor.waitFor()
-	await releaseEditor.getByText('Image Family', { exact: true }).waitFor()
-	await releaseEditor.getByText('Apps', { exact: true }).waitFor()
 	await releaseEditor.getByText('Included Apps', { exact: true }).waitFor()
 	if (await releaseEditor.getByLabel('Title', { exact: true }).count()) throw new Error('Autoname Title must not appear in the existing-document editor.')
 	await releaseEditor.getByRole('button', { name: 'Rename', exact: true }).click()

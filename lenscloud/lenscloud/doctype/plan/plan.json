@@ -11,16 +11,20 @@
   "status",
   "is_default",
   "is_free",
+  "default_privacy_profile",
+  "bench_policy",
+  "column_break_nkwt",
   "monthly_price",
   "release_group",
   "landscape",
   "allowed_privacy_profiles",
-  "default_privacy_profile",
+  "column_break_vayo",
   "availability",
   "subscription_limit",
   "site_limit",
-  "bench_policy",
+  "info_tab",
   "billing_system_reference",
+  "column_break_lodo",
   "description"
  ],
  "fields": [
@@ -28,53 +32,55 @@
    "fieldname": "title",
    "fieldtype": "Data",
    "label": "Title",
-   "unique": 1,
-   "reqd": 1
+   "reqd": 1,
+   "unique": 1
   },
   {
    "fieldname": "plan_code",
    "fieldtype": "Data",
+   "in_list_view": 1,
    "label": "Plan Code",
-   "unique": 1,
    "reqd": 1,
-   "in_list_view": 1
+   "unique": 1
   },
   {
+   "default": "Active",
    "fieldname": "status",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Status",
-   "options": "Active\nInactive\nRetired",
-   "default": "Active",
-   "in_list_view": 1
+   "options": "Active\nInactive\nRetired"
   },
   {
+   "default": "0",
    "fieldname": "is_default",
    "fieldtype": "Check",
    "label": "Is Default"
   },
   {
+   "default": "0",
    "fieldname": "is_free",
    "fieldtype": "Check",
    "label": "Is Free"
   },
   {
+   "default": "0",
    "fieldname": "monthly_price",
    "fieldtype": "Data",
-   "label": "Monthly Price",
-   "default": "0"
+   "label": "Monthly Price"
   },
   {
+   "default": "1",
    "fieldname": "site_limit",
    "fieldtype": "Data",
-   "label": "Site Limit",
-   "default": "1"
+   "label": "Site Limit"
   },
   {
+   "default": "Shared Bench",
    "fieldname": "bench_policy",
    "fieldtype": "Select",
    "label": "Bench Policy",
-   "options": "Shared Bench\nDedicated Bench\nManual Placement",
-   "default": "Shared Bench"
+   "options": "Shared Bench\nDedicated Bench\nManual Placement"
   },
   {
    "fieldname": "billing_system_reference",
@@ -89,16 +95,16 @@
   {
    "fieldname": "release_group",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Release Group",
-   "options": "Release Group",
-   "in_list_view": 1
+   "options": "Release Group"
   },
   {
    "fieldname": "landscape",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Landscape",
-   "options": "Landscape",
-   "in_list_view": 1
+   "options": "Landscape"
   },
   {
    "fieldname": "allowed_privacy_profiles",
@@ -113,24 +119,57 @@
    "options": "Privacy"
   },
   {
+   "default": "Invite Only",
    "fieldname": "availability",
    "fieldtype": "Select",
+   "in_list_view": 1,
    "label": "Availability",
-   "options": "Public\nBeta\nInvite Only\nRetired",
-   "default": "Invite Only",
-   "in_list_view": 1
+   "options": "Public\nBeta\nInvite Only\nRetired"
   },
   {
+   "default": "1",
    "fieldname": "subscription_limit",
    "fieldtype": "Int",
-   "label": "Subscription Limit",
-   "default": "1"
+   "label": "Subscription Limit"
+  },
+  {
+   "fieldname": "column_break_nkwt",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_vayo",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "info_tab",
+   "fieldtype": "Tab Break",
+   "label": "Info"
+  },
+  {
+   "fieldname": "column_break_lodo",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
- "modified": "2026-06-03 00:00:00.000000",
+ "links": [
+  {
+   "group": "Commerce",
+   "link_doctype": "Subscription",
+   "link_fieldname": "plan"
+  },
+  {
+   "group": "Delivery",
+   "link_doctype": "Site",
+   "link_fieldname": "plan"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Bench",
+   "link_fieldname": "plan"
+  }
+ ],
+ "modified": "2026-06-23 16:35:52.349190",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Plan",

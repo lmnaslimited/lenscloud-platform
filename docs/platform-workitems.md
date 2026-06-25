@@ -22,6 +22,7 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Public live acceptance | Two unrelated customers share `default/frappe-mariadb`; both Sites pass HTTPS | Complete |
 | Private Shared live acceptance | Same-customer Quality/Production sharing passes; cross-customer attachment fails | Blocked |
 | Private live acceptance | One Bench/Site passes; every second Bench attachment fails | Blocked |
+| Platform Customer and Site visibility | LensCloud Platform User can list/create/update Customer and Site records while raw delete remains denied | Complete |
 | Platform operator workflow | Operator creates Bench and Site and sees real progress, URL, and history | In Progress |
 | Customer Free Plan workflow | Customer creates one real Site through the shared orchestration service | Complete |
 | Authenticated Playwright and evidence | Platform/customer desktop and mobile tests pass; evidence is recorded | Complete |
@@ -35,6 +36,7 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Runtime namespace registry | Infra-approved namespaces are synced with customer/purpose metadata and filtered for Database Server and Bench placement | In Progress |
 | Platform list and inspector UX | Operators can filter by fields, see the selected record clearly, use status/cell click filters, sort columns, filter by related documents, and edit from a simplified inspector rail | In Progress |
 | Launch tenant and runtime reset | Test tenants and exactly owned runtime resources are retired while Cluster handoff data and protected infrastructure remain intact | In Progress |
+| Metadata-driven permissions and connections | Create/edit rights and related-document summaries come from DocType permissions/links; counts open filtered lists | Complete |
 | Metadata-driven document editor | Center editing follows DocType tabs, sections, columns, Table, and Table MultiSelect metadata with compact Frappe-style controls | Complete |
 | Center document and child-table editor | Selected documents edit below the list or expanded in the center; child grids use fixed columns and horizontal scrolling | Complete |
 | Platform topology child-table editing | Operators can configure Plan privacy choices, Landscape environments, Privacy rules, and Site settings with typed value help and safe row operations | Complete |

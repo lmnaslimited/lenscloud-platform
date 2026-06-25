@@ -7,7 +7,7 @@ import { getResourceByDoctype, getResourceByKey, platformSettings } from '@/lib/
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import DocumentLayoutEditor from '@/components/DocumentLayoutEditor.vue'
-import { ChevronDown, ChevronRight, CreditCard, Filter, FolderTree, LifeBuoy, List, Lock, MapPin, Maximize2, Minimize2, MoreHorizontal, Search, X } from 'lucide-vue-next'
+import { ChevronDown, ChevronRight, CreditCard, Filter, FolderTree, LifeBuoy, List, Lock, MapPin, Maximize2, Minimize2, MoreHorizontal, Search, Users, X } from 'lucide-vue-next'
 
 const props = defineProps({
 	resourceKey: { type: String, required: true },
@@ -401,7 +401,7 @@ function schemaFieldToUi(field, override = {}) {
 		const overrideColumns = new Map((override.columns || []).map((column) => [column.key, column]))
 		value.columns = (field.columns || []).map((column) => schemaFieldToUi(column, overrideColumns.get(column.fieldname) || {}))
 	}
-	return { ...value, ...override, columns: value.columns || override.columns }
+	return { ...value, ...override, type: value.type, columns: value.columns || override.columns }
 }
 const namingField = computed(() => editorMeta.value.naming_field || '')
 const canRenameDocument = computed(() => Boolean(record.value && editorMeta.value.allow_rename && namingField.value))
@@ -412,8 +412,8 @@ const editorLayoutFields = computed(() => {
 const existingEditorLayoutFields = computed(() => editorLayoutFields.value.filter((field) => field.key !== namingField.value))
 const documentLifecycleFields = computed(() => editorLayoutFields.value.filter((field) => !['section_break', 'column_break', 'tab_break'].includes(field.type)))
 const lifecycleFieldMap = computed(() => new Map(documentLifecycleFields.value.map((field) => [field.key, field])))
-const canCreateDocument = computed(() => props.scope === 'platform' && Boolean(resource.value?.creatable))
-const canEditDocument = computed(() => Boolean(resource.value?.editable) && (!resource.value?.submittable || Number(record.value?.docstatus || 0) === 0))
+const canCreateDocument = computed(() => props.scope === 'platform' && Boolean(resource.value?.creatable ?? editorMeta.value.can_create))
+const canEditDocument = computed(() => Boolean(resource.value?.editable ?? editorMeta.value.can_write) && (!resource.value?.submittable || Number(record.value?.docstatus || 0) === 0))
 const canSubmitDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 0))
 const canCancelDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 1))
 const canAmendDocument = computed(() => Boolean(resource.value?.submittable && record.value && Number(record.value.docstatus || 0) === 2))
@@ -737,7 +737,7 @@ async function loadDetail(name) {
 	record.value = await getDoc(resource.value.doctype, name)
 	related.value = []
 
-	if (record.value && resource.value.editable) {
+	if (record.value && (resource.value.editable ?? editorMeta.value.can_write)) {
 		for (const key of Object.keys(formState)) delete formState[key]
 		for (const field of documentLifecycleFields.value || []) {
 			formState[field.key] = cloneFieldValue(record.value[field.key] ?? field.default ?? (['table', 'table_multiselect'].includes(field.type) ? [] : ''))
@@ -749,17 +749,12 @@ async function loadDetail(name) {
 		throw new Error('This site is not linked to your customer record.')
 	}
 
-	related.value = await Promise.all((resource.value.relations || []).map(async (relation) => {
-		const linkField = relation.linkField || relation.field || 'name'
-		const sourceField = relation.sourceField || relation.useFieldAsFilter || 'name'
-		const sourceValue = sourceField === 'name' ? record.value.name : record.value[sourceField] || record.value.name
-		const items = await listDocs(relation.doctype, {
-			fields: ['name', ...relation.fields],
-			limit: 5,
-			filters: [[linkField, '=', sourceValue]],
-		})
-
-		return { label: relation.label, items, previewFields: relation.fields.slice(0, 2), route: relation.route, doctype: relation.doctype, linkField, sourceValue }
+	const response = await callMethod('lenscloud.api.launch.get_document_connections', { doctype: resource.value.doctype, name: record.value.name })
+	related.value = (response.message || response || []).map((relation) => ({
+		...relation,
+		linkField: relation.link_field,
+		sourceValue: record.value.name,
+		previewFields: Object.keys(relation.items?.[0] || {}).filter((key) => key !== 'name').slice(0, 2),
 	}))
 }
 
@@ -802,7 +797,8 @@ const activeAction = computed(() => (resource.value?.actions || []).find((action
 const inspectorTabs = computed(() => {
 	const tabs = [{ label: 'Overview' }]
 	tabs.push({ label: `Actions${resource.value?.actions?.length ? ` (${resource.value.actions.length})` : ''}` })
-	tabs.push({ label: `Related${related.value.length ? ` (${related.value.length})` : ''}` })
+	const relatedCount = related.value.reduce((total, relation) => total + Number(relation.count || 0), 0)
+	tabs.push({ label: `Related${relatedCount ? ` (${relatedCount})` : ''}` })
 	tabs.push({ label: 'Diagnostics' })
 	if (showExternalContext.value) tabs.push({ label: 'External' })
 	return tabs
@@ -1028,7 +1024,7 @@ function cellSubtitle(row, field) {
 
 function relatedResourcePath(relation, item) {
 	const target = getResourceByDoctype(relation.doctype)
-	if (!target) return relation.route(item.name)
+	if (!target) return null
 	return {
 		path: target.route,
 		query: { filter_field: 'name', filter_operator: '=', filter_value: item.name, filter_source: relation.label },
@@ -1040,7 +1036,17 @@ function openRelatedFilter(relation, item) {
 		setFilter('name', '=', item.name, relation.label)
 		return
 	}
-	router.push(relatedResourcePath(relation, item))
+	const target = relatedResourcePath(relation, item)
+	if (target) router.push(target)
+}
+
+function openRelationList(relation) {
+	const target = getResourceByDoctype(relation.doctype)
+	if (!target) return
+	router.push({
+		path: target.route,
+		query: { filter_field: relation.linkField, filter_operator: '=', filter_value: relation.sourceValue, filter_source: resource.value?.label || resource.value?.doctype },
+	})
 }
 
 function controlTypeForField(field) {
@@ -1474,7 +1480,7 @@ function resizeEditorByKeyboard(event) {
 				</ListView>
 
 				<section
-					v-if="record && resource.editable"
+					v-if="record && canEditDocument"
 					data-testid="center-document-editor"
 					class="shrink-0 overflow-hidden border-t border-outline-gray-2 bg-surface-white max-lg:absolute max-lg:inset-0 max-lg:z-40 max-lg:!h-full max-lg:border-t-0"
 					:class="editorExpanded ? 'absolute inset-0 z-40 h-full border-t-0' : ''"
@@ -1759,8 +1765,8 @@ function resizeEditorByKeyboard(event) {
 
 						<div v-for="relation in related" v-else :key="relation.label" class="rounded border border-outline-gray-2 bg-surface-white">
 							<div class="flex items-center justify-between gap-2 border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
-								<p class="text-sm font-medium text-ink-gray-9">{{ relation.label }}</p>
-								<Badge class="bg-surface-white text-ink-gray-7">{{ relation.items.length }}</Badge>
+								<div><p class="text-sm font-medium text-ink-gray-9">{{ relation.label }}</p><p class="text-xs text-ink-gray-5">Latest {{ Math.min(relation.items.length, 5) }} records</p></div>
+								<button type="button" class="rounded-full border border-outline-gray-2 bg-surface-white px-2.5 py-1 text-xs font-medium text-ink-gray-7 hover:bg-surface-gray-1" @click="openRelationList(relation)">{{ relation.count }}</button>
 							</div>
 							<div class="p-2">
 								<p v-if="!relation.items.length" class="px-1 py-2 text-sm leading-5 text-ink-gray-5">No related records found.</p>

@@ -86,7 +86,38 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "is_tree": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Customers",
+   "link_doctype": "Customer",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Commerce",
+   "link_doctype": "Subscription",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Runtime Namespace",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Database Server",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Runtime",
+   "link_doctype": "Bench",
+   "link_fieldname": "region"
+  },
+  {
+   "group": "Delivery",
+   "link_doctype": "Site",
+   "link_fieldname": "region"
+  }
+ ],
  "modified": "2026-05-31 14:24:42.936238",
  "modified_by": "Administrator",
  "module": "Lenscloud",

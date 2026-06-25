@@ -280,7 +280,18 @@
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
- "links": [],
+ "links": [
+  {
+   "group": "Operations",
+   "link_doctype": "Orchestration Action Log",
+   "link_fieldname": "site"
+  },
+  {
+   "group": "Routing",
+   "link_doctype": "DNS Record",
+   "link_fieldname": "site"
+  }
+ ],
  "modified": "2026-06-23 14:58:45.305213",
  "modified_by": "Administrator",
  "module": "Lenscloud",
@@ -299,6 +310,14 @@
    "role": "System Manager",
    "share": 1,
    "write": 1
+  },
+  {
+   "role": "LensCloud Platform User",
+   "read": 1,
+   "write": 1,
+   "create": 1,
+   "report": 1,
+   "export": 1
   }
  ],
  "row_format": "Dynamic",
