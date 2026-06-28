@@ -5,7 +5,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from lenscloud.api.launch import get_doctype_editor_schema, get_document_connections, get_platform_dashboard
-from lenscloud.api.policy import placement_keys
+from lenscloud.api.policy import placement_keys, resolve_subscription_policy_doc
 
 
 class TestTopologyPolicy(FrappeTestCase):
@@ -96,6 +96,16 @@ class TestTopologyPolicy(FrappeTestCase):
         self.assertEqual(rules["Dev"].database_group, rules["QA"].database_group)
         self.assertNotEqual(rules["Prod"].database_group, rules["QA"].database_group)
         self.assertEqual(rules["Prod"].database_boundary, "Customer")
+
+    def test_subscription_policy_snapshot_includes_site_controls(self):
+        plan_name = frappe.db.get_value("Plan", {"is_free": 1}, "name") or frappe.db.get_value("Plan", {}, "name")
+        snapshot = resolve_subscription_policy_doc(SimpleNamespace(plan=plan_name, region="EU", customer="CUST-SNAPSHOT"))
+        prod = next(row for row in snapshot["environments"] if row["environment"] == "Prod")
+        self.assertIn("site_controls", prod)
+        self.assertIn("enable_developer_mode", prod["site_controls"])
+        self.assertIn("allow_client_scripts", prod["site_controls"])
+        self.assertIn("allow_server_scripts", prod["site_controls"])
+        self.assertIn("cors_policy", prod["site_controls"])
 
     def test_policy_resolves_same_database_and_different_benches(self):
         snapshot = {"environments": [

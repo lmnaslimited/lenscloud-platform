@@ -74,6 +74,13 @@ def resolve_subscription_policy_doc(subscription):
                 "latp": bool(control.enable_latp and control.require_latp),
                 "latp_mode": control.latp_mode,
             },
+            "site_controls": {
+                "enable_developer_mode": bool(control.enable_developer_mode),
+                "allow_client_scripts": bool(control.allow_client_scripts),
+                "allow_server_scripts": bool(control.allow_server_scripts),
+                "cors_policy": control.cors_policy,
+                "cors_origins": [item.strip() for item in (control.cors_origins or "").splitlines() if item.strip()],
+            },
         })
 
     snapshot = {

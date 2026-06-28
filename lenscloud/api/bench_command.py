@@ -25,7 +25,33 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-SUPPORTED_COMMANDS = {"bench_test.status"}
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:c3e0922ca034c840ebd06c29b52794fec54c655b62444df60393f2ed5501d920"
+VERIFICATION_COMMANDS = {"bench_test.status"}
+RUNNER_SUPPORTED_COMMANDS = {
+	"maintenance_mode.enable",
+	"maintenance_mode.disable",
+	"maintenance_mode.status",
+	"developer_mode.enable",
+	"developer_mode.disable",
+	"developer_mode.status",
+	"site_config.set",
+	"site_config.unset",
+	"site_config.get",
+	"cors.allowlist.update",
+	"cors.allowlist.get",
+}
+SUPPORTED_COMMANDS = VERIFICATION_COMMANDS | RUNNER_SUPPORTED_COMMANDS
+RUNNER_PENDING_COMMANDS = {
+	"backup.create",
+	"backup.status",
+	"restore.preview",
+	"restore.execute",
+	"restore.status",
+	"bench_test.trigger",
+	"latp.trigger",
+	"latp.status",
+}
+APPROVED_SITE_CONFIG_KEYS = {"maintenance_mode", "developer_mode", "allow_cors", "server_script_enabled", "client_script_enabled"}
 CONTRACTED_COMMANDS = {
 	"backup.create",
 	"backup.status",
@@ -73,6 +99,32 @@ def command_args(command, args):
 		if mode != "status":
 			frappe.throw(_("bench_test.status only accepts mode=status."))
 		return {"mode": "status"}
+	if command.startswith("maintenance_mode.") or command.startswith("developer_mode."):
+		return {}
+	if command.startswith("site_config."):
+		key = str(args.get("key") or "").strip()
+		if key not in APPROVED_SITE_CONFIG_KEYS:
+			frappe.throw(_("Site config key {0} is not approved for Bench Command execution.").format(key or "<empty>"))
+		if command == "site_config.set":
+			if "value" not in args:
+				frappe.throw(_("site_config.set requires a scalar value."))
+			value = args.get("value")
+			if isinstance(value, (dict, list)):
+				frappe.throw(_("site_config.set value must be scalar."))
+			return {"key": key, "value": value}
+		return {"key": key}
+	if command == "cors.allowlist.update":
+		origins = args.get("origins")
+		if isinstance(origins, str):
+			origins = [item.strip() for item in origins.splitlines() if item.strip()]
+		if not isinstance(origins, list) or not all(isinstance(item, str) for item in origins):
+			frappe.throw(_("cors.allowlist.update requires origins as a string list."))
+		origins = sorted({item.strip() for item in origins if item.strip()})
+		if any(item == "*" for item in origins):
+			frappe.throw(_("Wildcard CORS origin is not allowed."))
+		return {"origins": origins}
+	if command == "cors.allowlist.get":
+		return {}
 	return args
 
 
@@ -125,20 +177,49 @@ def validate_site_target(site):
 	return site_doc, bench, cluster, namespace, subscription, policy
 
 
+def configured_cors_origins(policy):
+	controls = policy.get("site_controls") or {}
+	return {item.strip() for item in controls.get("cors_origins") or [] if item.strip()}
+
+
 def validate_command_policy(command, site_doc, subscription, policy, args):
 	if command not in CONTRACTED_COMMANDS:
 		frappe.throw(_("Bench Command {0} is not in the Platform allowlist.").format(command))
 	if command == "bench_test.status":
 		return True
+	if command in RUNNER_PENDING_COMMANDS:
+		return True
 	if not subscription or not policy:
 		frappe.throw(_("Command {0} requires a Subscription and Environment policy on the Site.").format(command))
 	family = command_family(command)
+	controls = policy.get("site_controls") or {}
 	if family == "bench_test" and not policy.get("gates", {}).get("bench_test"):
 		frappe.throw(_("Bench Test commands are not allowed by the active Site Control Profile."))
 	if family == "latp" and not policy.get("gates", {}).get("latp"):
 		frappe.throw(_("LATP commands are not allowed by the active Site Control Profile."))
-	if family == "developer_mode" and command.endswith(".enable") and policy.get("is_production"):
-		frappe.throw(_("Developer mode cannot be enabled for a production Site."))
+	if family == "developer_mode" and command.endswith(".enable"):
+		if policy.get("is_production"):
+			frappe.throw(_("Developer mode cannot be enabled for a production Site."))
+		if not controls.get("enable_developer_mode"):
+			frappe.throw(_("Developer mode is not enabled by the active Site Control Profile."))
+	if command.startswith("site_config."):
+		key = args.get("key")
+		if key == "server_script_enabled" and not controls.get("allow_server_scripts"):
+			frappe.throw(_("Server scripts are not allowed by the active Site Control Profile."))
+		if key == "client_script_enabled" and not controls.get("allow_client_scripts"):
+			frappe.throw(_("Client scripts are not allowed by the active Site Control Profile."))
+		if key == "developer_mode" and command == "site_config.set" and int(args.get("value") or 0):
+			if policy.get("is_production") or not controls.get("enable_developer_mode"):
+				frappe.throw(_("Developer mode site_config cannot be enabled by the active Site Control Profile."))
+		if key == "allow_cors" and command == "site_config.set" and controls.get("cors_policy") != "Allowlist":
+			frappe.throw(_("CORS is not enabled by the active Site Control Profile."))
+	if command == "cors.allowlist.update":
+		if controls.get("cors_policy") != "Allowlist":
+			frappe.throw(_("CORS allowlist updates are not enabled by the active Site Control Profile."))
+		allowed = configured_cors_origins(policy)
+		requested = set(args.get("origins") or [])
+		if allowed and not requested.issubset(allowed):
+			frappe.throw(_("CORS origins must be within the active Site Control Profile allowlist."))
 	return True
 
 
@@ -198,7 +279,11 @@ def configmap_manifest(name, namespace, labels, annotations, request):
 	}
 
 
-def job_manifest(name, namespace, labels, annotations, request_name, command):
+def bench_sites_pvc_name(bench):
+	return f"{bench.operator_resource_name or bench.name}-sites"
+
+
+def verification_job_container(labels, command):
 	summary = json.dumps({
 		"phase": "Succeeded",
 		"commandId": labels[RESOURCE_ID_LABEL],
@@ -207,6 +292,39 @@ def job_manifest(name, namespace, labels, annotations, request_name, command):
 		"changed": False,
 		"redacted": True,
 	}, separators=(",", ":"))
+	return {
+		"name": "bench-command",
+		"image": "busybox:1.36",
+		"command": ["sh", "-c", f"printf '%s\n' '{summary}' > /dev/termination-log"],
+		"volumeMounts": [{"name": "request", "mountPath": "/request", "readOnly": True}],
+	}
+
+
+def runner_job_container():
+	return {
+		"name": "bench-command",
+		"image": RUNNER_IMAGE,
+		"imagePullPolicy": "IfNotPresent",
+		"env": [
+			{"name": "BENCH_PATH", "value": "/home/frappe/frappe-bench"},
+			{"name": "BENCH_COMMAND_REQUEST", "value": "/lenscloud/request/request.json"},
+		],
+		"command": ["/usr/local/bin/lenscloud-bench-command-runner"],
+		"volumeMounts": [
+			{"name": "request", "mountPath": "/lenscloud/request", "readOnly": True},
+			{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites"},
+		],
+	}
+
+
+def job_manifest(name, namespace, labels, annotations, request_name, command, bench=None):
+	volumes = [{"name": "request", "configMap": {"name": request_name}}]
+	container = verification_job_container(labels, command)
+	if command in RUNNER_SUPPORTED_COMMANDS:
+		if not bench:
+			frappe.throw(_("Bench is required for runner-backed Bench Commands."))
+		volumes.append({"name": "sites", "persistentVolumeClaim": {"claimName": bench_sites_pvc_name(bench)}})
+		container = runner_job_container()
 	return {
 		"apiVersion": "batch/v1",
 		"kind": "Job",
@@ -218,13 +336,8 @@ def job_manifest(name, namespace, labels, annotations, request_name, command):
 				"spec": {
 					"automountServiceAccountToken": False,
 					"restartPolicy": "Never",
-					"containers": [{
-						"name": "bench-command",
-						"image": "busybox:1.36",
-						"command": ["sh", "-c", f"printf '%s\\n' '{summary}' > /dev/termination-log"],
-						"volumeMounts": [{"name": "request", "mountPath": "/request", "readOnly": True}],
-					}],
-					"volumes": [{"name": "request", "configMap": {"name": request_name}}],
+					"containers": [container],
+					"volumes": volumes,
 				},
 			},
 		},
@@ -360,7 +473,7 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 		annotations = metadata_annotations(command, request_name)
 		request = request_document(command_id_value, command, site_doc, bench, cluster, namespace, args, timeout, reason)
 		configmap = configmap_manifest(request_name, namespace, labels, annotations, request)
-		job = job_manifest(job_name, namespace, labels, annotations, request_name, command)
+		job = job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench)
 		attach_message = {
 			"request": request,
 			"configMap": {"name": request_name, "namespace": namespace, "labels": labels, "annotations": annotations},

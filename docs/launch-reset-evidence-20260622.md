@@ -87,4 +87,4 @@ Implemented Platform-side contract support:
 - cleanup of temporary command Job and ConfigMap;
 - `Unsupported` response for contracted runner-pending commands.
 
-Infra live verification of the INF-010 RBAC/admission contract is complete. Platform first recorded pre-firewall Kubernetes API reachability failure `ORCH-2026-00135`, then after the firewall update completed live `bench_test.status` successfully in `ORCH-2026-00137`. Unsupported-command behavior recorded `ORCH-2026-00136`. Remaining gap: publish a production runner for commands beyond the `bench_test.status` verification stub.
+Infra live verification of the INF-010 RBAC/admission contract is complete. Platform first recorded pre-firewall Kubernetes API reachability failure `ORCH-2026-00135`, then after the firewall update completed live `bench_test.status` successfully in `ORCH-2026-00137`. Unsupported-command behavior recorded `ORCH-2026-00136`. Infra `f3d8057` later completed INF-011; Platform now integrates runner-backed maintenance mode, developer mode, approved site_config, and CORS commands. Remaining runner gaps: backup, restore, Bench Test trigger, and LATP.

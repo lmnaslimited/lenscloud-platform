@@ -129,7 +129,8 @@ For each Environment used by the test:
 - Confirm Production LATP permits only non-destructive suites.
 - Confirm whether the Infra/operator Bench Command Job/API contract is available for runtime enforcement.
 - Run `bench_test.status` from the Site action as the positive Platform contract check.
-- Attempt one runner-pending command, such as `maintenance_mode.status`, and confirm Platform returns `Unsupported` instead of pretending enforcement succeeded.
+- Run one runner-backed supported command, such as `maintenance_mode.status`, and confirm Platform creates the pinned-runner Job and records sanitized evidence.
+- Attempt one runner-pending command, such as `backup.create` or `latp.trigger`, and confirm Platform returns `Unsupported` instead of pretending enforcement succeeded.
 - If the contract is not available, record the controls as Platform policy-only and do not claim live runtime enforcement.
 
 Expected result: each Site receives the effective controls for its Subscription and Environment. If the Bench Command Job/API exists, Platform applies or verifies supported controls through that API. If it does not exist, Platform records a production gap instead of inventing unsupported CR fields.

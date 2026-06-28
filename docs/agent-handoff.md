@@ -272,4 +272,11 @@ Platform-side implementation now exists for the Bench Command Job/API contract:
 
 This does not invent FrappeSite CR fields and does not use `kubectl`. Infra live verification/apply for INF-010 is complete at `dcd94d8`; after the firewall refresh, Platform live smoke completed `bench_test.status` successfully. Action logs: `ORCH-2026-00135` for the pre-firewall reachability failure, `ORCH-2026-00136` for unsupported-command behavior, and `ORCH-2026-00137` for the successful live `bench_test.status` run. Temporary smoke Site, Bench, and Customer records are absent. The temporary Job and ConfigMap were deleted and verified absent through the Python Kubernetes API. Current Platform evidence is `docs/bench-command-platform-evidence-20260625.md`.
 
-Next action: production runner support for commands beyond the `bench_test.status` verification stub remains pending.
+Next action: production runner support for backup, restore, Bench Test trigger, and LATP remains pending. Infra `f3d8057` completed INF-011 and Platform now integrates runner-backed maintenance mode, developer mode, approved site_config, and CORS commands behind Site Control policy. Current Platform evidence is `docs/bench-command-runner-platform-evidence-20260628.md`.
+## June 28 Bench Command Runner Integration
+
+Infra revision `f3d8057` was pulled in `/workspace/lenscloud-infra`. Platform consumed the updated `docs/platform-bench-command-handoff.md` and `docs/bench-command-production-runner-evidence-20260627.md`.
+
+Platform now keeps `bench_test.status` as the verification smoke path and enables the pinned production runner for `maintenance_mode.*`, `developer_mode.*`, approved `site_config.*`, and `cors.allowlist.*` commands. Backup, restore, `bench_test.trigger`, and LATP commands remain `Unsupported / COMMAND_UNSUPPORTED` until Infra publishes those runner contracts.
+
+The backend validates typed args, Site/Bench/Runtime Namespace target, Subscription/Environment Site Control policy, and uses the Python Kubernetes API only. Runner Jobs use the pinned image digest from Infra and mount the expected Bench sites PVC. Current evidence is `docs/bench-command-runner-platform-evidence-20260628.md`.

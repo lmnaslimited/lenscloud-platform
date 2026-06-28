@@ -9,48 +9,49 @@ Status: `Complete`, `In Progress`, `Pending`, or `Blocked`.
 
 All Platform product, UI, and operator-workflow scope starts in this file first. Supporting design docs, SOPs, and evidence may be linked from a row here, but they are not independent backlog trackers.
 
-| Work Item | Outcome | Status |
-|---|---|---|
-| EU cluster, operators, Traefik, wildcard TLS, restricted access | Infra runtime is ready for Platform reconciliation | Complete |
-| Database Server model and privacy validation | Public, Private Shared, and Private placement rules exist | Complete |
-| Structured MariaDB, Bench, and Site manifests | Secret-safe manifests map platform records to operator resources | Complete |
-| Idempotent Kubernetes apply and status sync | Server-side apply, sync, and action logs exist | Complete |
-| Wildcard Site workflow | Standard Sites require no DNS-provider or per-Site certificate action | Complete |
-| Operator-compatible release image | `lens-pure:v16.14.1` passes live Site and asset acceptance | Complete |
-| Create Release Group `lens-pure` and Release `v16.14.1` | Bench deployment resolves the approved image and digest from Release data | Complete |
-| Inventory and retire obsolete Bench/Site records | Old platform and matched operator resources are removed safely | In Progress |
-| Public live acceptance | Two unrelated customers share `default/frappe-mariadb`; both Sites pass HTTPS | Complete |
-| Private Shared live acceptance | Same-customer Quality/Production sharing passes; cross-customer attachment fails | Blocked |
-| Private live acceptance | One Bench/Site passes; every second Bench attachment fails | Blocked |
-| Platform Customer and Site visibility | LensCloud Platform User can list/create/update Customer and Site records while raw delete remains denied | Complete |
-| Platform operator workflow | Operator creates Bench and Site and sees real progress, URL, and history | In Progress |
-| Customer Free Plan workflow | Customer creates one real Site through the shared orchestration service | Complete |
-| Authenticated Playwright and evidence | Platform/customer desktop and mobile tests pass; evidence is recorded | Complete |
-| Safe cleanup and final status | Temporary resources are removed; shared MariaDB and infra remain healthy | Blocked |
-| Infra runtime lifecycle RBAC contract | Host-side Infra evidence supplies lifecycle RBAC; Platform consumes it through Python Kubernetes API only | Complete |
-| Runtime ownership metadata | MariaDB, FrappeBench, and FrappeSite manifests carry stable Platform/document/customer ownership labels | Complete |
-| First-class runtime visibility | Platform pages show CR conditions, workloads, Jobs, PVCs, routes, warning events, and finalizer state without secrets | In Progress |
-| Platform deletion orchestration | Site, Bench, and platform-managed Database Server deletion APIs enforce ownership, dependencies, protected-resource rules, audit, and retry | In Progress |
-| Platform lifecycle UI | Platform operators can inspect, confirm, delete, monitor, and retry from resource pages | Complete |
-| Lifecycle create/inspect/delete acceptance | Platform completes owned resource lifecycle without manager or Infra intervention | Blocked |
-| Runtime namespace registry | Infra-approved namespaces are synced with customer/purpose metadata and filtered for Database Server and Bench placement | In Progress |
-| Platform list and inspector UX | Operators can filter by fields, see the selected record clearly, use status/cell click filters, sort columns, filter by related documents, and edit from a simplified inspector rail | In Progress |
-| Launch tenant and runtime reset | Test tenants and exactly owned runtime resources are retired while Cluster handoff data and protected infrastructure remain intact | In Progress |
-| Metadata-driven permissions and connections | Create/edit rights and related-document summaries come from DocType permissions/links; counts open filtered lists | Complete |
-| Metadata-driven document editor | Center editing follows DocType tabs, sections, columns, Table, and Table MultiSelect metadata with compact Frappe-style controls | Complete |
-| Center document and child-table editor | Selected documents edit below the list or expanded in the center; child grids use fixed columns and horizontal scrolling | Complete |
-| Platform topology child-table editing | Operators can configure Plan privacy choices, Landscape environments, Privacy rules, and Site settings with typed value help and safe row operations | Complete |
-| Configurable environment and landscape model | Dev, QA, Pre-Prod, and Prod compose versioned Single through Four Tier landscapes with safe Site controls | In Progress |
-| Configurable privacy profiles | Plans resolve independent Bench and Database sharing policies through submitted Privacy Profile records linked to first-class Privacy master data | Complete |
-| Submitted policy/profile documents | Site Control Profile and Privacy are submittable policy versions with environment/family anchors, active/default selection, submitted-only consumption, and snapshot-safe subscription resolution | Complete |
-| Bench Command Job/API for Site Controls | Platform consumes INF-010 via Python Kubernetes API, validates policy/target/args, runs live `bench_test.status`, records action logs, cleans Job/ConfigMap, and reports runner-pending commands as Unsupported | Complete |
-| Subscription and beta enrollment | Customer, Plan, Region, Landscape, policy snapshot, approval, and environment Sites are tracked as one service lifecycle | In Progress |
-| Subscription workflow approval | Subscription remains a regular DocType initially, then uses native Frappe Workflow for Free self-approval, paid/beta approval levels, rejection, cancellation, and audited state transitions | Pending |
-| Free Plan launch topology | Each Release Group has at most one active Free Plan and each Region has one eligible shared Free Bench | In Progress |
-| Truthful launch dashboard | Platform launch readiness, accurate aggregates, action-required queues, capacity, and recent actions replace capped-list counts | In Progress |
-| Configurable grouped navigation | LensCloud consumes permission-filtered Frappe Workspace Sidebar groups with compact desktop and mobile behavior | In Progress |
-| Customer launch experience | Signup leads to guided Free Site onboarding, visible provisioning progress, friendly Sites, Account, and beta enrollment | In Progress |
-| Customer portal design track | Stitch brief and Frappe UI implementation contract cover responsive launch, failure, retry, and approval states | In Progress |
+| Work Item | Outcome | Status | Date Created | Date Completed |
+|---|---|---|---|---|
+| EU cluster, operators, Traefik, wildcard TLS, restricted access | Infra runtime is ready for Platform reconciliation | Complete | 2026-06-25 | 2026-06-25 |
+| Database Server model and privacy validation | Public, Private Shared, and Private placement rules exist | Complete | 2026-06-25 | 2026-06-25 |
+| Structured MariaDB, Bench, and Site manifests | Secret-safe manifests map platform records to operator resources | Complete | 2026-06-25 | 2026-06-25 |
+| Idempotent Kubernetes apply and status sync | Server-side apply, sync, and action logs exist | Complete | 2026-06-25 | 2026-06-25 |
+| Wildcard Site workflow | Standard Sites require no DNS-provider or per-Site certificate action | Complete | 2026-06-25 | 2026-06-25 |
+| Operator-compatible release image | `lens-pure:v16.14.1` passes live Site and asset acceptance | Complete | 2026-06-25 | 2026-06-25 |
+| Create Release Group `lens-pure` and Release `v16.14.1` | Bench deployment resolves the approved image and digest from Release data | Complete | 2026-06-25 | 2026-06-25 |
+| Inventory and retire obsolete Bench/Site records | Old platform and matched operator resources are removed safely | In Progress | 2026-06-25 |  |
+| Public live acceptance | Two unrelated customers share `default/frappe-mariadb`; both Sites pass HTTPS | Complete | 2026-06-25 | 2026-06-25 |
+| Private Shared live acceptance | Same-customer Quality/Production sharing passes; cross-customer attachment fails | Blocked | 2026-06-25 |  |
+| Private live acceptance | One Bench/Site passes; every second Bench attachment fails | Blocked | 2026-06-25 |  |
+| Platform Customer and Site visibility | LensCloud Platform User can list/create/update Customer and Site records while raw delete remains denied | Complete | 2026-06-25 | 2026-06-25 |
+| Platform operator workflow | Operator creates Bench and Site and sees real progress, URL, and history | In Progress | 2026-06-25 |  |
+| Customer Free Plan workflow | Customer creates one real Site through the shared orchestration service | Complete | 2026-06-25 | 2026-06-25 |
+| Authenticated Playwright and evidence | Platform/customer desktop and mobile tests pass; evidence is recorded | Complete | 2026-06-25 | 2026-06-25 |
+| Safe cleanup and final status | Temporary resources are removed; shared MariaDB and infra remain healthy | Blocked | 2026-06-25 |  |
+| Infra runtime lifecycle RBAC contract | Host-side Infra evidence supplies lifecycle RBAC; Platform consumes it through Python Kubernetes API only | Complete | 2026-06-25 | 2026-06-25 |
+| Runtime ownership metadata | MariaDB, FrappeBench, and FrappeSite manifests carry stable Platform/document/customer ownership labels | Complete | 2026-06-25 | 2026-06-25 |
+| First-class runtime visibility | Platform pages show CR conditions, workloads, Jobs, PVCs, routes, warning events, and finalizer state without secrets | In Progress | 2026-06-25 |  |
+| Platform deletion orchestration | Site, Bench, and platform-managed Database Server deletion APIs enforce ownership, dependencies, protected-resource rules, audit, and retry | In Progress | 2026-06-25 |  |
+| Platform lifecycle UI | Platform operators can inspect, confirm, delete, monitor, and retry from resource pages | Complete | 2026-06-25 | 2026-06-25 |
+| Lifecycle create/inspect/delete acceptance | Platform completes owned resource lifecycle without manager or Infra intervention | Blocked | 2026-06-25 |  |
+| Runtime namespace registry | Infra-approved namespaces are synced with customer/purpose metadata and filtered for Database Server and Bench placement | In Progress | 2026-06-25 |  |
+| Platform list and inspector UX | Operators can filter by fields, see the selected record clearly, use status/cell click filters, sort columns, filter by related documents, and edit from a simplified inspector rail | In Progress | 2026-06-25 |  |
+| Launch tenant and runtime reset | Test tenants and exactly owned runtime resources are retired while Cluster handoff data and protected infrastructure remain intact | In Progress | 2026-06-25 |  |
+| Metadata-driven permissions and connections | Create/edit rights and related-document summaries come from DocType permissions/links; counts open filtered lists | Complete | 2026-06-25 | 2026-06-25 |
+| Metadata-driven document editor | Center editing follows DocType tabs, sections, columns, Table, and Table MultiSelect metadata with compact Frappe-style controls | Complete | 2026-06-25 | 2026-06-25 |
+| Center document and child-table editor | Selected documents edit below the list or expanded in the center; child grids use fixed columns and horizontal scrolling | Complete | 2026-06-25 | 2026-06-25 |
+| Platform topology child-table editing | Operators can configure Plan privacy choices, Landscape environments, Privacy rules, and Site settings with typed value help and safe row operations | Complete | 2026-06-25 | 2026-06-25 |
+| Configurable environment and landscape model | Dev, QA, Pre-Prod, and Prod compose versioned Single through Four Tier landscapes with safe Site controls | In Progress | 2026-06-25 |  |
+| Configurable privacy profiles | Plans resolve independent Bench and Database sharing policies through submitted Privacy Profile records linked to first-class Privacy master data | Complete | 2026-06-25 | 2026-06-25 |
+| Submitted policy/profile documents | Site Control Profile and Privacy are submittable policy versions with environment/family anchors, active/default selection, submitted-only consumption, and snapshot-safe subscription resolution | Complete | 2026-06-25 | 2026-06-25 |
+| Bench Command Job/API for Site Controls | Platform consumes INF-010/INF-011 via Python Kubernetes API, validates policy/target/args, runs live `bench_test.status`, uses the pinned runner for supported Site Controls, records action logs, cleans Job/ConfigMap, and reports runner-pending commands as Unsupported | Complete | 2026-06-25 | 2026-06-28 |
+| Production Bench Command runner/API handoff | Infra built and verified the pinned production runner; Platform integrates runner-backed maintenance mode, developer mode, approved site_config, and CORS while backup, restore, Bench Test trigger, and LATP remain Unsupported | Complete | 2026-06-27 | 2026-06-28 |
+| Subscription and beta enrollment | Customer, Plan, Region, Landscape, policy snapshot, approval, and environment Sites are tracked as one service lifecycle | In Progress | 2026-06-25 |  |
+| Subscription workflow approval | Subscription remains a regular DocType initially, then uses native Frappe Workflow for Free self-approval, paid/beta approval levels, rejection, cancellation, and audited state transitions | Pending | 2026-06-25 |  |
+| Free Plan launch topology | Each Release Group has at most one active Free Plan and each Region has one eligible shared Free Bench | In Progress | 2026-06-25 |  |
+| Truthful launch dashboard | Platform launch readiness, accurate aggregates, action-required queues, capacity, and recent actions replace capped-list counts | In Progress | 2026-06-25 |  |
+| Configurable grouped navigation | LensCloud consumes permission-filtered Frappe Workspace Sidebar groups with compact desktop and mobile behavior | In Progress | 2026-06-25 |  |
+| Customer launch experience | Signup leads to guided Free Site onboarding, visible provisioning progress, friendly Sites, Account, and beta enrollment | In Progress | 2026-06-25 |  |
+| Customer portal design track | Stitch brief and Frappe UI implementation contract cover responsive launch, failure, retry, and approval states | In Progress | 2026-06-25 |  |
 
 ## Execution Order
 
