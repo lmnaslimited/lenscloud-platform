@@ -846,6 +846,18 @@ function formatActionResult(result) {
 	return JSON.stringify(result, null, 2)
 }
 
+function displayValue(value) {
+	if (Array.isArray(value)) return value.join(', ')
+	if (value === null || value === undefined || value === '') return 'No value'
+	return String(value)
+}
+
+function safeCommandDisplay(result) {
+	const display = result?.display
+	if (!display || display.safe !== true || !display.label) return null
+	return display
+}
+
 function actionLogFromError(message) {
 	return String(message || '').match(/ORCH-\d{4}-\d+/)?.[0] || ''
 }
@@ -1750,11 +1762,21 @@ function resizeEditorByKeyboard(event) {
 
 								<div v-if="actionResult" class="mt-3 rounded border border-outline-gray-2 bg-surface-white p-3">
 									<p class="text-xs font-medium uppercase text-ink-gray-5">Action result</p>
+									<div v-if="safeCommandDisplay(actionResult)" class="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2">
+										<p class="text-xs font-semibold uppercase text-emerald-700">Bench Command result</p>
+										<p class="mt-1 text-sm text-emerald-900"><span class="font-medium">{{ safeCommandDisplay(actionResult).label }}:</span> {{ displayValue(safeCommandDisplay(actionResult).value) }}</p>
+										<p v-if="safeCommandDisplay(actionResult).kind" class="mt-1 text-xs text-emerald-700">Kind: {{ safeCommandDisplay(actionResult).kind }}</p>
+									</div>
+									<div v-else-if="actionResult.fallback_summary" class="mt-2 rounded border border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+										<p class="text-xs font-semibold uppercase text-ink-gray-5">Sanitized summary</p>
+										<p class="mt-1 text-sm text-ink-gray-8">{{ actionResult.fallback_summary }}</p>
+									</div>
 									<div class="mt-2 space-y-1 text-xs text-ink-gray-6">
 										<p v-if="actionResult.status">Status: <span class="font-medium text-ink-gray-9">{{ actionResult.status }}</span></p>
 										<p v-if="actionResult.dry_run !== undefined">Dry run: <span class="font-medium text-ink-gray-9">{{ actionResult.dry_run ? 'Yes' : 'No' }}</span></p>
 										<p v-if="actionResult.cluster">Cluster: <span class="font-medium text-ink-gray-9">{{ actionResult.cluster }}</span></p>
 										<p v-if="actionResult.action_log">Action log: <span class="font-medium text-ink-gray-9">{{ actionResult.action_log }}</span></p>
+										<p v-if="actionResult.display_text">Display: <span class="font-medium text-ink-gray-9">{{ actionResult.display_text }}</span></p>
 										<p v-if="actionResult.dns_record">DNS record: <span class="font-medium text-ink-gray-9">{{ actionResult.dns_record }}</span></p>
 									</div>
 									<pre v-if="actionResult.manifest" class="mt-3 max-h-72 overflow-auto rounded bg-surface-gray-1 p-3 text-xs text-ink-gray-8">{{ actionResult.manifest }}</pre>

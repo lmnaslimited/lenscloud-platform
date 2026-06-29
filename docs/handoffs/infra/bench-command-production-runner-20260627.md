@@ -6,7 +6,7 @@ Platform has completed the INF-010 consumer integration for the Bench Command Jo
 
 Verified Platform evidence:
 
-- Platform evidence: `apps/lenscloud/docs/bench-command-platform-evidence-20260625.md`
+- Platform evidence: `apps/lenscloud/docs/evidence/bench-command/bench-command-platform-evidence-20260625.md`
 - Platform action logs:
   - `ORCH-2026-00135`: pre-firewall Kubernetes API reachability failure
   - `ORCH-2026-00136`: unsupported-command behavior

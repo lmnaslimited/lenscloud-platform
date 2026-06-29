@@ -417,4 +417,4 @@ After acceptance or stop:
 
 ## 17. Launch Topology And Reset
 
-For a fresh launch baseline and Single through Four Tier acceptance, follow `docs/operator-sop/launch-reset-and-acceptance.md`. Product topology rules are in `docs/product-topology-model.md`. Keep `docs/platform-workitems.md` as the only backlog and record actual proof in the dated launch evidence document.
+For a fresh launch baseline and Single through Four Tier acceptance, follow `docs/operator-sop/launch-reset-and-acceptance.md`. Product topology rules are in `docs/architecture/product-topology-model.md`. Keep `docs/platform-workitems.md` as the only backlog and record actual proof in the dated launch evidence document.

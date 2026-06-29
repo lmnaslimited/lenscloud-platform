@@ -170,7 +170,7 @@ Customers should see only a friendly database isolation description derived from
 
 Database Server pages must show secret-safe MariaDB conditions, related workloads, PVC summaries, warning events, attached Benches, finalizer/deletion progress, and orchestration history.
 
-A platform-managed Database Server may be deleted only when it has no active attached Benches and its exact runtime resource carries matching Platform ownership metadata. `default/frappe-mariadb`, external Database Servers, unlabelled resources, and protected infrastructure are never eligible for Platform deletion. Deletion is asynchronous and follows `docs/platform-runtime-lifecycle.md`.
+A platform-managed Database Server may be deleted only when it has no active attached Benches and its exact runtime resource carries matching Platform ownership metadata. `default/frappe-mariadb`, external Database Servers, unlabelled resources, and protected infrastructure are never eligible for Platform deletion. Deletion is asynchronous and follows `docs/architecture/platform-runtime-lifecycle.md`.
 
 ## First Acceptance Scenario
 

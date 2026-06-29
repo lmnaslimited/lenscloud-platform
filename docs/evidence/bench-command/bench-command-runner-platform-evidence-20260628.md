@@ -34,8 +34,8 @@ Files changed:
 - `lenscloud/api/test_policy.py`
 - `frontend/src/lib/catalog.js`
 - `docs/platform-workitems.md`
-- `docs/agent-handoff.md`
-- `docs/product-topology-model.md`
+- `docs/handoffs/platform/agent-handoff.md`
+- `docs/architecture/product-topology-model.md`
 
 Platform now:
 

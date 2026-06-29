@@ -154,7 +154,7 @@ Customer-created sites use the platform root domain in this pass.
 
 ## Platform Runtime Lifecycle Workflow
 
-The canonical contract is `docs/platform-runtime-lifecycle.md`.
+The canonical contract is `docs/architecture/platform-runtime-lifecycle.md`.
 
 Platform operators must be able to inspect and manage Platform-owned Database Servers, Benches, and Sites without manager access. Resource pages expose secret-safe CR conditions, related workloads, Jobs, PVCs, routes, warning events, finalizer state, and orchestration history.
 
@@ -197,7 +197,7 @@ Frappe document lifecycle actions are first-class UI actions in the platform con
 
 ## Frontend Execution Order
 
-The canonical frontend work-item list and status tracker is the `Frontend Handover Tracker` table in `docs/agent-handoff.md`.
+The canonical frontend work-item list and status tracker is the `Frontend Handover Tracker` table in `docs/handoffs/platform/agent-handoff.md`.
 
 1. Work on the row marked `Next` before starting later pending rows.
 2. Update that tracker table as work changes status.

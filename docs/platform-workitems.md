@@ -45,6 +45,9 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Submitted policy/profile documents | Site Control Profile and Privacy are submittable policy versions with environment/family anchors, active/default selection, submitted-only consumption, and snapshot-safe subscription resolution | Complete | 2026-06-25 | 2026-06-25 |
 | Bench Command Job/API for Site Controls | Platform consumes INF-010/INF-011 via Python Kubernetes API, validates policy/target/args, runs live `bench_test.status`, uses the pinned runner for supported Site Controls, records action logs, cleans Job/ConfigMap, and reports runner-pending commands as Unsupported | Complete | 2026-06-25 | 2026-06-28 |
 | Production Bench Command runner/API handoff | Infra built and verified the pinned production runner; Platform integrates runner-backed maintenance mode, developer mode, approved site_config, and CORS while backup, restore, Bench Test trigger, and LATP remain Unsupported | Complete | 2026-06-27 | 2026-06-28 |
+| Live real Bench Command runner acceptance | Free Plan public Prod Bench/Site, HTTPS/static assets, `bench_test.status`, and runner-backed `maintenance_mode.status` passed with Infra `328846b`; cleanup verified no command Job/ConfigMap remains; operator retest SOP: `docs/operator-sop/bench-command-real-site-runner-verification.md` | Complete | 2026-06-29 | 2026-06-29 |
+| Remaining Bench Command runner families handoff | After real Bench/Site runner proof, Infra enables backup, restore, Bench Test trigger, and LATP runner contracts; Platform wires them as one complete Site Control command set | Pending | 2026-06-29 |  |
+| Bench Command result display contract | Infra `405e0c1` display schema is consumed; Platform returns and renders safe `display`/`display_text`, action logs include readable results, and live `maintenance_mode.status` showed `Maintenance mode: Off` | Complete | 2026-06-29 | 2026-06-29 |
 | Subscription and beta enrollment | Customer, Plan, Region, Landscape, policy snapshot, approval, and environment Sites are tracked as one service lifecycle | In Progress | 2026-06-25 |  |
 | Subscription workflow approval | Subscription remains a regular DocType initially, then uses native Frappe Workflow for Free self-approval, paid/beta approval levels, rejection, cancellation, and audited state transitions | Pending | 2026-06-25 |  |
 | Free Plan launch topology | Each Release Group has at most one active Free Plan and each Region has one eligible shared Free Bench | In Progress | 2026-06-25 |  |
@@ -52,6 +55,8 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Configurable grouped navigation | LensCloud consumes permission-filtered Frappe Workspace Sidebar groups with compact desktop and mobile behavior | In Progress | 2026-06-25 |  |
 | Customer launch experience | Signup leads to guided Free Site onboarding, visible provisioning progress, friendly Sites, Account, and beta enrollment | In Progress | 2026-06-25 |  |
 | Customer portal design track | Stitch brief and Frappe UI implementation contract cover responsive launch, failure, retry, and approval states | In Progress | 2026-06-25 |  |
+| Agent context and skill hygiene | `.agents` inventory is documented, Frappe UI skill is explicitly required only for UI work, stale MCP/skill claims are absent, and governance is linked from `AGENTS.md` | Complete | 2026-06-29 | 2026-06-29 |
+| Platform documentation structure | Docs are organized by purpose with root backlog, architecture, handoffs, evidence, SOPs, design, agents, decisions, archive, and compatibility stubs for legacy high-traffic paths | Complete | 2026-06-29 | 2026-06-29 |
 
 ## Execution Order
 

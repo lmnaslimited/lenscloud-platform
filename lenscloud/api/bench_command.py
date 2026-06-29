@@ -25,7 +25,7 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:c3e0922ca034c840ebd06c29b52794fec54c655b62444df60393f2ed5501d920"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:ab69e3ff24584e268bfa92f44c5d71e680ce1780cc8a4a9a5ce1e60b3e4bf4e7"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -401,6 +401,60 @@ def wait_for_job(cluster, namespace, job_name, labels, timeout):
 	return "Timed Out", last_job, last_pods
 
 
+def safe_command_display(summary):
+	if not isinstance(summary, dict):
+		return None
+	display = summary.get("display")
+	if not isinstance(display, dict) or display.get("safe") is not True:
+		return None
+	label = sanitize_error(display.get("label") or "").strip()
+	if not label:
+		return None
+	value = display.get("value")
+	if isinstance(value, list):
+		value = ", ".join(sanitize_error(item) for item in value)
+	else:
+		value = sanitize_error(value)
+	kind = sanitize_error(display.get("kind") or "string")
+	result = {"label": label, "value": value, "kind": kind, "safe": True}
+	if "rawValue" in display and not isinstance(display.get("rawValue"), dict):
+		result["rawValue"] = display.get("rawValue")
+	return result
+
+
+def command_display_text(display):
+	if not display:
+		return None
+	value = display.get("value")
+	if value in (None, ""):
+		return display.get("label")
+	return f"{display.get('label')}: {value}"
+
+
+def sanitized_status_summary(summary):
+	if not isinstance(summary, dict):
+		return None
+	items = []
+	for key in ("phase", "code", "summary"):
+		value = summary.get(key)
+		if value not in (None, ""):
+			items.append(f"{key}: {sanitize_error(value)}")
+	return "; ".join(items) if items else None
+
+
+def command_result_next_actions(summary):
+	if isinstance(summary, dict):
+		code = summary.get("code")
+		text = str(summary.get("summary") or "").lower()
+		if code == "TARGET_NOT_FOUND" and "site_config.json" in text:
+			return [
+				"Ask Infra to verify the Bench Command runner mount/path contract for the real Bench sites PVC.",
+				"Confirm the runner can see the target Site directory and site_config.json without exposing file contents or Secrets.",
+				"Keep backup, restore, Bench Test trigger, and LATP unsupported until runner contracts are complete.",
+			]
+	return ["Open the action log for the sanitized request/job evidence.", "If cleanup failed, rerun cleanup for the listed Job/ConfigMap only."]
+
+
 def unsupported_response(command, log, site_doc, reason="Production runner is not available for this command."):
 	message = f"Bench Command {command} is contracted but unsupported by the current runner/API. {reason}"
 	finish_action_log(log, "Unsupported", message)
@@ -496,7 +550,14 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 			summary = {"phase": "Timed Out", "code": "TIMEOUT", "summary": "Bench Command Job exceeded Platform timeout.", "redacted": True}
 		if cleanup:
 			deleted = cleanup_command_resources(cluster, namespace, job_name, request_name)
+		display = safe_command_display(summary)
+		display_text = command_display_text(display)
+		status_text = sanitized_status_summary(summary)
 		message = f"Bench Command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
+		if display_text:
+			message = f"{message} Result: {display_text}."
+		elif status_text:
+			message = f"{message} Summary: {status_text}."
 		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message)
 		return {
 			"status": status,
@@ -510,10 +571,13 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 			"request_configmap": request_name,
 			"job": job_name,
 			"summary": summary,
+			"display": display,
+			"display_text": display_text,
+			"fallback_summary": status_text if not display_text else None,
 			"cleanup": deleted,
 			"secret_values_returned": False,
 			"message": message,
-			"next_actions": ["Open the action log for the sanitized request/job evidence.", "If cleanup failed, rerun cleanup for the listed Job/ConfigMap only."],
+			"next_actions": command_result_next_actions(summary),
 		}
 	except Exception as exc:
 		cleanup_message = ""

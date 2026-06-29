@@ -25,7 +25,18 @@ This repository owns the `lenscloud` Frappe app and its product workflows.
 
 - [README.md](./README.md)
 - [requirements.md](./requirements.md)
-- [docs/agent-handoff.md](./docs/agent-handoff.md)
-- [docs/platform-runtime-lifecycle.md](./docs/platform-runtime-lifecycle.md)
-- [docs/platform-agent-live-orchestration-prompt.md](./docs/platform-agent-live-orchestration-prompt.md)
+- [docs/handoffs/platform/agent-handoff.md](./docs/handoffs/platform/agent-handoff.md)
+- [docs/architecture/platform-runtime-lifecycle.md](./docs/architecture/platform-runtime-lifecycle.md)
+- [docs/handoffs/platform/platform-agent-live-orchestration-prompt.md](./docs/handoffs/platform/platform-agent-live-orchestration-prompt.md)
+
+## UI Work
+
+Before changing Platform or customer frontend code, read:
+
+- [.agents/README.md](./.agents/README.md)
 - [.agents/skills/frappe-ui-product/SKILL.md](./.agents/skills/frappe-ui-product/SKILL.md)
+- [.agents/skills/frappe-ui-product/references/lenscloud-ui-contract.md](./.agents/skills/frappe-ui-product/references/lenscloud-ui-contract.md)
+- [.agents/skills/frappe-ui-product/references/frappe-ui-patterns.md](./.agents/skills/frappe-ui-product/references/frappe-ui-patterns.md)
+
+Do not treat `.agents` as a backlog. New agent context starts in
+`docs/platform-workitems.md` first.

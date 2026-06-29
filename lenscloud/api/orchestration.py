@@ -419,6 +419,19 @@ def fail_action(log, exc, next_action):
 	frappe.throw(_("{0} Action log: {1}. Next action: {2}").format(safe_error, log.name, next_action))
 
 
+def orchestration_failure_next_action(exc, fallback):
+	text = sanitize_error(exc).lower()
+	if any(marker in text for marker in ("timed out", "connecttimeout", "connection refused", "max retries exceeded")):
+		return (
+			"Confirm the Kubernetes API is reachable from the Platform devcontainer and the host-side API authorization "
+			"watcher/firewall rule is current, then retry. If the operator network changed, ask Infra to run "
+			"`./scripts/52-authorize-platform-api.sh --watch` from the lenscloud-infra host checkout."
+		)
+	if "403" in text or "forbidden" in text:
+		return "Ask Infra to verify restricted Platform RBAC for the target namespace and resource, then retry."
+	return fallback
+
+
 def dry_run_result(log, manifest, cluster, resource_label, requested_dry_run, apply_enabled):
 	if requested_dry_run:
 		message = f"Dry run was selected. {resource_label} manifest generated; no Kubernetes resource was created."
@@ -541,7 +554,7 @@ def reconcile_database_server(database_server, dry_run=True):
 		return {"status": "accepted", "phase": doc.database_status, "cluster": cluster.name, "action_log": log.name, "message": message, "next_actions": ["Run Sync runtime status until Ready/Healthy.", "Run Inspect runtime to review conditions, finalizers, workloads, Services, PVCs, and warning Events."]}
 	except Exception as exc:
 		doc.provisioning_status = "Failed"; doc.database_status = "Failed"; doc.last_error = sanitize_error(exc); doc.save(ignore_permissions=True)
-		fail_action(log, exc, database_reconcile_next_action(doc, cluster, exc))
+		fail_action(log, exc, orchestration_failure_next_action(exc, database_reconcile_next_action(doc, cluster, exc)))
 
 
 @frappe.whitelist()
@@ -580,7 +593,7 @@ def reconcile_bench(bench, dry_run=True):
 		return {"status": "accepted", "phase": doc.bench_status, "cluster": cluster.name, "action_log": log.name, "message": message, "next_actions": ["Run Sync runtime status until Ready.", "Run Inspect runtime before creating a Site."]}
 	except Exception as exc:
 		doc.bench_status = "Failed"; doc.save(ignore_permissions=True)
-		fail_action(log, exc, "Open this action log, correct the placement/database/release issue, then retry Reconcile Bench.")
+		fail_action(log, exc, orchestration_failure_next_action(exc, "Open this action log, correct the placement/database/release issue, then retry Reconcile Bench."))
 
 
 @frappe.whitelist()
@@ -621,7 +634,7 @@ def reconcile_site(site, dry_run=True):
 		return {"status": "accepted", "phase": doc.site_status, "cluster": cluster.name, "action_log": log.name, "message": message, "next_actions": ["Run Sync provisioning and access until Ready.", "When Ready, verify the HTTPS page and generated static asset.", "Run Inspect runtime for finalizers, Jobs, Services, Ingresses, and warning Events."]}
 	except Exception as exc:
 		doc.provisioning_status = "Failed"; doc.site_status = "Failed"; doc.route_status = "Failed"; doc.route_error = sanitize_error(exc); doc.save(ignore_permissions=True)
-		fail_action(log, exc, "Open this action log, correct the Bench/secret/route issue, then retry Reconcile Site.")
+		fail_action(log, exc, orchestration_failure_next_action(exc, "Open this action log, correct the Bench/secret/route issue, then retry Reconcile Site."))
 
 
 def sync_custom_resource(cluster, kind, namespace, name):

@@ -65,7 +65,7 @@ Run authenticated desktop and mobile Playwright for Platform and customer flows.
 
 ## 8. Close
 
-Disable apply. Confirm no run-prefixed resources remain, protected MariaDB is Ready, and no unattributed PVC was touched. Update dated evidence, canonical workitems, and `docs/agent-handoff.md`.
+Disable apply. Confirm no run-prefixed resources remain, protected MariaDB is Ready, and no unattributed PVC was touched. Update dated evidence, canonical workitems, and `docs/handoffs/platform/agent-handoff.md`.
 
 ## Child-Table Configuration Check
 

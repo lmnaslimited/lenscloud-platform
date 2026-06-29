@@ -240,7 +240,7 @@ Platform-managed MariaDB, FrappeBench, and FrappeSite resources carry stable `le
 
 Deletion state is asynchronous: `Deletion Requested`, `Quiescing`, `Deleting`, `Deleted`, or `Deletion Failed`. Runtime absence and dependent cleanup must be confirmed before the control-plane document reaches its terminal state.
 
-Platform runtime views summarize CR conditions, related workloads/Jobs, PVCs, Services/Ingresses, warning Events, finalizers, and action history without exposing Secret values. The complete contract is `docs/platform-runtime-lifecycle.md`.
+Platform runtime views summarize CR conditions, related workloads/Jobs, PVCs, Services/Ingresses, warning Events, finalizers, and action history without exposing Secret values. The complete contract is `docs/architecture/platform-runtime-lifecycle.md`.
 
 ### Runtime Reconciliation State
 
@@ -268,4 +268,4 @@ Privacy is a versioned placement profile. Each Environment independently resolve
 
 Site Control Profile describes typed Site settings and Bench Test/LATP requirements. Environment Test Run records are valid only for the matching Subscription policy hash and Release. Prod LATP is non-destructive.
 
-See `docs/product-topology-model.md`.
+See `docs/architecture/product-topology-model.md`.

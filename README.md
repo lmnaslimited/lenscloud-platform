@@ -58,19 +58,19 @@ repository.
 
 ## Agent Handoff
 
-Repo-local agent guidance lives in [AGENTS.md](./AGENTS.md) and [docs/agent-handoff.md](./docs/agent-handoff.md).
+Repo-local agent guidance lives in [AGENTS.md](./AGENTS.md) and [docs/handoffs/platform/agent-handoff.md](./docs/handoffs/platform/agent-handoff.md).
 The current devcontainer implementation handoff is
-[docs/platform-agent-live-orchestration-prompt.md](./docs/platform-agent-live-orchestration-prompt.md).
+[docs/handoffs/platform/platform-agent-live-orchestration-prompt.md](./docs/handoffs/platform/platform-agent-live-orchestration-prompt.md).
 Frontend agents must use the repo-local
 [Frappe UI product skill](./.agents/skills/frappe-ui-product/SKILL.md).
 The broader operating model is documented in:
-- [docs/agent-matrix.md](./docs/agent-matrix.md)
-- [docs/skills.md](./docs/skills.md)
-- [docs/mcps.md](./docs/mcps.md)
-- [docs/state-model.md](./docs/state-model.md)
-- [docs/release-model.md](./docs/release-model.md)
-- [docs/platform-gap-backlog.md](./docs/platform-gap-backlog.md)
-- [docs/workflows.md](./docs/workflows.md)
+- [docs/agents/agent-matrix.md](./docs/agents/agent-matrix.md)
+- [docs/agents/skills.md](./docs/agents/skills.md)
+- [docs/agents/mcps.md](./docs/agents/mcps.md)
+- [docs/architecture/state-model.md](./docs/architecture/state-model.md)
+- [docs/architecture/release-model.md](./docs/architecture/release-model.md)
+- [docs/archive/platform-gap-backlog.md](./docs/archive/platform-gap-backlog.md)
+- [docs/architecture/workflows.md](./docs/architecture/workflows.md)
 
 ## Suggested Stack
 

@@ -127,11 +127,15 @@ For each Environment used by the test:
   - LATP gate.
 - Confirm higher environments, especially Pre-Prod and Prod, use restricted controls.
 - Confirm Production LATP permits only non-destructive suites.
-- Confirm whether the Infra/operator Bench Command Job/API contract is available for runtime enforcement.
-- Run `bench_test.status` from the Site action as the positive Platform contract check.
-- Run one runner-backed supported command, such as `maintenance_mode.status`, and confirm Platform creates the pinned-runner Job and records sanitized evidence.
+- Confirm the Infra/operator Bench Command Job/API contract is available for supported runtime enforcement.
+- Dedicated real Bench/Site runner proof is complete as of 2026-06-29:
+  - evidence: `docs/evidence/bench-command/bench-command-real-site-runner-evidence-20260629.md`;
+  - `bench_test.status`: passed in `ORCH-2026-00156`;
+  - `maintenance_mode.status`: passed in `ORCH-2026-00159` after Infra `328846b` real sites path fix;
+  - Platform used the pinned runner Job, mounted the Bench sites PVC at `/home/frappe/frappe-bench/sites`, recorded sanitized evidence, and deleted the temporary Job/ConfigMap.
 - Attempt one runner-pending command, such as `backup.create` or `latp.trigger`, and confirm Platform returns `Unsupported` instead of pretending enforcement succeeded.
-- If the contract is not available, record the controls as Platform policy-only and do not claim live runtime enforcement.
+- Do not start the full privacy/topology end-to-end matrix until privacy policies and all required Site Control runner contracts are ready.
+- If a specific command family is not available, record that control as Platform policy-only or Unsupported and do not claim live runtime enforcement.
 
 Expected result: each Site receives the effective controls for its Subscription and Environment. If the Bench Command Job/API exists, Platform applies or verifies supported controls through that API. If it does not exist, Platform records a production gap instead of inventing unsupported CR fields.
 

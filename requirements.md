@@ -123,4 +123,4 @@ Build a Frappe-based platform application that serves both customer self-service
 - Platform navigation must come from permission-protected Frappe Workspace Sidebar configuration.
 - Customer UX must hide Kubernetes and runtime implementation details.
 
-Detailed rules: `docs/product-topology-model.md`.
+Detailed rules: `docs/architecture/product-topology-model.md`.

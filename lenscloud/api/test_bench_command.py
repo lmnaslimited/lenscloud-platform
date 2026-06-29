@@ -87,6 +87,40 @@ class BenchCommandContractTest(unittest.TestCase):
 			bench_command.command_args("cors.allowlist.update", {"origins": ["*"]})
 		self.assertEqual(bench_command.command_args("cors.allowlist.update", {"origins": ["https://example.com", "https://example.com"]}), {"origins": ["https://example.com"]})
 
+
+	def test_safe_display_uses_top_level_safe_display_only(self):
+		summary = {
+			"phase": "Succeeded",
+			"summary": "Read maintenance_mode status",
+			"details": {"key": "maintenance_mode", "value": 0},
+			"display": {"label": "Maintenance mode", "value": "Off", "kind": "boolean", "rawValue": 0, "safe": True},
+		}
+		display = bench_command.safe_command_display(summary)
+		self.assertEqual(display["label"], "Maintenance mode")
+		self.assertEqual(display["value"], "Off")
+		self.assertEqual(display["kind"], "boolean")
+		self.assertEqual(bench_command.command_display_text(display), "Maintenance mode: Off")
+
+	def test_safe_display_rejects_unsafe_or_missing_display(self):
+		self.assertIsNone(bench_command.safe_command_display({"display": {"label": "Token", "value": "secret", "safe": False}}))
+		self.assertIsNone(bench_command.safe_command_display({"details": {"key": "maintenance_mode", "value": 1}}))
+		self.assertIn("code: COMMAND_UNSUPPORTED", bench_command.sanitized_status_summary({"phase": "Unsupported", "code": "COMMAND_UNSUPPORTED", "summary": "No runner"}))
+
+	def test_display_contract_examples(self):
+		examples = [
+			("developer_mode.status", {"label": "Developer mode", "value": "Off", "kind": "boolean", "safe": True}, "Developer mode: Off"),
+			("site_config.get", {"label": "Server script", "value": "On", "kind": "boolean", "safe": True}, "Server script: On"),
+			("cors.allowlist.get", {"label": "CORS allowlist", "value": ["https://app.example.com"], "kind": "origin-list", "safe": True}, "CORS allowlist: https://app.example.com"),
+		]
+		for _command, display_data, text in examples:
+			with self.subTest(command=_command):
+				display = bench_command.safe_command_display({"display": display_data})
+				self.assertEqual(bench_command.command_display_text(display), text)
+
+	def test_runner_target_not_found_guides_mount_contract(self):
+		actions = bench_command.command_result_next_actions({"code": "TARGET_NOT_FOUND", "summary": "site_config.json was not found"})
+		self.assertIn("Bench Command runner mount/path contract", actions[0])
+
 	def test_connection_failure_next_action_points_to_api_authorization(self):
 		message = bench_command.failure_next_action(Exception("Max retries exceeded with url: /api/v1/namespaces/x/configmaps"))
 		self.assertIn("Kubernetes API is reachable", message)
