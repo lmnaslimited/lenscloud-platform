@@ -72,6 +72,8 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertIn("maintenance_mode.enable", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("developer_mode.status", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("cors.allowlist.update", bench_command.SUPPORTED_COMMANDS)
+		self.assertIn("backup.status", bench_command.CONTRACTED_COMMANDS)
+		self.assertIn("backup.status", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("backup.create", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("restore.execute", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("bench_test.trigger", bench_command.SUPPORTED_COMMANDS)
@@ -87,6 +89,9 @@ class BenchCommandContractTest(unittest.TestCase):
 			bench_command.command_args("cors.allowlist.update", {"origins": ["*"]})
 		self.assertEqual(bench_command.command_args("cors.allowlist.update", {"origins": ["https://example.com", "https://example.com"]}), {"origins": ["https://example.com"]})
 
+	def test_backup_status_args_are_empty(self):
+		self.assertEqual(bench_command.command_args("backup.status", {"ignored": "value"}), {})
+
 
 	def test_safe_display_uses_top_level_safe_display_only(self):
 		summary = {
@@ -101,16 +106,37 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertEqual(display["kind"], "boolean")
 		self.assertEqual(bench_command.command_display_text(display), "Maintenance mode: Off")
 
+	def test_backup_status_display_preserves_safe_metadata(self):
+		summary = {
+			"display": {
+				"label": "Backups",
+				"value": "0 available",
+				"kind": "backup-status",
+				"rawValue": {"count": 0, "latest": None},
+				"safe": True,
+			}
+		}
+		display = bench_command.safe_command_display(summary)
+		self.assertEqual(bench_command.command_display_text(display), "Backups: 0 available")
+		self.assertEqual(display["rawValue"], {"count": 0, "latest": None})
+
 	def test_safe_display_rejects_unsafe_or_missing_display(self):
 		self.assertIsNone(bench_command.safe_command_display({"display": {"label": "Token", "value": "secret", "safe": False}}))
 		self.assertIsNone(bench_command.safe_command_display({"details": {"key": "maintenance_mode", "value": 1}}))
 		self.assertIn("code: COMMAND_UNSUPPORTED", bench_command.sanitized_status_summary({"phase": "Unsupported", "code": "COMMAND_UNSUPPORTED", "summary": "No runner"}))
+
+	def test_remaining_families_stay_unsupported(self):
+		for command in ("backup.create", "restore.preview", "restore.execute", "restore.status", "bench_test.trigger", "latp.trigger", "latp.status"):
+			with self.subTest(command=command):
+				self.assertIn(command, bench_command.CONTRACTED_COMMANDS)
+				self.assertNotIn(command, bench_command.SUPPORTED_COMMANDS)
 
 	def test_display_contract_examples(self):
 		examples = [
 			("developer_mode.status", {"label": "Developer mode", "value": "Off", "kind": "boolean", "safe": True}, "Developer mode: Off"),
 			("site_config.get", {"label": "Server script", "value": "On", "kind": "boolean", "safe": True}, "Server script: On"),
 			("cors.allowlist.get", {"label": "CORS allowlist", "value": ["https://app.example.com"], "kind": "origin-list", "safe": True}, "CORS allowlist: https://app.example.com"),
+			("backup.status", {"label": "Backups", "value": "0 available", "kind": "backup-status", "safe": True}, "Backups: 0 available"),
 		]
 		for _command, display_data, text in examples:
 			with self.subTest(command=_command):

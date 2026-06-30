@@ -9,7 +9,8 @@
 		"preview": "vite preview",
 		"test:child-tables": "node tests/child-tables-auth.mjs",
 		"test:metadata-framework": "node tests/metadata-framework-auth.mjs",
-		"test:bench-command-display": "node tests/bench-command-display-auth.mjs"
+		"test:bench-command-display": "node tests/bench-command-display-auth.mjs",
+		"test:bench-command-backup-status": "node tests/bench-command-backup-status-auth.mjs"
 	},
 	"dependencies": {
 		"@vitejs/plugin-vue": "^5.2.4",

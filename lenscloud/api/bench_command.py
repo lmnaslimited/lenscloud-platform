@@ -25,7 +25,7 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:ab69e3ff24584e268bfa92f44c5d71e680ce1780cc8a4a9a5ce1e60b3e4bf4e7"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:eebfa0199c328207b14a949fa6232954a203a3937b1eed4930e9c3ec95b654d6"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -39,11 +39,11 @@ RUNNER_SUPPORTED_COMMANDS = {
 	"site_config.get",
 	"cors.allowlist.update",
 	"cors.allowlist.get",
+	"backup.status",
 }
 SUPPORTED_COMMANDS = VERIFICATION_COMMANDS | RUNNER_SUPPORTED_COMMANDS
 RUNNER_PENDING_COMMANDS = {
 	"backup.create",
-	"backup.status",
 	"restore.preview",
 	"restore.execute",
 	"restore.status",
@@ -124,6 +124,8 @@ def command_args(command, args):
 			frappe.throw(_("Wildcard CORS origin is not allowed."))
 		return {"origins": origins}
 	if command == "cors.allowlist.get":
+		return {}
+	if command == "backup.status":
 		return {}
 	return args
 
@@ -401,6 +403,16 @@ def wait_for_job(cluster, namespace, job_name, labels, timeout):
 	return "Timed Out", last_job, last_pods
 
 
+def sanitize_display_value(value):
+	if isinstance(value, dict):
+		return {sanitize_error(key): sanitize_display_value(item) for key, item in value.items()}
+	if isinstance(value, list):
+		return [sanitize_display_value(item) for item in value]
+	if isinstance(value, (int, float, bool)) or value is None:
+		return value
+	return sanitize_error(value)
+
+
 def safe_command_display(summary):
 	if not isinstance(summary, dict):
 		return None
@@ -417,8 +429,8 @@ def safe_command_display(summary):
 		value = sanitize_error(value)
 	kind = sanitize_error(display.get("kind") or "string")
 	result = {"label": label, "value": value, "kind": kind, "safe": True}
-	if "rawValue" in display and not isinstance(display.get("rawValue"), dict):
-		result["rawValue"] = display.get("rawValue")
+	if "rawValue" in display:
+		result["rawValue"] = sanitize_display_value(display.get("rawValue"))
 	return result
 
 
