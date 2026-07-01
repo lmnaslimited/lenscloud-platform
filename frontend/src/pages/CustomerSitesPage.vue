@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
-import { CircleHelp, CloudDownload, Globe2, LifeBuoy, Lock, Pause, RefreshCcw, RotateCcw, Server, SquareArrowOutUpRight } from 'lucide-vue-next'
+import { CheckCircle2, CircleHelp, CloudDownload, ExternalLink, Globe2, LifeBuoy, Lock, Pause, RefreshCcw, RotateCcw, SquareArrowOutUpRight } from 'lucide-vue-next'
 import { listDocs, formatFieldValue } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -26,9 +26,9 @@ const lockedActions = [
 ]
 
 const stats = computed(() => [
-	{ label: 'Sites', value: sites.value.length, note: 'Linked tenant instances' },
-	{ label: 'Ready', value: sites.value.filter((site) => site.site_status === 'Ready' || site.site_status === 'Active').length, note: 'Operator runtime ready' },
-	{ label: 'Routes ready', value: sites.value.filter((site) => site.route_status === 'Ready').length, note: 'HTTPS access verified' },
+	{ label: 'Sites', value: sites.value.length, note: 'Sites in your account' },
+	{ label: 'Ready', value: sites.value.filter((site) => site.site_status === 'Ready' || site.site_status === 'Active').length, note: 'Ready to open' },
+	{ label: 'Routes ready', value: sites.value.filter((site) => site.route_status === 'Ready').length, note: 'Access is ready' },
 ])
 
 const assistantContext = computed(() => ({
@@ -49,7 +49,7 @@ const assistantContext = computed(() => ({
 	],
 	nextSteps: sites.value.length
 		? ['Open a site card for context.', 'Use Contact Support for standard requests.', 'Ask LensCloud about qualification before backup/restore/upgrade/DNS actions.']
-		: ['Create the first Site.', 'The platform selects ready Public capacity and uses the gated operator reconcile path.'],
+		: ['Create the first Site.', 'LensCloud prepares the workspace and keeps progress visible.'],
 }))
 
 async function load() {
@@ -69,7 +69,7 @@ async function load() {
 		}
 
 		sites.value = await listDocs('Site', {
-			fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'hostname_reservation_status', 'route_status', 'tls_status', 'access_url', 'backup_state', 'restore_state', 'upgrade_state', 'bench', 'customer', 'modified'],
+			fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'hostname_reservation_status', 'route_status', 'tls_status', 'access_url', 'plan', 'subscription', 'environment', 'modified'],
 			limit: 50,
 			filters: [['customer', '=', customer.value.name]],
 		})
@@ -86,18 +86,18 @@ onMounted(load)
 <template>
 	<WorkspaceLayout
 		title="Sites"
-		subtitle="Create sites, review status, and contact support. Advanced operations require LensCloud qualification."
+		subtitle="Review Sites, follow setup progress, and open your ready workspace."
 		inspector-kicker="Site context"
 		:inspector-title="selectedSite ? (selectedSite.title || selectedSite.name) : 'No site selected'"
-		inspector-subtitle="Commercial, support, and technical context live here. Advanced lifecycle actions are locked unless qualification is approved."
+		inspector-subtitle="Customer-safe Site status and support actions."
 		assistant-label="Assistant"
 		assistant-hint="The assistant will help explain site status, support paths, billing context, and qualification requirements."
 		:assistant-context="assistantContext"
 	>
 		<template #actions>
-			<Button :as="RouterLink" to="/customer/create-site">
+			<Button :as="RouterLink" to="/customer/plans">
 				<SquareArrowOutUpRight class="size-4" />
-				Create Site
+				Choose Plan
 			</Button>
 			<Button variant="subtle" @click="load">Refresh</Button>
 		</template>
@@ -115,11 +115,11 @@ onMounted(load)
 						<div class="flex flex-wrap items-center justify-between gap-3">
 							<div>
 								<p class="text-base font-semibold text-ink-gray-9">Manage sites</p>
-								<p class="mt-1 text-sm leading-5 text-ink-gray-5">Create a site, review current instances, and use support for standard customer requests. Advanced operations are qualification-gated.</p>
+								<p class="mt-1 text-sm leading-5 text-ink-gray-5">Open ready Sites, review setup progress, and use support when you need help.</p>
 							</div>
-							<Button :as="RouterLink" to="/customer/create-site">
+							<Button :as="RouterLink" to="/customer/plans">
 								<SquareArrowOutUpRight class="size-4" />
-								Create Site
+								Choose Plan
 							</Button>
 						</div>
 
@@ -141,11 +141,11 @@ onMounted(load)
 						<div class="mx-auto grid size-10 place-items-center rounded bg-surface-gray-2 text-ink-gray-5">
 							<Globe2 class="size-5" />
 						</div>
-						<p class="mt-3 text-base font-semibold text-ink-gray-9">Create your first site</p>
-						<p class="mx-auto mt-1 max-w-md text-sm leading-6 text-ink-gray-5">LensCloud is ready for the customer flow. Create a Site on the Free Plan. LensCloud selects ready Public capacity and enters the gated operator reconcile path.</p>
-						<Button class="mt-4" :as="RouterLink" to="/customer/create-site">
+						<p class="mt-3 text-base font-semibold text-ink-gray-9">Launch your first Site</p>
+						<p class="mx-auto mt-1 max-w-md text-sm leading-6 text-ink-gray-5">Choose the Free Plan, confirm your ₹0 subscription, and LensCloud will prepare your first Site.</p>
+						<Button class="mt-4" :as="RouterLink" to="/customer/plans">
 							<SquareArrowOutUpRight class="size-4" />
-							Create Site
+							Choose Plan
 						</Button>
 					</section>
 
@@ -166,21 +166,22 @@ onMounted(load)
 
 							<div class="mt-3 grid gap-2 sm:grid-cols-2">
 								<div class="rounded bg-surface-gray-1 px-3 py-2">
-									<p class="text-xs text-ink-gray-5">Bench</p>
-									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ formatFieldValue(site.bench) }}</p>
+									<p class="text-xs text-ink-gray-5">Setup progress</p>
+									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ site.provisioning_status || 'Pending' }}</p>
 								</div>
 								<div class="rounded bg-surface-gray-1 px-3 py-2">
-									<p class="text-xs text-ink-gray-5">Provisioning / route</p>
-									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ site.provisioning_status || 'Pending' }} / {{ site.route_status || 'Not checked' }}</p>
+									<p class="text-xs text-ink-gray-5">Access</p>
+									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ site.route_status === 'Ready' ? 'Ready' : 'Preparing' }}</p>
 								</div>
 							</div>
 
 							<div class="mt-3 flex flex-wrap gap-2" @click.prevent>
-								<Button size="sm" variant="subtle">
-									<LifeBuoy class="size-4" />
-									Contact Support
+								<Button v-if="site.access_url && ['Ready','Active'].includes(site.site_status)" size="sm" as="a" :href="site.access_url" target="_blank">
+									<ExternalLink class="size-4" />
+									Open Site
 								</Button>
-								<Badge class="bg-surface-gray-2 text-ink-gray-6">Advanced ops locked</Badge>
+								<Button size="sm" variant="subtle"><LifeBuoy class="size-4" />Contact support</Button>
+								<Badge class="bg-surface-gray-2 text-ink-gray-6">Access management coming soon</Badge>
 							</div>
 						</RouterLink>
 					</section>
@@ -202,9 +203,9 @@ onMounted(load)
 
 				<div v-if="selectedSite" class="rounded border border-outline-gray-2 bg-surface-white p-3">
 					<div class="space-y-2 text-sm leading-6 text-ink-gray-6">
-						<p><Server class="mr-1 inline size-4 text-ink-gray-4" /> Bench: {{ formatFieldValue(selectedSite.bench) }}</p>
-						<p>Runtime: {{ selectedSite.site_status || 'Pending' }} / {{ selectedSite.provisioning_status || 'Pending' }}</p>
-						<p>Access: {{ selectedSite.route_status || 'Not checked' }} / TLS {{ selectedSite.tls_status || 'Inherited' }}</p>
+						<p><CheckCircle2 class="mr-1 inline size-4 text-ink-gray-4" /> Setup: {{ selectedSite.provisioning_status || 'Pending' }}</p>
+						<p>Site status: {{ selectedSite.site_status || 'Pending' }}</p>
+						<p>Access: {{ selectedSite.route_status === 'Ready' ? 'Ready' : 'Preparing' }}</p>
 						<p v-if="selectedSite.access_url"><a class="text-ink-blue-3 hover:underline" :href="selectedSite.access_url" target="_blank" rel="noreferrer">Open site</a></p>
 						<p>Updated: {{ formatFieldValue(selectedSite.modified) }}</p>
 					</div>

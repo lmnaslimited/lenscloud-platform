@@ -2,8 +2,8 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
-import { AlertTriangle, CheckCircle2, Clock3, Globe2, Server, SquareArrowOutUpRight, Users } from 'lucide-vue-next'
-import { callMethod, listDocs } from '@/lib/api'
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLink, Globe2, LifeBuoy, Package, Server, Sparkles, Users } from 'lucide-vue-next'
+import { callMethod } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
@@ -23,12 +23,7 @@ async function loadPlatform() {
 async function loadCustomer() {
 	const response = await callMethod('lenscloud.api.orchestration.get_customer_portal_context')
 	customer.value = response.message || response
-	if (customer.value?.customer?.name) {
-		customerSites.value = await listDocs('Site', {
-			fields: ['name', 'title', 'site_status', 'provisioning_status', 'route_status', 'access_url', 'modified'],
-			filters: [['customer', '=', customer.value.customer.name]], limit: 8,
-		})
-	} else customerSites.value = []
+	customerSites.value = customer.value?.sites || []
 }
 
 async function load() {
@@ -53,24 +48,27 @@ const actionItems = computed(() => {
 })
 const activeSite = computed(() => customerSites.value.find((site) => !['Deleted'].includes(site.site_status)) || null)
 const customerPlans = computed(() => customer.value?.plans || [])
+const customerUsage = computed(() => customer.value?.usage || {})
+const onboardingStep = computed(() => customer.value?.onboarding_step || 'choose_plan')
 const freePlan = computed(() => customerPlans.value.find((plan) => Number(plan.is_free)) || null)
+const selectedSubscription = computed(() => (customer.value?.subscriptions || [])[0] || null)
+const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 </script>
 
 <template>
 	<WorkspaceLayout
 		title="Dashboard"
-		:subtitle="scope === 'platform' ? 'Launch readiness, customer activity, capacity, and work requiring attention.' : 'Create your first Site and follow its activation progress.'"
+		:subtitle="scope === 'platform' ? 'Launch readiness, customer activity, capacity, and work requiring attention.' : 'Choose a Plan, track provisioning, and open your LensCloud Site.'"
 		:inspector-kicker="scope === 'platform' ? 'Launch status' : 'Your service'"
 		:inspector-title="scope === 'platform' ? (platform?.launch_ready ? 'Ready for customer onboarding' : 'Launch gates need attention') : (activeSite?.title || 'Free Plan onboarding')"
-		:inspector-subtitle="scope === 'platform' ? 'All values come from authoritative aggregate APIs.' : 'Technical placement remains managed by LensCloud.'"
+		:inspector-subtitle="scope === 'platform' ? 'All values come from authoritative aggregate APIs.' : 'Your Plan, Subscription, and Site progress stay here.'"
 	>
 		<template #actions>
-			<Button v-if="scope === 'customer'" :as="RouterLink" to="/customer/create-site"><SquareArrowOutUpRight class="size-4" />Create Site</Button>
 			<Button variant="subtle" @click="load">Refresh</Button>
 		</template>
 
 		<template #main>
-			<div class="h-full overflow-y-auto p-4">
+			<div class="h-full overflow-y-auto bg-[#f7f9fb] p-4">
 				<Alert v-if="error" theme="red" title="Dashboard unavailable" :description="error" />
 				<div v-else-if="loading" class="rounded border border-outline-gray-2 bg-surface-white p-6 text-sm text-ink-gray-5">Loading current state...</div>
 
@@ -115,21 +113,82 @@ const freePlan = computed(() => customerPlans.value.find((plan) => Number(plan.i
 				</template>
 
 				<template v-else-if="scope === 'customer'">
-					<section class="rounded border border-outline-gray-2 bg-surface-white p-5">
-						<div v-if="!activeSite" class="max-w-2xl">
-							<Badge class="bg-emerald-50 text-emerald-700">{{ freePlan?.title || 'Free Plan' }}</Badge>
-							<h2 class="mt-3 text-xl font-semibold text-ink-gray-9">Create your first LensCloud Site</h2>
-							<p class="mt-2 text-sm leading-6 text-ink-gray-5">Choose your Region and subdomain. LensCloud assigns compatible shared capacity and keeps the infrastructure details out of your way.</p>
-							<Button class="mt-4" :as="RouterLink" to="/customer/create-site">Start setup</Button>
-						</div>
-						<div v-else>
-							<div class="flex items-start justify-between gap-3"><div><p class="text-sm text-ink-gray-5">Your Site</p><h2 class="mt-1 text-lg font-semibold text-ink-gray-9">{{ activeSite.title }}</h2></div><Badge :class="['Ready','Active'].includes(activeSite.site_status) ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'">{{ activeSite.site_status }}</Badge></div>
-							<p class="mt-3 text-sm text-ink-gray-5">Provisioning: {{ activeSite.provisioning_status || 'Pending' }} · Route: {{ activeSite.route_status || 'Pending' }}</p>
-							<div class="mt-4 flex gap-2"><Button :as="RouterLink" :to="`/customer/sites/${encodeURIComponent(activeSite.name)}`">View progress</Button><Button v-if="activeSite.access_url" as="a" :href="activeSite.access_url" target="_blank" variant="subtle">Open Site</Button></div>
+					<section v-if="!hasSubscription" class="mx-auto grid min-h-[620px] max-w-5xl content-center rounded-2xl border border-[#EDEDED] bg-white p-6 text-[#191c1e] lg:p-10">
+						<div class="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-center">
+							<div>
+								<div class="mb-8 flex items-center gap-3">
+									<div class="grid size-9 place-items-center rounded-lg bg-[#1D4ED8] text-white"><Sparkles class="size-4" /></div>
+									<span class="text-lg font-bold text-[#1D4ED8]">LensCloud</span>
+								</div>
+								<div class="inline-flex items-center gap-2 rounded-full border border-[#cad3ff] bg-[#dce1ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.05em] text-[#0039b5]">
+									<CheckCircle2 class="size-3.5" />
+									Account ready
+								</div>
+								<h2 class="mt-5 max-w-2xl text-[28px] font-bold leading-[36px] tracking-[-0.02em] text-[#191c1e] lg:text-[36px] lg:leading-[44px]">Launch your first LensCloud Site in a guided flow</h2>
+								<p class="mt-4 max-w-xl text-base leading-6 text-[#505f76]">Choose the Free Plan, confirm your ₹0 subscription, and LensCloud will prepare your Site. You will always know the next step.</p>
+								<div class="mt-7 flex flex-col gap-3 sm:flex-row">
+									<RouterLink to="/customer/plans" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2 active:scale-[0.99]">
+										Choose a Plan
+										<ArrowRight class="size-4" />
+									</RouterLink>
+								</div>
+							</div>
+
+							<aside class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5">
+								<p class="text-xs font-semibold uppercase tracking-[0.05em] text-[#64748B]">What happens next</p>
+								<div class="mt-4 space-y-3">
+									<div v-for="(item, index) in [
+										{ label: 'Choose Free Plan', detail: 'Start with ₹0 due today' },
+										{ label: 'Confirm subscription', detail: 'No payment method required' },
+										{ label: 'Prepare Site', detail: 'Track setup progress here' },
+										{ label: 'Open Site', detail: 'Access when ready' },
+									]" :key="item.label" class="flex gap-3 rounded-lg border border-[#EDEDED] bg-white p-3">
+										<div class="grid size-8 shrink-0 place-items-center rounded-full" :class="index === 0 ? 'bg-[#1D4ED8] text-white' : 'bg-[#dce1ff] text-[#0039b5]'">{{ index + 1 }}</div>
+										<div><p class="text-sm font-semibold text-[#191c1e]">{{ item.label }}</p><p class="text-xs leading-5 text-[#64748B]">{{ item.detail }}</p></div>
+									</div>
+								</div>
+							</aside>
 						</div>
 					</section>
-				</template>
-			</div>
+
+					<template v-else>
+						<section class="mx-auto max-w-5xl rounded-2xl border border-[#EDEDED] bg-white p-6 text-[#191c1e] lg:p-8">
+							<div class="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
+								<div>
+									<Badge :class="onboardingStep === 'ready' ? 'bg-emerald-50 text-emerald-700' : onboardingStep === 'provisioning' ? 'bg-blue-50 text-blue-700' : 'bg-[#dce1ff] text-[#0039b5]'">{{ onboardingStep === 'ready' ? 'Ready to open' : onboardingStep === 'provisioning' ? 'Provisioning' : 'Subscription active' }}</Badge>
+									<h2 class="mt-4 text-[24px] font-semibold leading-8 tracking-[-0.01em] text-[#191c1e]">{{ activeSite ? 'Your LensCloud Site is on its way' : 'Your subscription is active' }}</h2>
+									<p class="mt-3 max-w-xl text-sm leading-6 text-[#505f76]">{{ activeSite ? 'Follow setup progress and open your Site as soon as it is ready.' : 'Your service subscription is ready. Start or review your Site setup from here.' }}</p>
+									<div class="mt-6 flex flex-col gap-3 sm:flex-row">
+										<a v-if="activeSite && ['Ready','Active'].includes(activeSite.site_status) && activeSite.access_url" :href="activeSite.access_url" target="_blank" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+											Open Site
+											<ExternalLink class="size-4" />
+										</a>
+										<RouterLink v-else-if="activeSite" to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+											View subscription progress
+											<ArrowRight class="size-4" />
+										</RouterLink>
+										<RouterLink v-else to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+											Continue setup
+											<ArrowRight class="size-4" />
+										</RouterLink>
+										<RouterLink to="/customer/plans" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-5 py-3 text-sm font-semibold text-[#505f76] transition hover:bg-[#f2f4f6]">Add New Subscription</RouterLink>
+									</div>
+								</div>
+								<div class="grid grid-cols-3 gap-2 text-center">
+									<RouterLink to="/customer/subscriptions" class="rounded-lg border border-[#1D4ED8] bg-[#dce1ff] p-3 transition hover:bg-[#cad3ff]"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.subscriptions || 0 }}</p><p class="text-xs font-semibold text-[#0039b5]">Subscriptions</p></RouterLink>
+									<div class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.sites || 0 }}</p><p class="text-xs text-[#64748B]">Sites</p></div>
+									<div class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.ready_sites || 0 }}</p><p class="text-xs text-[#64748B]">Ready</p></div>
+								</div>
+							</div>
+						</section>
+
+						<section class="mx-auto mt-4 grid max-w-5xl gap-4 md:grid-cols-3">
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-4"><div class="flex items-center gap-2"><CreditCard class="size-4 text-[#1D4ED8]" /><p class="text-sm font-semibold text-[#191c1e]">{{ selectedSubscription?.plan || freePlan?.title || 'Subscription' }}</p></div><p class="mt-2 text-sm leading-6 text-[#64748B]">{{ selectedSubscription?.status || 'Active' }} service subscription.</p></div>
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-4"><div class="flex items-center gap-2"><Globe2 class="size-4 text-[#1D4ED8]" /><p class="text-sm font-semibold text-[#191c1e]">{{ activeSite?.title || activeSite?.name || 'Site setup' }}</p></div><p class="mt-2 text-sm leading-6 text-[#64748B]">{{ activeSite?.site_status || 'Preparing' }}</p></div>
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-4"><div class="flex items-center gap-2"><LifeBuoy class="size-4 text-[#1D4ED8]" /><p class="text-sm font-semibold text-[#191c1e]">Support</p></div><p class="mt-2 text-sm leading-6 text-[#64748B]">Contact support from any setup state.</p></div>
+						</section>
+					</template>
+				</template>			</div>
 		</template>
 
 		<template #inspector>

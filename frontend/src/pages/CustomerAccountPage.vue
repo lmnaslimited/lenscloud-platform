@@ -42,7 +42,7 @@ async function load() {
 			}
 
 			sites.value = await listDocs('Site', {
-				fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'bench', 'customer', 'modified'],
+				fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'route_status', 'access_url', 'plan', 'subscription', 'environment', 'modified'],
 				limit: 8,
 				filters: [['customer', '=', customer.value.name]],
 			})
@@ -82,7 +82,7 @@ const assistantContext = computed(() => ({
 	],
 	gaps: customer.value ? [] : ['Signed-in user has no linked Customer record'],
 	nextSteps: customer.value
-		? ['Keep profile fields current.', 'Use Create Site for new site requests.', 'Use Sites for support-first site management.']
+		? ['Keep profile fields current.', 'Use Plans to start or request subscriptions.', 'Use Sites for progress and access.']
 		: ['Create or link a Customer record to this Frappe user before customer flows can show account data.'],
 }))
 
@@ -92,10 +92,10 @@ onMounted(load)
 <template>
 	<WorkspaceLayout
 		title="Account"
-		subtitle="Your customer identity, region placement, and linked site view."
+		subtitle="Your customer profile, linked Sites, and future access management."
 		inspector-kicker="Customer inspector"
 		inspector-title="Account context"
-		inspector-subtitle="Keep the customer record, linked sites, and request entry points separated from the editable profile fields."
+		inspector-subtitle="LensCloud Platform is the access home for customer users and Sites."
 		assistant-label="Assistant"
 		assistant-hint="The assistant will help explain customer-facing lifecycle actions, account status, and request flow context."
 		:assistant-context="assistantContext"
@@ -127,7 +127,7 @@ onMounted(load)
 				<div v-else class="space-y-4">
 					<div>
 						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Customer record</p>
-						<p class="mt-1 text-sm leading-6 text-ink-gray-5">Uses standard Frappe document save APIs. No backend flow customization is added here.</p>
+						<p class="mt-1 text-sm leading-6 text-ink-gray-5">Keep your profile current. User invites and fine-grained access management are coming in the CUA pass.</p>
 					</div>
 
 					<div class="grid gap-3 sm:grid-cols-2">
@@ -169,7 +169,7 @@ onMounted(load)
 
 				<div v-if="!sites.length" class="mt-3 rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
 					<p class="text-sm font-medium text-ink-gray-9">No sites linked yet</p>
-					<p class="mt-1 text-sm leading-6 text-ink-gray-5">The portal is ready for site lifecycle flows once the backend contract is available.</p>
+					<p class="mt-1 text-sm leading-6 text-ink-gray-5">Choose a Plan to start your first Free Site setup.</p>
 				</div>
 
 				<div v-else class="mt-3 overflow-hidden rounded border border-outline-gray-2">
@@ -177,8 +177,8 @@ onMounted(load)
 						class="h-[360px]"
 						:columns="[
 							{ label: 'Name', key: 'name', width: 3, getLabel: ({ row }) => row.title || row.name },
-							{ label: 'Bench', key: 'bench', width: '160px', getLabel: ({ row }) => row.bench || '—' },
-							{ label: 'Customer', key: 'customer', width: '160px', getLabel: ({ row }) => row.customer || '—' },
+							{ label: 'Status', key: 'site_status', width: '140px', getLabel: ({ row }) => row.site_status || 'Pending' },
+							{ label: 'Access', key: 'route_status', width: '140px', getLabel: ({ row }) => row.route_status === 'Ready' ? 'Ready' : 'Preparing' },
 						]"
 						:rows="sites"
 						row-key="name"
@@ -218,12 +218,12 @@ onMounted(load)
 						<p v-if="!sites.length" class="text-sm leading-5 text-ink-gray-5">No linked sites yet.</p>
 						<div v-for="site in sites" v-else :key="site.name" class="rounded px-2 py-1.5 text-sm hover:bg-surface-gray-1">
 							<p class="truncate font-medium text-ink-gray-9">{{ site.title || site.name }}</p>
-							<p class="truncate text-xs text-ink-gray-5">{{ site.bench || 'No bench' }}</p>
+							<p class="truncate text-xs text-ink-gray-5">{{ site.route_status === 'Ready' ? 'Ready to open' : (site.provisioning_status || 'Preparing') }}</p>
 						</div>
 					</div>
 					<div v-else class="space-y-3">
-						<p class="text-sm leading-5 text-ink-gray-5">Customer-facing request entry points stay UI-only until backend workflow support is confirmed.</p>
-						<Button :to="'/customer/sites'" tag="RouterLink" variant="subtle">Open sites</Button>
+						<p class="text-sm leading-5 text-ink-gray-5">Customer user invitations, role profiles, and Site access grants are planned in the Central User Access pass. For now, use Plans and Sites for launch flow.</p>
+						<Button :to="'/customer/sites'" tag="RouterLink" variant="subtle">Open Sites</Button>
 					</div>
 				</template>
 			</Tabs>

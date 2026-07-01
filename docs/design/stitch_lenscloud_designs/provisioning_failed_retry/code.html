@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LensCloud | Site Provisioning</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body { font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .step-line {
+            width: 2px;
+            height: 100%;
+            position: absolute;
+            left: 11px;
+            top: 24px;
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary": "#ffffff",
+                    "secondary-container": "#d0e1fb",
+                    "surface-container-low": "#f2f4f6",
+                    "tertiary-fixed-dim": "#ffb59c",
+                    "secondary-fixed": "#d3e4fe",
+                    "tertiary-fixed": "#ffdbcf",
+                    "inverse-primary": "#b7c4ff",
+                    "surface": "#f7f9fb",
+                    "tertiary-container": "#a73400",
+                    "on-primary-fixed-variant": "#0039b5",
+                    "error": "#ba1a1a",
+                    "on-primary-container": "#cad3ff",
+                    "border-subtle": "#EDEDED",
+                    "on-secondary-fixed-variant": "#38485d",
+                    "outline-variant": "#c4c5d7",
+                    "on-tertiary-container": "#ffc9b7",
+                    "text-muted": "#7C7C7C",
+                    "primary": "#0037b0",
+                    "background": "#f7f9fb",
+                    "primary-fixed-dim": "#b7c4ff",
+                    "tertiary": "#7f2500",
+                    "surface-dim": "#d8dadc",
+                    "on-error-container": "#93000a",
+                    "surface-container-highest": "#e0e3e5",
+                    "surface-bright": "#f7f9fb",
+                    "on-secondary": "#ffffff",
+                    "secondary": "#505f76",
+                    "secondary-fixed-dim": "#b7c8e1",
+                    "surface-container-lowest": "#ffffff",
+                    "on-surface": "#191c1e",
+                    "primary-container": "#1d4ed8",
+                    "outline": "#747686",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#832700",
+                    "on-error": "#ffffff",
+                    "on-primary-fixed": "#001551",
+                    "surface-container": "#eceef0",
+                    "on-secondary-container": "#54647a",
+                    "on-primary": "#ffffff",
+                    "surface-container-high": "#e6e8ea",
+                    "emerald-green": "#10B981",
+                    "on-secondary-fixed": "#0b1c30",
+                    "frappe-blue": "#1D4ED8",
+                    "inverse-surface": "#2d3133",
+                    "surface-tint": "#2151da",
+                    "primary-fixed": "#dce1ff",
+                    "on-background": "#191c1e",
+                    "on-tertiary-fixed": "#390c00",
+                    "inverse-on-surface": "#eff1f3",
+                    "slate-gray": "#64748B",
+                    "surface-variant": "#e0e3e5",
+                    "on-surface-variant": "#434655"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.125rem",
+                    "lg": "0.25rem",
+                    "xl": "0.5rem",
+                    "full": "0.75rem"
+            },
+            "spacing": {
+                    "unit": "4px",
+                    "container-max": "1280px",
+                    "gutter": "24px",
+                    "margin-mobile": "16px",
+                    "margin-desktop": "32px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Inter"],
+                    "body-md": ["Inter"],
+                    "label-sm": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "display": ["Inter"],
+                    "label-md": ["Inter"]
+            },
+            "fontSize": {
+                    "headline-md": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                    "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+</head>
+<body class="bg-background text-on-surface flex h-screen overflow-hidden">
+<!-- SideNavBar Anchor -->
+<aside class="hidden md:flex flex-col h-full w-64 bg-surface border-r border-border-subtle p-4 space-y-2 shrink-0">
+<div class="flex items-center space-x-3 px-2 py-4 mb-4">
+<div class="w-8 h-8 bg-frappe-blue rounded flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">cloud</span>
+</div>
+<div>
+<h1 class="text-headline-md font-headline-md font-black text-primary leading-tight">LensCloud</h1>
+<p class="text-label-md font-label-md text-secondary">SaaS Workspace</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center space-x-3 px-3 py-2 text-secondary hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">dashboard</span>
+<span class="text-label-md font-label-md">Dashboard</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 bg-secondary-container text-on-secondary-container font-semibold rounded-lg scale-95 transition-transform duration-150" href="#">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+<span class="text-label-md font-label-md">Site Provisioning</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-secondary hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">receipt_long</span>
+<span class="text-label-md font-label-md">Plan &amp; Billing</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-secondary hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">leaderboard</span>
+<span class="text-label-md font-label-md">Usage Analytics</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-secondary hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">alt_route</span>
+<span class="text-label-md font-label-md">Guided Setup</span>
+</a>
+</nav>
+<div class="pt-4 border-t border-border-subtle space-y-1">
+<a class="flex items-center space-x-3 px-3 py-2 text-secondary hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">menu_book</span>
+<span class="text-label-md font-label-md">Documentation</span>
+</a>
+<a class="flex items-center space-x-3 px-3 py-2 text-secondary hover:bg-surface-container-low transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined text-[20px]">help</span>
+<span class="text-label-md font-label-md">Help Center</span>
+</a>
+<button class="w-full mt-4 bg-primary text-on-primary py-2 px-4 rounded-lg text-label-md font-label-md font-bold hover:opacity-90 transition-opacity">
+                Upgrade Plan
+            </button>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-background overflow-y-auto">
+<!-- TopNavBar Anchor -->
+<header class="h-16 flex justify-between items-center w-full px-margin-desktop bg-surface-container-lowest border-b border-border-subtle shrink-0">
+<div class="flex items-center">
+<h2 class="text-headline-md font-headline-md font-bold text-frappe-blue">Site Provisioning</h2>
+</div>
+<div class="flex items-center space-x-4">
+<div class="hidden lg:flex items-center space-x-6 mr-6">
+<a class="text-label-md font-label-md text-secondary font-medium" href="#">Docs</a>
+<a class="text-label-md font-label-md text-secondary font-medium" href="#">API</a>
+</div>
+<div class="flex items-center space-x-2">
+<button class="p-2 text-secondary hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-secondary hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full bg-surface-container-high overflow-hidden border border-border-subtle">
+<img class="w-full h-full object-cover" data-alt="A professional business headshot of a software engineer in a bright, modern office with soft daylight and a clean minimalist aesthetic. The image is crisp with high-key lighting, featuring a cool blue and neutral gray color palette typical of a corporate workspace." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDsxBd9rcLAJozcPM5yKVK6UFketgtaf5ieicEYEOjVa8VjmfNMW0wERxTjuZy0N173r_XPFRT4BBVUDkk8P22u00NQdhjQvdJ-YBdYDcNUeuAdZXG4aqPcCX8E23f1YW4L6VHShsrzy6FBspcLEPaX8vJXLllQv5Dgz2oDbyK0SJlGUCZcYs1dirnrNYe_FxQjbzOS2BOqsV-H9PElXQnKekusz5VEuXMotyiIr3yg7n_2d_axaI-QbEE4nXws6VOohNwsE68u3zQ"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Canvas -->
+<div class="flex-1 p-margin-desktop max-w-container-max mx-auto w-full">
+<!-- Breadcrumbs -->
+<nav class="flex items-center space-x-2 mb-8 text-label-md font-label-md text-slate-gray">
+<span>Workspaces</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-primary font-semibold">New Deployment</span>
+</nav>
+<!-- Status Card: Failed State -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+<!-- Main Stepper Section -->
+<div class="lg:col-span-8">
+<div class="bg-surface-container-lowest border border-border-subtle rounded-xl p-8">
+<div class="flex items-start justify-between mb-8">
+<div>
+<h3 class="text-headline-lg font-headline-lg text-on-surface">Provisioning Workspace</h3>
+<p class="text-body-md font-body-md text-secondary mt-1">Deploying your isolated cloud instance to 'fra-1' region.</p>
+</div>
+<div class="flex items-center px-3 py-1 bg-error-container text-on-error-container rounded-full">
+<span class="material-symbols-outlined text-[16px] mr-1.5" style="font-variation-settings: 'FILL' 1;">error</span>
+<span class="text-label-md font-label-md">Deployment Failed</span>
+</div>
+</div>
+<!-- Vertical Stepper -->
+<div class="space-y-0 relative">
+<!-- Step 1: Success -->
+<div class="flex items-start pb-8 relative">
+<div class="step-line bg-emerald-green"></div>
+<div class="z-10 w-6 h-6 rounded-full bg-emerald-green flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</div>
+<div class="ml-4">
+<h4 class="text-body-md font-body-md font-semibold text-on-surface">Subscription approved</h4>
+<p class="text-label-sm font-label-sm text-secondary">Verified by Stripe Billing • 2m ago</p>
+</div>
+</div>
+<!-- Step 2: Success -->
+<div class="flex items-start pb-8 relative">
+<div class="step-line bg-emerald-green"></div>
+<div class="z-10 w-6 h-6 rounded-full bg-emerald-green flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-[16px] font-bold">check</span>
+</div>
+<div class="ml-4">
+<h4 class="text-body-md font-body-md font-semibold text-on-surface">Site reserved</h4>
+<p class="text-label-sm font-label-sm text-secondary">IP Address: 142.250.180.14 • 1m ago</p>
+</div>
+</div>
+<!-- Step 3: Failed -->
+<div class="flex items-start pb-8 relative">
+<div class="step-line bg-surface-container"></div>
+<div class="z-10 w-6 h-6 rounded-full bg-error flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-[16px] font-bold">close</span>
+</div>
+<div class="ml-4">
+<h4 class="text-body-md font-body-md font-semibold text-error">Preparing workspace</h4>
+<p class="text-label-sm font-label-sm text-on-error-container bg-error-container px-2 py-0.5 rounded inline-block mt-1">Timeout: Container initialization stalled</p>
+</div>
+</div>
+<!-- Step 4: Pending -->
+<div class="flex items-start pb-8 relative">
+<div class="step-line bg-surface-container"></div>
+<div class="z-10 w-6 h-6 rounded-full border-2 border-outline-variant bg-surface shrink-0"></div>
+<div class="ml-4">
+<h4 class="text-body-md font-body-md font-medium text-secondary">Connecting HTTPS</h4>
+<p class="text-label-sm font-label-sm text-outline">SSL certification generation</p>
+</div>
+</div>
+<!-- Step 5: Pending -->
+<div class="flex items-start relative">
+<div class="z-10 w-6 h-6 rounded-full border-2 border-outline-variant bg-surface shrink-0"></div>
+<div class="ml-4">
+<h4 class="text-body-md font-body-md font-medium text-secondary">Ready to open</h4>
+<p class="text-label-sm font-label-sm text-outline">Finalizing configuration</p>
+</div>
+</div>
+</div>
+<!-- Action Bar -->
+<div class="mt-12 p-6 bg-surface-container-low rounded-lg border border-border-subtle">
+<div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div class="flex items-start space-x-3">
+<div class="mt-1 text-on-error-container">
+<span class="material-symbols-outlined">info</span>
+</div>
+<p class="text-body-sm font-body-sm text-secondary max-w-md">
+                                        Workspace setup took longer than expected. Our team has been notified, but you can try restarting the process.
+                                    </p>
+</div>
+<div class="flex items-center space-x-3 shrink-0">
+<button class="px-4 py-2 bg-surface text-secondary border border-border-subtle rounded-lg text-label-md font-label-md font-bold hover:bg-surface-container-high transition-colors">
+                                        Contact Support
+                                    </button>
+<button class="px-4 py-2 bg-primary text-on-primary rounded-lg text-label-md font-label-md font-bold hover:bg-frappe-blue transition-colors flex items-center">
+<span class="material-symbols-outlined text-[18px] mr-2">refresh</span>
+                                        Retry Setup
+                                    </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Info Sidebar -->
+<div class="lg:col-span-4 space-y-6">
+<!-- Instance Specs Card -->
+<div class="bg-surface border border-border-subtle rounded-xl p-6">
+<h4 class="text-label-md font-label-md text-secondary uppercase tracking-widest mb-4">Instance Configuration</h4>
+<div class="space-y-4">
+<div class="flex justify-between items-center py-2 border-b border-border-subtle border-dashed">
+<span class="text-body-sm font-body-sm text-secondary">Instance Name</span>
+<span class="text-body-sm font-body-sm font-semibold text-on-surface">omega-zeta-92</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-border-subtle border-dashed">
+<span class="text-body-sm font-body-sm text-secondary">Plan</span>
+<span class="text-body-sm font-body-sm font-semibold text-on-surface">Pro Workspace</span>
+</div>
+<div class="flex justify-between items-center py-2 border-b border-border-subtle border-dashed">
+<span class="text-body-sm font-body-sm text-secondary">Resources</span>
+<span class="text-body-sm font-body-sm font-semibold text-on-surface">4 vCPU / 8GB RAM</span>
+</div>
+<div class="flex justify-between items-center py-2">
+<span class="text-body-sm font-body-sm text-secondary">Region</span>
+<div class="flex items-center text-body-sm font-body-sm font-semibold text-on-surface">
+<span class="material-symbols-outlined text-[16px] mr-1">public</span>
+                                    Frankfurt (fra-1)
+                                </div>
+</div>
+</div>
+</div>
+<!-- Visual Asset Placeholder (Atmospheric) -->
+<div class="relative h-64 bg-surface-container-highest rounded-xl overflow-hidden border border-border-subtle">
+
+<div class="absolute inset-0 flex flex-col items-center justify-center p-8 text-center">
+<div class="w-16 h-16 bg-white/80 backdrop-blur-sm rounded-full flex items-center justify-center mb-4 shadow-sm border border-white/50">
+<span class="material-symbols-outlined text-primary text-[32px]">hub</span>
+</div>
+<h5 class="text-headline-md font-headline-md text-on-surface mb-2">Cloud Infrastructure</h5>
+<p class="text-label-sm font-label-sm text-secondary">Provisioning a dedicated environment ensures data sovereignty and high-performance access for your entire team.</p>
+</div>
+</div>
+<!-- Help Card -->
+<div class="bg-secondary-container/30 border border-secondary-container rounded-xl p-6">
+<h4 class="text-label-md font-label-md text-on-secondary-container font-bold mb-2">Need help?</h4>
+<p class="text-body-sm font-body-sm text-on-secondary-container mb-4">Our infrastructure engineers are available 24/7 for provisioning issues.</p>
+<a class="text-label-md font-label-md text-primary font-bold flex items-center hover:underline" href="#">
+                            View technical documentation
+                            <span class="material-symbols-outlined text-[16px] ml-1">open_in_new</span>
+</a>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- Success Modal Interaction Script -->
+<script>
+        // Micro-interaction for the retry button
+        const retryBtn = document.querySelector('button.bg-primary');
+        if(retryBtn) {
+            retryBtn.addEventListener('mousedown', () => {
+                retryBtn.style.transform = 'scale(0.97)';
+            });
+            retryBtn.addEventListener('mouseup', () => {
+                retryBtn.style.transform = 'scale(1)';
+            });
+            retryBtn.addEventListener('click', () => {
+                const icon = retryBtn.querySelector('.material-symbols-outlined');
+                icon.classList.add('animate-spin');
+                setTimeout(() => {
+                    icon.classList.remove('animate-spin');
+                }, 2000);
+            });
+        }
+    </script>
+</body></html>

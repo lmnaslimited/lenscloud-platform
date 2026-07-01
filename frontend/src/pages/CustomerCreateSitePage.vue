@@ -43,18 +43,18 @@ const assistantContext = computed(() => {
 	return {
 		scope: 'customer',
 		summary: submitted.value
-			? 'Site was created in LensCloud and handed to the safe reconcile path. Runtime activation depends on ready capacity and enabled cluster access.'
+			? 'Site was created in LensCloud and setup has started. Progress depends on available Free Plan capacity and Platform readiness.'
 			: 'Guidance for creating a site with a preferred subdomain under the platform root domain.',
 		badges: ['Create Site', rootDomainMissing.value ? 'root domain gap' : 'domain ready', submitted.value ? 'captured' : 'draft'],
 		sections: [
 			{ label: 'Domain preview', value: domainPreview.value || 'Root domain and subdomain are required' },
 			{ label: 'Selected plan', value: selectedPlanRecord.value?.title || 'No plan selected' },
 			{ label: 'Selected region', value: selectedRegion.value?.title || selectedRegion.value?.name || 'No region selected' },
-			{ label: 'Submission state', value: canSubmit.value ? 'Ready to create Site and reconcile' : 'Waiting for required fields or root domain' },
+			{ label: 'Submission state', value: canSubmit.value ? 'Ready to start Free Plan setup' : 'Waiting for required fields or root domain' },
 		],
 		gaps,
 		nextSteps: submitted.value
-			? ['View Sites to track operator and route status.', 'A dry-run result means Kubernetes apply is still gated by cluster credentials/settings.']
+			? ['View Dashboard or Sites to track customer-safe setup progress.', 'If setup is delayed, contact support instead of retrying repeatedly.']
 			: ['Confirm the Free Plan, Site name, preferred subdomain, and Region.', 'Submit when the review is complete.', 'Use beta enrollment separately for multi-environment Plans.'],
 	}
 })
@@ -89,7 +89,7 @@ async function submitRequest() {
 	if (!canSubmit.value) return
 	error.value = null
 	try {
-		const response = await callMethod('lenscloud.api.orchestration.request_customer_site', {
+		const response = await callMethod('lenscloud.api.orchestration.request_customer_subscription', {
 			site_name: form.site_name,
 			company_name: form.company_name,
 			subdomain: normalizedSubdomain.value,
@@ -117,8 +117,8 @@ onMounted(load)
 
 <template>
 	<WorkspaceLayout
-		title="Create Site"
-		subtitle="Start a new LensCloud site request from a guided customer flow."
+		title="Free Plan setup"
+		subtitle="Compatibility setup path. For the normal launch journey, browse Plans first."
 		inspector-kicker="Request context"
 		inspector-title="Site activation"
 		inspector-subtitle="The Free Plan uses one production Site in your Region. LensCloud manages capacity and isolation."
@@ -146,7 +146,7 @@ onMounted(load)
 						</div>
 						<div class="min-w-0 flex-1">
 							<p class="text-base font-semibold text-ink-gray-9">Site request captured</p>
-							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ submitted.hostname || domainPreview || form.site_name }} was created as a LensCloud Site and entered the reconcile path.</p>
+							<p class="mt-1 text-sm leading-6 text-ink-gray-5">{{ submitted.hostname || domainPreview || form.site_name }} was created as a LensCloud Site and setup has started.</p>
 							<div class="mt-4 grid gap-2 sm:grid-cols-2">
 								<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
 									<p class="text-xs text-ink-gray-5">Company</p>
@@ -162,7 +162,8 @@ onMounted(load)
 								</div>
 							</div>
 							<div class="mt-4 flex flex-wrap gap-2">
-								<Button :as="RouterLink" to="/customer/sites">View sites</Button>
+								<Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button>
+								<Button :as="RouterLink" to="/customer/sites" variant="subtle">View sites</Button>
 								<Button variant="subtle" @click="submitted = false">Edit request</Button>
 							</div>
 						</div>
@@ -274,7 +275,7 @@ onMounted(load)
 						<p>Support: {{ platformSettings?.support_system || 'Not configured' }}</p>
 					</div>
 				</div>
-				<Alert theme="blue" title="Pending provisioning" description="This creates a LensCloud Site under the selected plan. Kubernetes apply remains gated by the selected Cluster credential and Platform Settings; standard Sites use shared wildcard DNS/TLS and create no Route53 record." />
+				<Alert theme="blue" title="Plan-first launch" description="This compatibility path uses the same Free Plan subscription API as the Plans page. Customers choose Plan, Region, and subdomain; LensCloud manages setup and access." />
 			</div>
 		</template>
 	</WorkspaceLayout>

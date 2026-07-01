@@ -8,7 +8,9 @@ import ResourcePage from '@/pages/ResourcePage.vue'
 import PlatformSettingsPage from '@/pages/PlatformSettingsPage.vue'
 import CustomerAccountPage from '@/pages/CustomerAccountPage.vue'
 import CustomerCreateSitePage from '@/pages/CustomerCreateSitePage.vue'
+import CustomerPlansPage from '@/pages/CustomerPlansPage.vue'
 import CustomerSitesPage from '@/pages/CustomerSitesPage.vue'
+import CustomerSubscriptionsPage from '@/pages/CustomerSubscriptionsPage.vue'
 
 const routes = [
 	{
@@ -75,6 +77,8 @@ const routes = [
 			{ path: '', redirect: '/customer/dashboard' },
 			{ path: 'dashboard', name: 'customer-dashboard', component: DashboardPage, props: { scope: 'customer' }, meta: { scope: 'customer' } },
 			{ path: 'sites', name: 'customer-sites', component: CustomerSitesPage, meta: { scope: 'customer' } },
+			{ path: 'plans', name: 'customer-plans', component: CustomerPlansPage, meta: { scope: 'customer' } },
+			{ path: 'subscriptions', name: 'customer-subscriptions', component: CustomerSubscriptionsPage, meta: { scope: 'customer' } },
 			{ path: 'sites/:name', name: 'customer-site-detail', component: CustomerSitesPage, meta: { scope: 'customer' } },
 			{ path: 'create-site', name: 'customer-create-site', component: CustomerCreateSitePage, meta: { scope: 'customer' } },
 			{ path: 'account', name: 'customer-account', component: CustomerAccountPage, meta: { scope: 'customer' } },

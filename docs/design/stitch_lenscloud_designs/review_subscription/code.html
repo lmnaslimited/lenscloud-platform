@@ -1,0 +1,183 @@
+<!DOCTYPE html><html lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Review Subscription - LensCloud</title>
+<!-- Tailwind CSS v3 CDN -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Inter -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+<style data-purpose="typography">
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+  </style>
+<style data-purpose="layout">
+    /* Custom sidebar and layout adjustments */
+    .sidebar-width { width: 240px; }
+    .right-sidebar-width { width: 320px; }
+    .content-min-height { min-height: 100vh; }
+  </style>
+</head>
+<body class="bg-[#f8f9fa] text-[#1a1a1a]">
+<div class="flex min-h-screen">
+<!-- BEGIN: LeftSidebar -->
+<aside class="sidebar-width bg-[#f8f9fa] border-r border-gray-200 flex flex-col flex-shrink-0">
+<!-- Logo Section -->
+<div class="border-b border-gray-200 p-6">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 bg-gray-200 rounded flex items-center justify-center font-bold text-gray-500 text-xs">LC</div>
+<div>
+<h1 class="text-base font-bold leading-tight">LensCloud</h1>
+<p class="text-[10px] text-gray-400">Customer portal</p>
+</div>
+</div>
+</div>
+<!-- Navigation Links -->
+<nav class="flex-1 p-4 space-y-1">
+<p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-2">Customer portal</p>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md" href="#">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Dashboard
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md" href="#">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Plans
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md" href="#">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Sites
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md" href="#">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Create Site
+        </a>
+<a class="flex items-center gap-3 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 rounded-md" href="#">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+          Account
+        </a>
+</nav>
+<!-- Footer Info -->
+<div class="p-4 border-t border-gray-200 flex items-center justify-between">
+<span class="text-[10px] text-gray-400 truncate">iron_monkey_private@...</span>
+<span class="text-[10px] font-medium text-gray-500 bg-gray-200 px-1.5 py-0.5 rounded">customer</span>
+</div>
+</aside>
+<!-- END: LeftSidebar -->
+<div class="flex-1 flex flex-col overflow-hidden">
+<!-- BEGIN: TopHeader -->
+<header class="bg-white border-b border-gray-200 px-8 py-3 flex items-center justify-between">
+<div data-purpose="header-title">
+<h2 class="text-base font-semibold text-gray-800">Review Subscription</h2>
+<p class="text-xs text-gray-500">Create your first Site and follow its activation progress.</p>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+            Choose Plan
+          </button>
+<button class="px-3 py-1.5 border border-gray-300 rounded-md text-xs font-medium text-gray-700 bg-white hover:bg-gray-50">
+            Refresh
+          </button>
+</div>
+</header>
+<!-- END: TopHeader -->
+<div class="flex flex-1 overflow-auto">
+<!-- BEGIN: MainContent -->
+<main class="flex-1 p-10 bg-white">
+<h1 class="text-3xl font-bold mb-8">Review Subscription</h1>
+<div class="grid grid-cols-1 gap-6 max-w-full lg:grid-cols-2">
+<!-- BEGIN: OrderSummaryCard -->
+<section class="bg-white border border-gray-200 rounded-xl p-8 h-fit" data-purpose="order-summary">
+<h3 class="text-xl font-bold mb-6">Order summary</h3>
+<hr class="mb-6 border-gray-100">
+<div class="space-y-6"><!-- Free Plan Item -->
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+<svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<p class="font-bold text-gray-800">Free Plan</p>
+<p class="text-xs text-gray-400">Start with Free Plan</p>
+</div>
+</div>
+<!-- Region Item -->
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+<svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<p class="font-bold text-gray-800">Region: Mumbai</p>
+<p class="text-xs text-gray-400">Region <span class="font-mono">iz-mumbai</span>: Mumbai</p>
+</div>
+</div>
+<!-- Subdomain Item -->
+<div class="flex items-center gap-4">
+<div class="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+<svg class="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.826L10.242 9M8.172 13.828l1.101-1.101m9.672-4.485a4 4 0 11-5.656 5.656l-1.103 1.103m.758-4.826L14.464 14.464" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<div>
+<p class="font-bold text-gray-800">Subdomain: acme.lmnas.cloud</p>
+<p class="text-xs text-gray-400">Subdomain: acme.lmnas.cloud</p>
+</div>
+</div></div>
+</section>
+<!-- END: OrderSummaryCard -->
+<!-- BEGIN: PriceBreakdownCard -->
+<section class="bg-white border border-gray-200 rounded-xl h-fit flex flex-col" data-purpose="price-breakdown">
+<div class="p-8">
+<h3 class="text-xl font-bold mb-6">Price breakdown</h3>
+<div class="space-y-4 mb-8">
+<div class="flex justify-between items-center text-gray-600">
+<span class="text-lg">Plan price</span>
+<span class="text-lg font-medium text-black">₹0</span>
+</div>
+<div class="flex justify-between items-center text-gray-600">
+<span class="text-lg">Taxes</span>
+<span class="text-lg font-medium text-black">₹0</span>
+</div>
+</div>
+<hr class="mb-6 border-gray-100">
+<div class="flex justify-between items-center mb-8">
+<span class="text-xl font-bold">Total due today</span>
+<span class="text-xl font-bold">₹0</span>
+</div>
+</div>
+<div class="bg-gray-50 p-6 border-y border-gray-200">
+<p class="text-sm text-gray-500">No payment method required for Free Plan</p>
+</div>
+<div class="p-6 flex items-center gap-3 flex-col">
+<button class="flex-1 bg-[#2563eb] text-white py-3.5 rounded-lg font-bold text-sm hover:bg-blue-700 transition-colors">
+                  Start Free Subscription
+                </button>
+<button class="px-6 py-3.5 bg-gray-100 text-gray-700 rounded-lg font-bold text-sm hover:bg-gray-200 transition-colors w-full">
+                  Cancel
+                </button>
+</div>
+</section>
+<!-- END: PriceBreakdownCard -->
+</div>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: RightSidebar -->
+<aside class="right-sidebar-width bg-white border-l border-gray-200 p-6 flex-shrink-0">
+<div class="flex justify-between items-start mb-6 p-6">
+<div>
+<p class="text-[10px] text-gray-400 uppercase font-semibold">Your service</p>
+<h3 class="font-bold text-base text-gray-900">Checkout details</h3>
+</div>
+<div class="text-gray-400"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg></div>
+</div>
+<div class="space-y-4">
+<h4 class="font-bold text-sm text-gray-800">Your subscription is ready to start.</h4>
+<p class="text-xs text-gray-500 leading-relaxed">
+              The Free Plan is self-provisioned and does not require a payment method. You can upgrade later for more capacity.
+            </p>
+</div>
+</aside>
+<!-- END: RightSidebar -->
+</div>
+</div>
+</div>
+
+
+</body></html>

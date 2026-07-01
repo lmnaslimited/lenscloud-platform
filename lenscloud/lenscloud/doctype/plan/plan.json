@@ -15,17 +15,26 @@
   "bench_policy",
   "column_break_nkwt",
   "monthly_price",
+  "billing_frequency",
   "release_group",
   "landscape",
   "allowed_privacy_profiles",
   "column_break_vayo",
   "availability",
+  "publish_in_customer_portal",
+  "show_draft_in_customer_portal",
+  "allow_self_service",
+  "request_access_only",
+  "experimental",
+  "portal_badge",
+  "portal_sort_order",
   "subscription_limit",
   "site_limit",
   "info_tab",
   "billing_system_reference",
   "column_break_lodo",
-  "description"
+  "description",
+  "portal_feature_json"
  ],
  "fields": [
   {
@@ -70,6 +79,13 @@
    "label": "Monthly Price"
   },
   {
+   "default": "Monthly",
+   "fieldname": "billing_frequency",
+   "fieldtype": "Select",
+   "label": "Billing Frequency",
+   "options": "Monthly\nQuarterly\nYearly\nOne Time"
+  },
+  {
    "default": "1",
    "fieldname": "site_limit",
    "fieldtype": "Data",
@@ -91,6 +107,12 @@
    "fieldname": "description",
    "fieldtype": "Text",
    "label": "Description"
+  },
+  {
+   "fieldname": "portal_feature_json",
+   "fieldtype": "Code",
+   "label": "Portal Feature JSON",
+   "options": "JSON"
   },
   {
    "fieldname": "release_group",
@@ -125,6 +147,50 @@
    "in_list_view": 1,
    "label": "Availability",
    "options": "Public\nBeta\nInvite Only\nRetired"
+  },
+  {
+   "default": "0",
+   "fieldname": "publish_in_customer_portal",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Publish in Customer Portal"
+  },
+  {
+   "default": "0",
+   "fieldname": "show_draft_in_customer_portal",
+   "fieldtype": "Check",
+   "label": "Show Draft in Customer Portal"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_self_service",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Allow Self Service"
+  },
+  {
+   "default": "0",
+   "fieldname": "request_access_only",
+   "fieldtype": "Check",
+   "label": "Request Access Only"
+  },
+  {
+   "default": "0",
+   "fieldname": "experimental",
+   "fieldtype": "Check",
+   "label": "Experimental"
+  },
+  {
+   "fieldname": "portal_badge",
+   "fieldtype": "Data",
+   "label": "Portal Badge"
+  },
+  {
+   "default": "0",
+   "fieldname": "portal_sort_order",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Portal Sort Order"
   },
   {
    "default": "1",
@@ -169,7 +235,7 @@
    "link_fieldname": "plan"
   }
  ],
- "modified": "2026-06-25 12:03:42.856386",
+ "modified": "2026-06-30 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Plan",
@@ -194,5 +260,6 @@
  "sort_field": "creation",
  "sort_order": "DESC",
  "states": [],
- "title_field": "title"
+ "title_field": "title",
+ "is_submittable": 1
 }

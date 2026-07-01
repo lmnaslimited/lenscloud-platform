@@ -1,0 +1,447 @@
+<script setup>
+import { computed, onMounted, reactive, ref } from 'vue'
+import { RouterLink } from 'vue-router'
+import { Alert, Badge, Button } from 'frappe-ui'
+import {
+	ArrowLeft,
+	Check,
+	CheckCircle2,
+	Clock3,
+	ExternalLink,
+	Globe2,
+	HelpCircle,
+	MapPin,
+	Send,
+	ShieldCheck,
+	Sparkles,
+} from 'lucide-vue-next'
+import { callMethod } from '@/lib/api'
+import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
+
+const loading = ref(true)
+const submitting = ref(false)
+const error = ref('')
+const context = ref(null)
+const selectedPlan = ref('')
+const result = ref(null)
+const step = ref('choose')
+const placementFilter = ref('all')
+
+const form = reactive({
+	region: '',
+	site_name: '',
+	company_name: '',
+	subdomain: '',
+	notes: '',
+})
+
+const plans = computed(() => context.value?.plans || [])
+const regions = computed(() => context.value?.regions || [])
+const settings = computed(() => context.value?.settings || {})
+const usage = computed(() => context.value?.usage || {})
+const existingSites = computed(() => context.value?.sites || [])
+const freePlan = computed(() => plans.value.find((plan) => plan.is_free) || null)
+const selectedPlanRecord = computed(() => plans.value.find((plan) => plan.name === selectedPlan.value) || freePlan.value || plans.value[0] || null)
+const visiblePlans = computed(() => plans.value.filter((plan) => placementFilter.value === 'all' || planPlacement(plan) === placementFilter.value))
+const selectedRegion = computed(() => regions.value.find((region) => region.name === form.region) || null)
+const selectableRegions = computed(() => regions.value.filter((item) => !item.is_group).slice(0, 8))
+const normalizedSubdomain = computed(() => form.subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, ''))
+const domainSuffix = computed(() => settings.value.root_domain ? `.${settings.value.root_domain}` : '.lmnas.cloud')
+const hostnamePreview = computed(() => normalizedSubdomain.value && settings.value.root_domain ? `${normalizedSubdomain.value}.${settings.value.root_domain}` : '')
+const setupComplete = computed(() => Boolean(form.region && form.site_name.trim() && normalizedSubdomain.value && settings.value.root_domain))
+const canStartFree = computed(() => Boolean(selectedPlanRecord.value?.is_free && !planDisabled(selectedPlanRecord.value) && setupComplete.value))
+const hasReadySite = computed(() => existingSites.value.some((site) => ['Ready', 'Active'].includes(site.site_status)))
+const readySiteUrl = computed(() => result.value?.access_url || existingSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.access_url)?.access_url || '')
+
+const flowSteps = computed(() => [
+	{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
+	{ key: 'setup', label: 'Setup Site', helper: 'Pick Region and Site details.' },
+	{ key: 'checkout', label: 'Free Checkout', helper: 'Confirm ₹0 due today.' },
+	{ key: 'result', label: result.value?.provisioning === 'started' ? 'Launch Site' : 'Approval', helper: 'Track setup and open when ready.' },
+])
+
+const currentStepIndex = computed(() => Math.max(0, flowSteps.value.findIndex((item) => item.key === step.value)))
+const screenTitle = computed(() => {
+	if (step.value === 'choose') return 'Select your LensCloud service'
+	if (step.value === 'setup') return 'Set up your first Site'
+	if (step.value === 'checkout') return 'Review Subscription'
+	return result.value?.provisioning === 'started' ? 'Your Site launch has started' : 'Your request is received'
+})
+const screenSubtitle = computed(() => {
+	if (step.value === 'choose') return 'Pick a submitted Platform Plan to continue.'
+	if (step.value === 'setup') return 'These details reserve your customer-facing Site. LensCloud chooses compatible capacity for you.'
+	if (step.value === 'checkout') return 'The Free Plan has no payment method requirement. Review once and start the subscription.'
+	return result.value?.provisioning === 'started' ? 'Follow setup progress here, then open the Site when it is ready.' : 'The LensCloud team will review this before setup starts.'
+})
+
+const provisioningSteps = computed(() => {
+	const started = result.value?.provisioning === 'started'
+	const ready = Boolean(readySiteUrl.value && hasReadySite.value)
+	return [
+		{ label: 'Subscription approved', state: started ? 'done' : 'pending' },
+		{ label: 'Site reserved', state: started ? 'done' : 'pending' },
+		{ label: 'Preparing workspace', state: started && !ready ? 'active' : ready ? 'done' : 'pending' },
+		{ label: 'Connecting HTTPS', state: ready ? 'done' : started ? 'pending' : 'pending' },
+		{ label: 'Ready to open', state: ready ? 'active' : 'pending' },
+	]
+})
+
+function planBadge(plan) {
+	return plan.portal_badge || (plan.is_default ? 'Recommended' : plan.availability || 'Plan')
+}
+
+function priceLabel(plan) {
+	if (plan.is_free) return '₹0 / month'
+	if (plan.cta_mode === 'request_access') return 'Request access'
+	if (!Number(plan.monthly_price)) return 'Custom pricing'
+	return `₹${Number(plan.monthly_price).toLocaleString('en-IN')} / month`
+}
+
+function planCtaLabel(plan) {
+	if (!plan) return 'Choose Plan'
+	if (planDisabled(plan)) return 'Limit reached'
+	if (plan.cta_mode === 'self_service') return 'Start Free Plan'
+	if (plan.cta_mode === 'request_access') return 'Request access'
+	return 'Coming soon'
+}
+
+function planDisabled(plan) {
+	return Boolean(plan?.cta_disabled || plan?.entitlement?.exhausted)
+}
+
+function planDisabledReason(plan) {
+	return plan?.cta_disabled_reason || plan?.entitlement?.reason || 'Your current entitlement for this Plan is already used.'
+}
+
+function featureIconLabel(icon) {
+	const labels = {
+		globe: '🌐',
+		'credit-card': '₹',
+		shield: '✓',
+		sparkles: '✦',
+		layers: '▣',
+		users: '👥',
+		'life-buoy': '?',
+		workflow: '↗',
+		'check-circle': '✓',
+		building: '▦',
+	}
+	return labels[icon] || '✓'
+}
+
+function planPlacement(plan) {
+	return plan?.privacy === 'Public' ? 'public' : 'private'
+}
+
+function placementLabel(value) {
+	if (value === 'public') return 'Public'
+	if (value === 'private') return 'Private'
+	return 'All'
+}
+
+function setPlacementFilter(value) {
+	placementFilter.value = value
+	const nextPlans = plans.value.filter((plan) => value === 'all' || planPlacement(plan) === value)
+	if (!nextPlans.some((plan) => plan.name === selectedPlan.value)) {
+		selectedPlan.value = nextPlans.find((plan) => plan.is_default && !planDisabled(plan))?.name || nextPlans.find((plan) => !planDisabled(plan))?.name || nextPlans[0]?.name || ''
+	}
+}
+
+function selectPlan(plan) {
+	selectedPlan.value = plan.name
+}
+
+function continueFromPlan() {
+	if (!selectedPlanRecord.value || planDisabled(selectedPlanRecord.value)) return
+	if (selectedPlanRecord.value.cta_mode === 'self_service') {
+		step.value = 'setup'
+		return
+	}
+	if (selectedPlanRecord.value.cta_mode === 'request_access') requestAccess(selectedPlanRecord.value)
+}
+
+function goToCheckout() {
+	if (setupComplete.value) step.value = 'checkout'
+}
+
+async function load() {
+	loading.value = true
+	error.value = ''
+	try {
+		const response = await callMethod('lenscloud.api.orchestration.get_customer_portal_context')
+		context.value = response.message || response
+		if (!selectedPlan.value) selectedPlan.value = context.value.plans?.find((plan) => plan.is_free && !planDisabled(plan))?.name || context.value.plans?.find((plan) => !planDisabled(plan))?.name || context.value.plans?.[0]?.name || ''
+		if (!form.region) form.region = context.value.customer?.region || context.value.regions?.find((item) => !item.is_group)?.name || ''
+	} catch (err) {
+		error.value = err?.message || 'Unable to load Plans.'
+	} finally {
+		loading.value = false
+	}
+}
+
+async function startFreePlan() {
+	if (!canStartFree.value) return
+	submitting.value = true
+	error.value = ''
+	try {
+		const response = await callMethod('lenscloud.api.orchestration.request_customer_subscription', {
+			plan: selectedPlanRecord.value.name,
+			region: form.region,
+			site_name: form.site_name,
+			company_name: form.company_name || form.site_name,
+			subdomain: normalizedSubdomain.value,
+			notes: form.notes,
+		}, 'POST')
+		result.value = response.message || response
+		step.value = 'result'
+		await load()
+	} catch (err) {
+		error.value = err?.message || 'Unable to start the Free Plan.'
+	} finally {
+		submitting.value = false
+	}
+}
+
+async function requestAccess(plan) {
+	if (!plan || planDisabled(plan) || !form.region) return
+	submitting.value = true
+	error.value = ''
+	try {
+		const response = await callMethod('lenscloud.api.orchestration.request_customer_subscription', { plan: plan.name, region: form.region }, 'POST')
+		result.value = response.message || response
+		step.value = 'result'
+		await load()
+	} catch (err) {
+		error.value = err?.message || 'Unable to request access.'
+	} finally {
+		submitting.value = false
+	}
+}
+
+onMounted(load)
+</script>
+
+<template>
+	<WorkspaceLayout
+		title="Plans"
+		subtitle="A guided activity from Plan choice to Free checkout and Site launch."
+		inspector-kicker="Launch guide"
+		inspector-title="Launch checklist"
+		:inspector-subtitle="screenSubtitle"
+	>
+		<template #main>
+			<div class="h-full overflow-y-auto bg-[#f7f9fb] p-4 lg:p-6">
+				<Alert v-if="error" theme="red" title="Plan action failed" :description="error" class="mb-4" />
+
+				<div v-if="loading" class="grid min-h-[560px] place-items-center rounded-xl border border-outline-gray-2 bg-surface-white p-8 text-center">
+					<div>
+						<div class="mx-auto grid size-12 place-items-center rounded-full bg-blue-50 text-blue-700"><Sparkles class="size-6" /></div>
+						<p class="mt-4 text-sm font-medium text-ink-gray-8">Loading your launch activity...</p>
+					</div>
+				</div>
+
+				<section v-else class="mx-auto max-w-6xl">
+					<div class="rounded-2xl border border-outline-gray-2 bg-surface-white">
+						<div class="p-5 lg:p-6">
+							<div v-if="step === 'choose'" class="space-y-6">
+								<div class="mx-auto max-w-3xl text-center">
+									<p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#64748B]">Choose Plan</p>
+									<h3 class="mt-2 text-2xl font-semibold tracking-[-0.01em] text-[#191c1e]">Select your LensCloud service</h3>
+									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a submitted Platform Plan. Start free today or request access to higher tiers.</p>
+									<div class="mt-5 inline-flex rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-1">
+										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-[#1D4ED8] shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
+									</div>
+								</div>
+
+								<div v-if="!visiblePlans.length" class="rounded-xl border border-dashed border-[#EDEDED] bg-[#f7f9fb] p-8 text-center">
+									<p class="text-base font-semibold text-[#191c1e]">No Plans match this selection</p>
+									<p class="mt-2 text-sm text-[#64748B]">Choose another placement filter or ask LensCloud support.</p>
+								</div>
+
+								<div v-else class="grid items-stretch gap-4 lg:grid-cols-3">
+									<article v-for="plan in visiblePlans" :key="plan.name" :aria-disabled="planDisabled(plan)" class="relative flex min-h-[430px] flex-col rounded-2xl border p-5 transition" :class="[plan.is_default ? 'order-first lg:order-none' : '', planDisabled(plan) ? 'cursor-not-allowed border-[#EDEDED] bg-[#f2f4f6] opacity-70' : selectedPlanRecord?.name === plan.name ? 'cursor-pointer border-[#1D4ED8] bg-white shadow-[0_12px_30px_rgba(29,78,216,0.12)] ring-2 ring-[#dce1ff] hover:-translate-y-0.5' : plan.is_default ? 'cursor-pointer border-[#1D4ED8] bg-white hover:-translate-y-0.5' : 'cursor-pointer border-[#EDEDED] bg-[#f2f4f6] hover:-translate-y-0.5']" @click="!planDisabled(plan) && selectPlan(plan)">
+										<div v-if="plan.is_default" class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1D4ED8] px-3 py-1 text-xs font-semibold text-white shadow-sm">Recommended</div>
+										<div class="flex items-start justify-between gap-3">
+											<div>
+												<p class="text-lg font-semibold text-[#191c1e]">{{ plan.title }}</p>
+												<p class="mt-1 text-sm text-[#64748B]">{{ priceLabel(plan) }}</p>
+											</div>
+											<Badge :class="plan.is_default ? 'bg-[#dce1ff] text-[#0039b5]' : plan.experimental ? 'bg-amber-50 text-amber-700' : 'bg-white text-[#505f76]'">{{ planBadge(plan) }}</Badge>
+										</div>
+
+										<p class="mt-4 min-h-12 text-sm leading-6 text-[#505f76]">{{ plan.description || plan.customer_summary }}</p>
+										<div v-if="planDisabled(plan)" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{{ planDisabledReason(plan) }}. Manage progress from Subscriptions.</div>
+
+										<ul class="mt-5 space-y-2 text-sm text-[#434655]">
+											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-[#0039b5]">✓</span>{{ plan.site_limit || 1 }} Site{{ Number(plan.site_limit || 1) > 1 ? 's' : '' }}</li>
+											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-[#0039b5]">✓</span>{{ plan.environments?.join(', ') || 'Configured' }}</li>
+											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-[#0039b5]">✓</span>{{ plan.privacy === 'Public' ? 'Public placement' : 'Private placement' }}</li>
+										</ul>
+
+										<ul class="mt-5 flex-1 space-y-3">
+											<li v-for="feature in (plan.features || []).slice(0, 3)" :key="feature.feature" class="flex items-start gap-3 text-sm text-[#434655]">
+												<span class="grid size-6 shrink-0 place-items-center rounded-full bg-white text-xs font-semibold text-[#0039b5]" :class="selectedPlanRecord?.name === plan.name ? 'bg-[#dce1ff]' : 'border border-[#EDEDED]'">{{ featureIconLabel(feature.icon) }}</span>
+												<span>{{ feature.feature }}</span>
+											</li>
+										</ul>
+
+										<button class="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2" :disabled="planDisabled(plan)" :class="selectedPlanRecord?.name === plan.name && !planDisabled(plan) ? 'bg-[#1D4ED8] text-white hover:bg-[#0037b0]' : 'border border-[#EDEDED] bg-white text-[#505f76] hover:bg-white'" @click.stop="selectedPlanRecord?.name === plan.name ? continueFromPlan() : selectPlan(plan)">
+											{{ selectedPlanRecord?.name === plan.name ? planCtaLabel(plan) : 'Choose Plan' }}
+											<Send v-if="selectedPlanRecord?.name === plan.name && plan.cta_mode === 'request_access'" class="size-4" />
+											<CheckCircle2 v-else-if="selectedPlanRecord?.name === plan.name" class="size-4" />
+										</button>
+									</article>
+								</div>
+							</div>
+
+							<div v-else-if="step === 'setup'" class="flex items-start justify-center p-0 md:p-6 lg:p-10">
+								<div class="w-full max-w-3xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md" data-purpose="setup-card">
+									<div class="border-b border-gray-100 p-8">
+										<h3 class="text-2xl font-bold text-gray-900">Setup Your Site</h3>
+										<p class="mt-1 text-sm text-gray-500">Step 3: Region &amp; Domain</p>
+									</div>
+
+									<div class="space-y-12 p-8 md:p-10">
+										<section data-purpose="region-selection">
+											<h4 class="mb-1 text-base font-semibold text-gray-900">1. Choose Region</h4>
+											<p class="mb-4 text-sm text-gray-500">Select the geographic region for your site's data hosting. This cannot be changed later.</p>
+											<div class="relative w-full sm:w-80">
+												<select v-model="form.region" aria-label="Region" class="block w-full rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+													<option v-for="region in selectableRegions" :key="region.name" :value="region.name">{{ region.title || region.name }}</option>
+												</select>
+											</div>
+										</section>
+
+										<section data-purpose="site-address">
+											<h4 class="mb-1 text-base font-semibold text-gray-900">2. Your Site Address</h4>
+											<p class="mb-4 text-sm text-gray-500">Create a unique subdomain for your site. It will end in {{ domainSuffix }}.</p>
+											<div class="flex flex-wrap items-center gap-4">
+												<div class="flex rounded-md shadow-sm">
+													<span class="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-4 text-sm font-medium text-gray-600">https://</span>
+													<input v-model="form.subdomain" aria-label="Subdomain" class="block w-full min-w-0 flex-1 border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500 sm:w-48" name="subdomain" placeholder="my-subdomain" type="text" />
+													<span class="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-4 text-sm font-medium text-gray-600">{{ domainSuffix }}</span>
+												</div>
+												<div class="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium" :class="normalizedSubdomain ? 'border-green-200 bg-green-100 text-green-700' : 'border-gray-200 bg-gray-100 text-gray-500'">
+													<CheckCircle2 class="size-4" />
+													{{ normalizedSubdomain ? 'Available' : 'Required' }}
+												</div>
+											</div>
+										</section>
+
+										<section data-purpose="site-name">
+											<h4 class="mb-1 text-base font-semibold text-gray-900">3. Site Name</h4>
+											<p class="mb-4 text-sm text-gray-500">Give your site a friendly name for internal reference.</p>
+											<div class="w-full sm:w-80">
+												<input v-model="form.site_name" aria-label="Site Name" class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" type="text" placeholder="My Awesome App" />
+											</div>
+										</section>
+									</div>
+
+									<div class="flex flex-col items-center justify-between gap-4 bg-gray-50 px-8 py-6 sm:flex-row">
+										<button class="w-full rounded-md border border-gray-300 bg-white px-16 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto" @click="step = 'choose'">Back</button>
+										<button class="w-full rounded-md border border-transparent bg-blue-500 px-16 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto" :disabled="!setupComplete" @click="goToCheckout">Continue to Review</button>
+									</div>
+								</div>
+							</div>
+
+							<div v-else-if="step === 'checkout'" class="bg-white p-4 md:p-8 lg:p-10">
+								<h3 class="mb-8 text-3xl font-bold text-[#1a1a1a]">Review Subscription</h3>
+								<div class="grid max-w-full grid-cols-1 gap-6 lg:grid-cols-2">
+									<section class="h-fit rounded-xl border border-gray-200 bg-white p-8" data-purpose="order-summary">
+										<h4 class="mb-6 text-xl font-bold text-[#1a1a1a]">Order summary</h4>
+										<hr class="mb-6 border-gray-100" />
+										<div class="space-y-6">
+											<div class="flex items-center gap-4">
+												<div class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gray-100"><Sparkles class="size-6 text-gray-600" /></div>
+												<div><p class="font-bold text-gray-800">{{ selectedPlanRecord?.title || 'Free Plan' }}</p><p class="text-xs text-gray-400">{{ selectedPlanRecord?.description || 'Start with Free Plan' }}</p></div>
+											</div>
+
+											<div class="flex items-center gap-4">
+												<div class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gray-100"><Globe2 class="size-6 text-gray-600" /></div>
+												<div><p class="font-bold text-gray-800">Region: {{ selectedRegion?.title || selectedRegion?.name }}</p><p class="text-xs text-gray-400">Region <span class="font-mono">{{ selectedRegion?.name }}</span>: {{ selectedRegion?.title || selectedRegion?.name }}</p></div>
+											</div>
+
+											<div class="flex items-center gap-4">
+												<div class="flex size-12 shrink-0 items-center justify-center rounded-lg bg-gray-100"><ExternalLink class="size-6 text-gray-600" /></div>
+												<div><p class="break-all font-bold text-gray-800">Subdomain: {{ hostnamePreview }}</p><p class="break-all text-xs text-gray-400">Subdomain: {{ hostnamePreview }}</p></div>
+											</div>
+										</div>
+									</section>
+
+									<section class="flex h-fit flex-col rounded-xl border border-gray-200 bg-white" data-purpose="price-breakdown">
+										<div class="p-8">
+											<h4 class="mb-6 text-xl font-bold text-[#1a1a1a]">Price breakdown</h4>
+											<div class="mb-8 space-y-4">
+												<div class="flex items-center justify-between text-gray-600"><span class="text-lg">Plan price</span><span class="text-lg font-medium text-black">₹0</span></div>
+												<div class="flex items-center justify-between text-gray-600"><span class="text-lg">Taxes</span><span class="text-lg font-medium text-black">₹0</span></div>
+											</div>
+											<hr class="mb-6 border-gray-100" />
+											<div class="mb-8 flex items-center justify-between"><span class="text-xl font-bold">Total due today</span><span class="text-xl font-bold">₹0</span></div>
+										</div>
+										<div class="border-y border-gray-200 bg-gray-50 p-6"><p class="text-sm text-gray-500">No payment method required for Free Plan</p></div>
+										<div class="flex flex-col items-center gap-3 p-6">
+											<button class="w-full rounded-lg bg-[#2563eb] py-3.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canStartFree || submitting" @click="startFreePlan">{{ submitting ? 'Starting...' : 'Start Free Subscription' }}</button>
+											<button class="w-full rounded-lg bg-gray-100 px-6 py-3.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-200" @click="step = 'setup'">Cancel</button>
+										</div>
+									</section>
+								</div>
+							</div>
+
+							<div v-else class="grid gap-5 xl:grid-cols-[1fr_340px]">
+								<div class="rounded-xl border border-outline-gray-2 bg-surface-white p-5">
+									<Badge :class="result?.provisioning === 'started' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">{{ result?.provisioning === 'started' ? 'Provisioning' : 'Approval pending' }}</Badge>
+									<h3 class="mt-3 text-xl font-semibold text-ink-gray-9">{{ result?.provisioning === 'started' ? 'Setting up your Site' : 'Subscription request received' }}</h3>
+									<p class="mt-2 text-sm leading-6 text-ink-gray-5">{{ result?.provisioning === 'started' ? 'We are preparing your workspace. You can follow progress from here or return to the dashboard.' : 'The LensCloud team will review this request before setup starts.' }}</p>
+									<div class="mt-6 space-y-4">
+										<div v-for="item in provisioningSteps" :key="item.label" class="flex gap-3">
+											<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="item.state === 'done' ? 'bg-emerald-500 text-white' : item.state === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-surface-gray-2 text-ink-gray-5'"><Check v-if="item.state === 'done'" class="size-4" /><Clock3 v-else class="size-4" /></div>
+											<div><p class="text-sm font-medium text-ink-gray-9">{{ item.label }}</p><p class="text-xs text-ink-gray-5">{{ item.state === 'done' ? 'Completed' : item.state === 'active' ? 'In progress' : 'Waiting' }}</p></div>
+										</div>
+									</div>
+									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="`/customer/sites/${encodeURIComponent(result.site)}`" variant="subtle">View Site</Button><Button v-if="readySiteUrl && hasReadySite" as="a" :href="readySiteUrl" target="_blank" variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
+								</div>
+								<aside class="rounded-xl border border-outline-gray-2 bg-surface-gray-1 p-4"><div class="grid size-10 place-items-center rounded-full bg-emerald-50 text-emerald-700"><ShieldCheck class="size-5" /></div><h3 class="mt-4 text-base font-semibold text-ink-gray-9">What happens next</h3><p class="mt-2 text-sm leading-6 text-ink-gray-5">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, contact support and we will help from the Platform side.</p><Button class="mt-4" variant="subtle"><HelpCircle class="size-4" />Contact support</Button></aside>
+							</div>
+						</div>
+					</div>
+				</section>
+			</div>
+		</template>
+
+		<template #inspector>
+			<div v-if="step === 'checkout'" class="space-y-4">
+				<div class="rounded-xl border border-gray-200 bg-white p-6">
+					<div class="flex items-start justify-between">
+						<div><p class="text-[10px] font-semibold uppercase text-gray-400">Your service</p><h3 class="text-base font-bold text-gray-900">Checkout details</h3></div>
+						<div class="text-gray-400"><Check class="size-5" /></div>
+					</div>
+					<div class="mt-6 space-y-4">
+						<h4 class="text-sm font-bold text-gray-800">Your subscription is ready to start.</h4>
+						<p class="text-xs leading-relaxed text-gray-500">The Free Plan is self-provisioned and does not require a payment method. You can upgrade later for more capacity.</p>
+					</div>
+				</div>
+			</div>
+			<div v-else class="space-y-4">
+				<div class="rounded-xl border border-outline-gray-2 bg-surface-white p-4">
+					<p class="text-sm font-semibold text-ink-gray-9">Launch progress</p>
+					<div class="mt-4 space-y-3">
+						<div v-for="(item, index) in flowSteps" :key="item.key" class="flex gap-3">
+							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="index < currentStepIndex ? 'bg-emerald-500 text-white' : index === currentStepIndex ? 'bg-[#1D4ED8] text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
+								<CheckCircle2 v-if="index < currentStepIndex" class="size-4" />
+								<Clock3 v-else class="size-4" />
+							</div>
+							<div>
+								<p class="text-sm font-medium text-ink-gray-9">{{ item.label }}</p>
+								<p class="text-xs leading-5 text-ink-gray-5">{{ item.helper }}</p>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="rounded-xl border border-outline-gray-2 bg-surface-gray-1 p-3">
+					<p class="text-sm font-medium text-ink-gray-9">Current selection</p>
+					<div class="mt-2 space-y-1 text-sm text-ink-gray-5"><p>Plan: {{ selectedPlanRecord?.title || 'Required' }}</p><p>Region: {{ selectedRegion?.title || selectedRegion?.name || 'Required' }}</p><p class="truncate">Site: {{ hostnamePreview || 'Required' }}</p></div>
+				</div>
+			</div>
+		</template>
+	</WorkspaceLayout>
+</template>

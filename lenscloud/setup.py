@@ -107,6 +107,8 @@ def seed_free_plan():
     if not public_profile:
         return
     doc = frappe.get_doc("Plan", "Free")
+    if int(doc.docstatus or 0) == 1:
+        return
     doc.release_group = "lens-pure"
     doc.landscape = "Single Tier"
     doc.default_privacy_profile = public_profile

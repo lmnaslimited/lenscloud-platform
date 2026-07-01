@@ -1,6 +1,7 @@
 import {
 	ArrowRight,
 	CloudDownload,
+	CreditCard,
 	Database,
 	Globe2,
 	LayoutDashboard,
@@ -1122,8 +1123,8 @@ export const customerNav = [
 		heading: 'Customer portal',
 		items: [
 			{ key: 'customer-dashboard', label: 'Dashboard', note: 'Site status and next steps', route: '/customer/dashboard', icon: LayoutDashboard },
-			{ key: 'customer-sites', label: 'Sites', note: 'Manage tenant instances', route: '/customer/sites', icon: Globe2 },
-			{ key: 'customer-create-site', label: 'Create Site', note: 'Start a new site request', route: '/customer/create-site', icon: SquareArrowOutUpRight },
+			{ key: 'customer-plans', label: 'Plans', note: 'Choose a subscription', route: '/customer/plans', icon: Package },
+			{ key: 'customer-subscriptions', label: 'Subscriptions', note: 'Service status', route: '/customer/subscriptions', icon: CreditCard },
 			{ key: 'customer-account', label: 'Account', note: 'Identity and region', route: '/customer/account', icon: UserRound },
 		],
 	},

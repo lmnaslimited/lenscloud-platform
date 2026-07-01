@@ -2,16 +2,16 @@
 
 ## Goal
 
-Validate the complete LensCloud Platform lifecycle after the 2026-06-25 cleanup:
+Validate the Free-first LensCloud launch path first, then run the broader Platform lifecycle matrix after the customer E2E gate passes:
 
 - Platform readiness and cluster gates
-- Free Plan signup and provisioning
+- Free Plan signup, Plan browsing, Subscription, and automatic provisioning
 - Subscription, Landscape, Environment, Privacy Profile, and Site Control Profile resolution
 - Platform-created Database Server, Bench, and Site lifecycle
 - Runtime inspection and status synchronization
 - Deletion through Platform lifecycle APIs
 - Policy rejection and namespace filtering
-- Customer portal usability
+- Customer portal usability, dashboard, and Plan browsing
 - Authenticated desktop and mobile Playwright coverage
 
 ## Baseline
@@ -29,6 +29,29 @@ Start from the verified clean state:
 - Protected runtime resource: `default/frappe-mariadb`
 
 Do not delete or mutate `default/frappe-mariadb`.
+
+
+## 0. Immediate Free-First E2E Gate
+
+Run this gate before the multi-tier lifecycle matrix. The remaining Bench Command families (`backup.create`, restore, Bench Test trigger, and LATP) are deferred and must not block this gate while they truthfully return Unsupported.
+
+1. Confirm Platform readiness:
+   - signup enabled;
+   - wildcard root domain configured;
+   - active Free Plan exists;
+   - one ready shared Free Bench exists for the target Region;
+   - Kubernetes apply is disabled before the controlled window.
+2. Sign in or sign up as a customer through the native LensCloud flow. Record the future `lmnas.com` signed-token handoff as an integration gap; do not require it for this pass.
+3. Open Customer Dashboard and confirm the primary action is Plan browsing, not direct runtime setup.
+4. Open Customer Plans and confirm Plan cards show friendly outcomes only: price/availability, environments, Site limit, approval state, and isolation summary. No Bench, Database Server, namespace, CR, Secret, or kubeconfig details may appear.
+5. Select the Free Plan, Region, Site name, company/project, and subdomain.
+6. Submit and confirm Platform creates or reuses the Customer, creates an Approved Free Subscription, reserves the hostname, creates the Prod Site, and starts reconcile through the existing orchestration service.
+7. Watch Customer Dashboard and Sites until provisioning progress is visible. If apply is enabled for the controlled window, continue until HTTPS and static asset checks pass.
+8. In Platform, verify Customer, Subscription, Site, Bench, and Orchestration Action Log records. Counts must match dashboard values.
+9. Capture evidence: user, Customer, Subscription, Site, Plan, Region, hostname, action log IDs, HTTPS/static asset result, unsupported-command behavior if tested, and cleanup state.
+10. Disable apply after the run unless another controlled live scenario is explicitly approved.
+
+Expected result: the Free Plan launch journey is understandable without operator terminology, and provisioning is driven by Subscription + Plan policy rather than customer runtime choices.
 
 ## 1. Preflight
 
@@ -397,3 +420,47 @@ Before ending the test window:
    - Bench Command supported/unsupported behavior;
    - remaining production gaps;
    - any Infra handoff items.
+
+## Customer Subscription Screen Check
+
+During Free-first E2E, validate the customer `Subscriptions` menu after the Plan flow:
+
+1. Confirm the customer sidebar shows `Subscriptions` and does not show a standalone `Sites` menu.
+2. Open Customer portal > Subscriptions.
+3. Confirm the page uses customer-safe service cards, not a Platform list view.
+4. Confirm each card shows Plan, status, Region, Landscape, environment count, and a next action.
+5. Confirm the detail panel shows Subscription, Plan, Region, start date, end date when set, billing frequency, next renewal date, and Plan-specific payment summary.
+6. Confirm Free Plan copy says `₹0 due today` and no payment method is required, while paid/beta/request-access Plans do not reuse Free Plan payment copy.
+7. Confirm the detail panel shows Landscape progress as environment rows. Each row should show the environment, Site status/provisioning state, customer-safe version when available, and an `Open Site` link only for ready Sites.
+8. Confirm the screen never exposes Bench, Database Server, Runtime Namespace, Kubernetes, CR names, Secrets, action logs, pod logs, kubeconfig, or raw operator resource names.
+9. For no subscription, confirm the empty state points to `Choose a Plan`.
+10. On mobile, tap the shared `Details` button and confirm the bottom-sheet inspector opens.
+11. Confirm the mobile inspector shows the same customer-safe Subscription/Landscape detail as the desktop right pane.
+12. Close the drawer and confirm focus returns to the page without navigation loss.
+13. Run desktop and mobile authenticated Playwright with console-error checks. The mobile test must open the inspector drawer; route-load checks alone are not sufficient.
+
+## Mobile Workspace Inspector Check
+
+For every customer or Platform surface that uses `WorkspaceLayout`:
+
+1. Open the page at a mobile viewport.
+2. Confirm the `Details` trigger is visible near the bottom of the workspace.
+3. Tap `Details` and confirm a bottom-sheet drawer opens with the page inspector title/subtitle and inspector content.
+4. Confirm the drawer content matches the desktop inspector contract for that page.
+5. Confirm close/backdrop behavior returns to the same page state.
+6. Confirm customer drawers do not expose Bench, Database Server, Runtime Namespace, Kubernetes, CR names, Secrets, action logs, pod logs, kubeconfig, or raw operator resource names.
+
+## Customer Navigation And Entitlement Check
+
+During Free-first E2E and customer regression testing:
+
+1. Confirm customer navigation shows Dashboard, Plans, Subscriptions, and Account.
+2. Confirm customer navigation does not show `Create Site`.
+3. Confirm Dashboard `View progress` or `Continue setup` opens Subscriptions.
+4. Confirm the Dashboard Subscription count card opens Subscriptions.
+5. Confirm Site and Ready count cards are informational and do not navigate.
+6. Open Subscriptions and confirm the Plan catalog CTA is `Add New Subscription`.
+7. Provision or reuse a customer that has exhausted the Free Plan limits.
+8. Open Plans and confirm Free remains visible but disabled with a limit message.
+9. Confirm attempting to request the exhausted Plan through the API is rejected or returns the existing Subscription without creating another Site.
+10. Confirm customer screens still hide Bench, Database Server, Runtime Namespace, Kubernetes, CR names, Secrets, action logs, pod logs, kubeconfig, and raw operator resource names.

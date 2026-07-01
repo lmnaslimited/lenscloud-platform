@@ -8,7 +8,7 @@ import frappe
 import requests
 import yaml
 from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import add_months, now_datetime
 
 from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientError, RESOURCE_PATHS, kubeconfig_path, sanitize_error
 from lenscloud.api.policy import get_free_bench
@@ -1335,6 +1335,257 @@ def check_cluster_permissions(cluster):
 	}
 
 
+def customer_isolation_summary(plan, privacy, environments):
+	if plan_value(plan, "is_free"):
+		return _("Free launch plan with one production Site. LensCloud selects ready shared capacity in your Region.")
+	if privacy == "Private":
+		return _("Dedicated customer runtime boundaries for approved environments, managed by LensCloud.")
+	if privacy == "Private Shared":
+		return _("Customer-scoped runtime groups for approved environments, with LensCloud-managed placement.")
+	if environments:
+		return _("{0} environment plan with LensCloud-managed placement and access.").format(len(environments))
+	return _("LensCloud-managed plan. Runtime placement is handled for you.")
+
+
+
+def plan_value(plan, key, default=None):
+	if hasattr(plan, "get"):
+		return plan.get(key, default)
+	return getattr(plan, key, default)
+
+
+def parse_portal_features(plan):
+	if not plan_value(plan, "portal_feature_json"):
+		return []
+	try:
+		features = json.loads(plan_value(plan, "portal_feature_json"))
+	except Exception:
+		return []
+	if not isinstance(features, list):
+		return []
+	cleaned = []
+	for feature in features:
+		if not isinstance(feature, dict) or not feature.get("feature"):
+			continue
+		cleaned.append({"icon": feature.get("icon") or "check", "feature": feature.get("feature")})
+	return cleaned[:8]
+
+
+def plan_customer_cta_mode(plan):
+	if not bool(plan_value(plan, "publish_in_customer_portal", 0)):
+		return "hidden"
+	if plan_value(plan, "docstatus", 0) != 1 and not bool(plan_value(plan, "show_draft_in_customer_portal", 0)):
+		return "hidden"
+	if plan_value(plan, "status") != "Active" or plan_value(plan, "availability") == "Retired":
+		return "hidden"
+	if plan_value(plan, "docstatus", 0) != 1:
+		return "coming_soon"
+	if bool(plan_value(plan, "allow_self_service", 0)) and not bool(plan_value(plan, "request_access_only", 0)):
+		return "self_service"
+	if bool(plan_value(plan, "request_access_only", 0)) or plan_value(plan, "availability") in {"Beta", "Invite Only"}:
+		return "request_access"
+	return "coming_soon"
+
+
+def customer_plan_summary(plan):
+	privacy = frappe.db.get_value("Privacy Profile", plan_value(plan, "default_privacy_profile"), "privacy") if plan_value(plan, "default_privacy_profile") else None
+	landscape_title = frappe.db.get_value("Landscape", plan_value(plan, "landscape"), "title") if plan_value(plan, "landscape") else None
+	environments = []
+	if plan_value(plan, "landscape"):
+		for row in frappe.get_all("Landscape Environment", filters={"parent": plan_value(plan, "landscape")}, fields=["environment", "sequence"], order_by="sequence asc"):
+			environments.append(row.environment)
+	publish = bool(plan_value(plan, "publish_in_customer_portal", 0))
+	docstatus = plan_value(plan, "docstatus", 0)
+	show_draft = bool(plan_value(plan, "show_draft_in_customer_portal", 0))
+	status = plan_value(plan, "status")
+	availability = plan_value(plan, "availability")
+	allow_self_service = bool(plan_value(plan, "allow_self_service", 0))
+	request_access_only = bool(plan_value(plan, "request_access_only", 0))
+	if not publish or status != "Active" or availability == "Retired" or (docstatus != 1 and not show_draft):
+		cta_mode = "hidden"
+	elif docstatus != 1:
+		cta_mode = "coming_soon"
+	elif allow_self_service and not request_access_only:
+		cta_mode = "self_service"
+	elif request_access_only or availability in {"Beta", "Invite Only"}:
+		cta_mode = "request_access"
+	else:
+		cta_mode = "coming_soon"
+	return {
+		"name": plan_value(plan, "name"),
+		"title": plan_value(plan, "title"),
+		"plan_code": plan_value(plan, "plan_code"),
+		"is_default": bool(plan_value(plan, "is_default")),
+		"is_free": bool(plan_value(plan, "is_free")),
+		"monthly_price": plan_value(plan, "monthly_price") or 0,
+		"billing_frequency": plan_value(plan, "billing_frequency") or "Monthly",
+		"site_limit": plan_value(plan, "site_limit") or 0,
+		"subscription_limit": plan_value(plan, "subscription_limit") or 0,
+		"description": plan_value(plan, "description"),
+		"availability": availability,
+		"release_group": plan_value(plan, "release_group"),
+		"landscape": plan_value(plan, "landscape"),
+		"landscape_title": landscape_title or plan_value(plan, "landscape"),
+		"default_privacy_profile": plan_value(plan, "default_privacy_profile"),
+		"privacy": privacy,
+		"environments": environments,
+		"customer_summary": customer_isolation_summary(plan, privacy, environments),
+		"publish_in_customer_portal": publish,
+		"allow_self_service": allow_self_service,
+		"request_access_only": request_access_only,
+		"experimental": bool(plan_value(plan, "experimental", 0)),
+		"portal_badge": plan_value(plan, "portal_badge"),
+		"portal_sort_order": plan_value(plan, "portal_sort_order", 0) or 0,
+		"features": parse_portal_features(plan),
+		"cta_mode": cta_mode,
+		"docstatus": docstatus,
+	}
+
+
+def plan_payment_summary(plan_doc, frequency=None):
+	price = plan_value(plan_doc, "monthly_price") or 0
+	try:
+		price_value = float(price)
+	except (TypeError, ValueError):
+		price_value = 0
+	frequency = frequency or plan_value(plan_doc, "billing_frequency") or "Monthly"
+	if bool(plan_value(plan_doc, "is_free")):
+		return {
+			"amount": 0,
+			"amount_label": "₹0 due today",
+			"frequency": frequency,
+			"payment_note": "No payment method is required for this Free Plan.",
+		}
+	amount_label = "Approval required" if price_value == 0 else f"₹{price_value:g} / {frequency.lower()}"
+	return {
+		"amount": price_value,
+		"amount_label": amount_label,
+		"frequency": frequency,
+		"payment_note": "Payment or approval will be handled before provisioning starts.",
+	}
+
+
+def bench_release_label(bench_name):
+	if not bench_name:
+		return None
+	release = frappe.db.get_value("Bench", bench_name, "current_release")
+	if not release:
+		return None
+	image_tag = frappe.db.get_value("Release", release, "image_tag")
+	return image_tag or release
+
+
+def landscape_environment_sequence(subscription, sites):
+	landscape = subscription.get("landscape")
+	if not landscape and subscription.get("plan"):
+		landscape = frappe.db.get_value("Plan", subscription.plan, "landscape")
+	landscape_title = frappe.db.get_value("Landscape", landscape, "title") if landscape else None
+	rows = []
+	if landscape:
+		rows = frappe.get_all("Landscape Environment", filters={"parent": landscape}, fields=["environment", "sequence"], order_by="sequence asc")
+	if not rows:
+		rows = [{"environment": "Prod", "sequence": 1}]
+	subscription_sites = [site for site in sites if site.get("subscription") == subscription.name]
+	environments = []
+	for row in rows:
+		environment = row.get("environment")
+		site = next((item for item in subscription_sites if (item.get("environment") or "Prod") == environment), None)
+		environments.append({
+			"environment": environment,
+			"sequence": row.get("sequence"),
+			"site": site.get("name") if site else None,
+			"site_title": site.get("title") if site else None,
+			"site_status": site.get("site_status") if site else None,
+			"provisioning_status": site.get("provisioning_status") if site else None,
+			"access_url": site.get("access_url") if site else None,
+			"release": bench_release_label(site.get("bench")) if site else None,
+		})
+	return {
+		"landscape": landscape_title or landscape or "Standard",
+		"environments": environments,
+	}
+
+
+def customer_subscription_summary(subscription, sites):
+	plan_doc = frappe.get_doc("Plan", subscription.plan) if subscription.get("plan") else None
+	subscription = frappe._dict(subscription)
+	if plan_doc:
+		subscription.plan_title = plan_doc.title
+		subscription.payment = plan_payment_summary(plan_doc, subscription.get("plan_frequency"))
+	else:
+		subscription.payment = {
+			"amount_label": "Pending",
+			"frequency": subscription.get("plan_frequency") or "Monthly",
+			"payment_note": "Payment or approval details are managed by LensCloud.",
+		}
+	subscription.landscape_summary = landscape_environment_sequence(subscription, sites)
+	return subscription
+
+
+def plan_customer_entitlement(plan, customer_name, subscriptions=None, sites=None):
+	subscriptions = subscriptions or []
+	sites = sites or []
+	plan_name = plan_value(plan, "name")
+	try:
+		subscription_limit = int(plan_value(plan, "subscription_limit") or 0)
+	except (TypeError, ValueError):
+		subscription_limit = 0
+	try:
+		site_limit = int(plan_value(plan, "site_limit") or 0)
+	except (TypeError, ValueError):
+		site_limit = 0
+	used_subscriptions = len([item for item in subscriptions if item.get("plan") == plan_name and item.get("status") not in {"Cancelled", "Failed"}])
+	used_sites = len([item for item in sites if item.get("plan") == plan_name and item.get("site_status") != "Deleted"])
+	reasons = []
+	if subscription_limit and used_subscriptions >= subscription_limit:
+		reasons.append(_("Subscription limit reached"))
+	if site_limit and used_sites >= site_limit:
+		reasons.append(_("Site limit reached"))
+	return {
+		"subscription_limit": subscription_limit,
+		"site_limit": site_limit,
+		"used_subscriptions": used_subscriptions,
+		"used_sites": used_sites,
+		"exhausted": bool(reasons),
+		"reason": "; ".join(str(reason) for reason in reasons),
+	}
+
+
+def enrich_customer_plan_entitlements(plans, customer_name, subscriptions, sites):
+	if not customer_name:
+		return plans
+	for plan in plans:
+		entitlement = plan_customer_entitlement(plan, customer_name, subscriptions, sites)
+		plan["entitlement"] = entitlement
+		if entitlement["exhausted"]:
+			plan["cta_disabled"] = True
+			plan["cta_disabled_reason"] = entitlement["reason"]
+	return plans
+
+
+def customer_usage_summary(customer_name):
+	if not customer_name:
+		return {"sites": 0, "ready_sites": 0, "subscriptions": 0, "pending_subscriptions": 0}
+	return {
+		"sites": frappe.db.count("Site", {"customer": customer_name, "site_status": ["!=", "Deleted"]}),
+		"ready_sites": frappe.db.count("Site", {"customer": customer_name, "site_status": ["in", ["Ready", "Active"]]}),
+		"subscriptions": frappe.db.count("Subscription", {"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}),
+		"pending_subscriptions": frappe.db.count("Subscription", {"customer": customer_name, "status": "Pending Approval"}),
+	}
+
+
+def onboarding_step(customer_name, subscriptions, sites):
+	if not customer_name:
+		return "create_customer"
+	if not subscriptions:
+		return "choose_plan"
+	if not sites:
+		return "setup_site"
+	if any(site.site_status in {"Ready", "Active"} for site in sites):
+		return "ready"
+	return "provisioning"
+
+
 @frappe.whitelist()
 def get_customer_portal_context():
 	settings = get_platform_settings()
@@ -1343,12 +1594,29 @@ def get_customer_portal_context():
 		frappe.throw(_("Authentication is required."), frappe.PermissionError)
 	customer_name = frappe.db.get_value("Customer", {"user": user}, "name")
 	customer = frappe.db.get_value("Customer", customer_name, ["name", "first_name", "last_name", "region"], as_dict=True) if customer_name else None
-	regions = frappe.get_all("Region", filters={"deployment_status": "Active", "cluster": ["!=", ""]}, fields=["name", "title", "cluster"], order_by="lft asc")
-	plans = frappe.get_all("Plan", filters={"status": "Active", "availability": ["in", ["Public", "Beta"]]}, fields=["name", "title", "plan_code", "is_default", "is_free", "monthly_price", "site_limit", "subscription_limit", "bench_policy", "description", "availability", "release_group", "landscape", "default_privacy_profile"])
+	active_clusters = {row.name for row in frappe.get_all("Cluster", filters={"status": "Active"}, fields=["name"])}
+	regions = [
+		region for region in frappe.get_all("Region", filters={"deployment_status": "Active", "cluster": ["!=", ""]}, fields=["name", "title", "cluster"], order_by="lft asc")
+		if region.cluster in active_clusters
+	]
+	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name else []
+	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "site_status", "provisioning_status", "route_status", "access_url", "plan", "subscription", "environment", "bench", "modified"], order_by="modified desc", limit=20) if customer_name else []
+	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc")
+	plans = []
+	for row in plan_rows:
+		summary = customer_plan_summary(frappe.get_doc("Plan", row.name))
+		if summary["cta_mode"] != "hidden":
+			plans.append(summary)
+	plans = enrich_customer_plan_entitlements(plans, customer_name, subscriptions, sites)
+	subscriptions = [customer_subscription_summary(subscription, sites) for subscription in subscriptions]
 	return {
 		"customer": customer,
 		"regions": regions,
 		"plans": plans,
+		"subscriptions": subscriptions,
+		"sites": sites,
+		"usage": customer_usage_summary(customer_name),
+		"onboarding_step": onboarding_step(customer_name, subscriptions, sites),
 		"settings": {
 			"root_domain": settings.root_domain,
 			"billing_system": settings.billing_system,
@@ -1376,42 +1644,116 @@ def eligible_customer_bench(region, customer, plan=None):
 	frappe.throw(_("No ready Plan capacity is available in Region {0}.").format(region))
 
 
+def ensure_customer_for_user(region=None):
+	user = frappe.session.user
+	if user == "Guest":
+		frappe.throw(_("Authentication is required."), frappe.PermissionError)
+	customer = frappe.db.get_value("Customer", {"user": user}, "name")
+	if customer:
+		return customer
+	customer_doc = frappe.get_doc({
+		"doctype": "Customer",
+		"first_name": frappe.db.get_value("User", user, "first_name") or user,
+		"user": user,
+		"region": region,
+	})
+	customer_doc.insert(ignore_permissions=True)
+	return customer_doc.name
+
+
+def subscription_next_renewal(effective_from, frequency):
+	if frequency == "One Time":
+		return None
+	months = {"Monthly": 1, "Quarterly": 3, "Yearly": 12}.get(frequency or "Monthly", 1)
+	return add_months(effective_from.date() if hasattr(effective_from, "date") else effective_from, months)
+
+
+def create_or_get_customer_subscription(customer, plan, region):
+	subscription_name = frappe.db.exists("Subscription", {"customer": customer, "plan": plan, "region": region, "status": ["not in", ["Cancelled", "Failed"]]})
+	if subscription_name:
+		return frappe.get_doc("Subscription", subscription_name), False
+	plan_frequency = frappe.db.get_value("Plan", plan, "billing_frequency") or "Monthly"
+	effective_from = now_datetime()
+	subscription = frappe.get_doc({
+		"doctype": "Subscription",
+		"customer": customer,
+		"plan": plan,
+		"region": region,
+		"status": "Approved",
+		"plan_frequency": plan_frequency,
+		"effective_from": effective_from,
+		"next_renewal_date": subscription_next_renewal(effective_from, plan_frequency),
+	})
+	subscription.insert(ignore_permissions=True)
+	return subscription, True
+
+
 @frappe.whitelist()
-def request_customer_site(site_name, company_name=None, subdomain=None, region=None, plan=None, notes=None):
+def request_customer_subscription(plan=None, region=None, site_name=None, company_name=None, subdomain=None, notes=None):
+	if not region:
+		frappe.throw(_("Region is required."))
+	plan = plan or get_free_plan()
+	if not plan:
+		frappe.throw(_("A default or Free Plan is required."))
+	customer = ensure_customer_for_user(region)
+	plan_doc = frappe.get_doc("Plan", plan)
+	if not plan_doc.publish_in_customer_portal or plan_doc.status != "Active" or plan_doc.docstatus != 1:
+		frappe.throw(_("This Plan is not available for customer subscription."))
+	cta_mode = plan_customer_cta_mode(plan_doc)
+	if cta_mode not in {"self_service", "request_access"}:
+		frappe.throw(_("This Plan is not accepting customer requests."))
+	active_subscriptions = frappe.get_all("Subscription", filters={"customer": customer, "plan": plan_doc.name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "status"])
+	active_sites = frappe.get_all("Site", filters={"customer": customer, "plan": plan_doc.name, "site_status": ["!=", "Deleted"]}, fields=["name", "site_status"])
+	entitlement = plan_customer_entitlement(plan_doc, customer, active_subscriptions, active_sites)
+	if entitlement["exhausted"]:
+		existing = active_subscriptions[0].name if active_subscriptions else None
+		free_site_slot_available = bool(plan_doc.is_free and entitlement["site_limit"] and entitlement["used_sites"] < entitlement["site_limit"])
+		if not free_site_slot_available:
+			if existing:
+				return {"subscription": existing, "status": frappe.db.get_value("Subscription", existing, "status"), "provisioning": "limit_reached", "message": entitlement["reason"]}
+			frappe.throw(_("This Plan is no longer available for your account: {0}").format(entitlement["reason"]))
+	if not plan_doc.is_free:
+		if cta_mode == "self_service":
+			frappe.throw(_("Paid self-service checkout is not available yet."))
+		if plan_doc.availability not in {"Beta", "Invite Only", "Public"}:
+			frappe.throw(_("This Plan is not accepting subscriptions."))
+		existing = frappe.db.exists("Subscription", {"customer": customer, "plan": plan, "region": region, "status": ["not in", ["Cancelled", "Failed"]]})
+		if existing:
+			return {"subscription": existing, "status": frappe.db.get_value("Subscription", existing, "status"), "provisioning": "not_started"}
+		effective_from = now_datetime()
+		doc = frappe.get_doc({"doctype": "Subscription", "customer": customer, "plan": plan, "region": region, "status": "Pending Approval", "plan_frequency": plan_doc.billing_frequency or "Monthly", "effective_from": effective_from, "next_renewal_date": subscription_next_renewal(effective_from, plan_doc.billing_frequency or "Monthly")})
+		doc.insert(ignore_permissions=True)
+		return {"subscription": doc.name, "status": doc.status, "policy_hash": doc.policy_hash, "provisioning": "pending_approval"}
+	return provision_free_plan_site(customer, plan_doc, region, site_name, company_name, subdomain, notes)
+
+
+def provision_free_plan_site(customer, plan_doc, region, site_name=None, company_name=None, subdomain=None, notes=None):
 	settings = get_platform_settings()
 	if not settings.root_domain or settings.domain_strategy != "Wildcard":
 		frappe.throw(_("Platform wildcard root domain must be configured before customer Site creation."))
-	if not region:
-		frappe.throw(_("Region is required."))
-	cluster = get_region_cluster(region); plan = plan or get_free_plan()
-	if not plan:
-		frappe.throw(_("A default or Free Plan is required."))
-	user = frappe.session.user; customer = frappe.db.get_value("Customer", {"user": user}, "name")
-	if not customer:
-		customer_doc = frappe.get_doc({"doctype": "Customer", "first_name": frappe.db.get_value("User", user, "first_name") or user, "user": user, "region": region}); customer_doc.insert(ignore_permissions=True); customer = customer_doc.name
-	plan_doc = frappe.get_doc("Plan", plan); limit = int(plan_doc.site_limit or 0)
-	if plan_doc.availability == "Beta":
-		frappe.throw(_("Beta Plans require enrollment and Platform approval before Site provisioning."))
-	if limit and frappe.db.count("Site", {"customer": customer, "plan": plan, "site_status": ["!=", "Deleted"]}) >= limit:
+	cluster = get_region_cluster(region)
+	limit = int(plan_doc.site_limit or 0)
+	if limit and frappe.db.count("Site", {"customer": customer, "plan": plan_doc.name, "site_status": ["!=", "Deleted"]}) >= limit:
 		frappe.throw(_("The {0} Plan Site limit has been reached.").format(plan_doc.title))
-	subscription_name = frappe.db.exists("Subscription", {"customer": customer, "plan": plan, "region": region, "status": ["not in", ["Cancelled", "Failed"]]})
-	if subscription_name:
-		subscription = frappe.get_doc("Subscription", subscription_name)
-	else:
-		subscription = frappe.get_doc({"doctype": "Subscription", "customer": customer, "plan": plan, "region": region, "status": "Approved", "effective_from": now_datetime()})
-		subscription.insert(ignore_permissions=True)
+	subscription, created_subscription = create_or_get_customer_subscription(customer, plan_doc.name, region)
 	subdomain = slugify(subdomain or site_name or company_name)
 	if not subdomain:
 		frappe.throw(_("Subdomain could not be derived."))
-	domain = settings.root_domain.strip().lower().strip("."); title = f"{subdomain}.{domain}"
+	domain = settings.root_domain.strip().lower().strip(".")
+	title = f"{subdomain}.{domain}"
 	if frappe.db.exists("Site", {"title": title}):
 		frappe.throw(_("Hostname {0} is already reserved.").format(title))
-	bench = eligible_customer_bench(region, customer, plan)
-	site_doc = frappe.get_doc({"doctype": "Site", "customer": customer, "subscription": subscription.name, "environment": "Prod", "bench": bench.name, "region": region, "cluster": cluster.name, "plan": plan, "subdomain": subdomain, "domain": domain, "site_status": "Requested", "provisioning_status": "Pending", "hostname_reservation_status": "Reserved", "route_status": "Pending", "tls_status": "Inherited", "operator_resource_name": subdomain, "access_url": f"https://{title}"})
+	bench = eligible_customer_bench(region, customer, plan_doc.name)
+	site_doc = frappe.get_doc({"doctype": "Site", "customer": customer, "subscription": subscription.name, "environment": "Prod", "bench": bench.name, "region": region, "cluster": cluster.name, "plan": plan_doc.name, "subdomain": subdomain, "domain": domain, "site_status": "Requested", "provisioning_status": "Pending", "hostname_reservation_status": "Reserved", "route_status": "Pending", "tls_status": "Inherited", "operator_resource_name": subdomain, "access_url": f"https://{title}"})
 	site_doc.insert(ignore_permissions=True)
-	request_log = create_action_log("Site Request", "Succeeded", site=site_doc.name, dry_run=False, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan Site request captured and hostname reserved.", resource_kind="Site", operation="request")
+	request_log = create_action_log("Site Request", "Succeeded", site=site_doc.name, dry_run=False, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan subscription approved and Site provisioning started.", resource_kind="Site", operation="request")
 	reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
-	return {"site": site_doc.name, "domain": domain, "hostname": title, "access_url": site_doc.access_url, "cluster": cluster.name, "bench": bench.name, "plan": plan, "action_log": request_log.name, "reconcile": reconcile}
+	return {"subscription": subscription.name, "subscription_created": created_subscription, "status": subscription.status, "site": site_doc.name, "domain": domain, "hostname": title, "access_url": site_doc.access_url, "cluster": cluster.name, "bench": bench.name, "plan": plan_doc.name, "action_log": request_log.name, "reconcile": reconcile, "provisioning": "started"}
+
+
+@frappe.whitelist()
+def request_customer_site(site_name, company_name=None, subdomain=None, region=None, plan=None, notes=None):
+	return request_customer_subscription(plan=plan, region=region, site_name=site_name, company_name=company_name, subdomain=subdomain, notes=notes)
 
 
 @frappe.whitelist()

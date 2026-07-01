@@ -1,6 +1,6 @@
 <script setup>
 import { computed, ref } from 'vue'
-import { Sparkles, PanelRightOpen, PanelRightClose } from 'lucide-vue-next'
+import { Sparkles, PanelRightOpen, PanelRightClose, X } from 'lucide-vue-next'
 import { Badge, Button } from 'frappe-ui'
 
 const props = defineProps({
@@ -13,8 +13,10 @@ const props = defineProps({
 	assistantLabel: { type: String, default: 'Assistant' },
 	assistantHint: { type: String, default: 'Reserved for contextual AI guidance tied to the current workspace.' },
 	assistantContext: { type: Object, default: () => ({}) },
+	mobileInspectorLabel: { type: String, default: 'Details' },
 })
 
+const mobileInspectorOpen = ref(false)
 const assistantOpen = ref(false)
 const assistantIcon = computed(() => (assistantOpen.value ? PanelRightClose : PanelRightOpen))
 const assistantSections = computed(() => props.assistantContext?.sections || [])
@@ -42,8 +44,19 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 		</header>
 
 		<div class="flex min-h-0 flex-1 overflow-hidden">
-			<section class="min-w-0 flex-1 overflow-hidden bg-surface-white">
+			<section class="relative min-w-0 flex-1 overflow-hidden bg-surface-white">
 				<slot name="main" />
+				<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-white via-white/85 to-transparent px-4 pb-4 pt-8 xl:hidden">
+					<button
+						type="button"
+						class="pointer-events-auto inline-flex min-w-[220px] items-center justify-center gap-2 rounded-xl bg-[#1D4ED8] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2"
+						data-testid="mobile-inspector-trigger"
+						@click="mobileInspectorOpen = true"
+					>
+						<PanelRightOpen class="size-4 shrink-0" />
+						<span class="whitespace-nowrap leading-5">{{ mobileInspectorLabel }}</span>
+					</button>
+				</div>
 			</section>
 
 			<aside class="hidden w-[380px] shrink-0 flex-col border-l border-outline-gray-2 bg-surface-white xl:flex">
@@ -105,6 +118,33 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 					</div>
 				</div>
 			</aside>
+
+			<Teleport to="body">
+				<div v-if="mobileInspectorOpen" class="fixed inset-0 z-[300] xl:hidden" data-testid="mobile-inspector-drawer">
+					<button type="button" class="absolute inset-0 bg-[#191c1e]/40" aria-label="Dismiss details backdrop" @click="mobileInspectorOpen = false" />
+					<aside class="absolute inset-x-0 bottom-0 flex max-h-[86vh] flex-col rounded-t-2xl border border-[#EDEDED] bg-white shadow-2xl">
+						<div class="mx-auto mt-2 h-1 w-10 rounded-full bg-[#c4c5d7]" aria-hidden="true" />
+						<div class="flex shrink-0 items-center justify-between gap-3 border-b border-[#EDEDED] px-4 py-3">
+							<div class="min-w-0">
+								<p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">{{ inspectorKicker }}</p>
+								<h2 class="truncate text-base font-semibold text-[#191c1e]">{{ inspectorTitle }}</h2>
+							</div>
+							<button type="button" aria-label="Close details" data-testid="mobile-inspector-close" class="grid size-8 place-items-center rounded-md text-[#64748B] hover:bg-[#f2f4f6] hover:text-[#191c1e]" @click="mobileInspectorOpen = false">
+								<X class="size-4" />
+							</button>
+						</div>
+						<div class="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+							<p v-if="inspectorSubtitle" class="mb-3 text-sm leading-5 text-[#64748B]">{{ inspectorSubtitle }}</p>
+							<slot name="inspector">
+								<div class="rounded border border-dashed border-[#EDEDED] bg-[#f7f9fb] p-3">
+									<p class="text-sm font-medium text-[#191c1e]">No record selected</p>
+									<p class="mt-1 text-sm leading-5 text-[#64748B]">Choose a record to inspect fields, status, and actions.</p>
+								</div>
+							</slot>
+						</div>
+					</aside>
+				</div>
+			</Teleport>
 		</div>
 	</div>
 </template>

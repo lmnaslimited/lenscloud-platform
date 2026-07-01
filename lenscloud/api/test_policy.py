@@ -5,6 +5,7 @@ import frappe
 from frappe.tests.utils import FrappeTestCase
 
 from lenscloud.api.launch import get_doctype_editor_schema, get_document_connections, get_platform_dashboard
+from lenscloud.api.orchestration import get_customer_portal_context
 from lenscloud.api.policy import placement_keys, resolve_subscription_policy_doc
 
 
@@ -175,6 +176,20 @@ class TestTopologyPolicy(FrappeTestCase):
         for connection in result:
             self.assertLessEqual(len(connection["items"]), 5)
             self.assertGreaterEqual(connection["count"], len(connection["items"]))
+    def test_customer_portal_context_is_plan_first_and_secret_safe(self):
+        context = get_customer_portal_context()
+        self.assertIn("plans", context)
+        self.assertIn("subscriptions", context)
+        self.assertIn("sites", context)
+        self.assertIn("usage", context)
+        self.assertIn("onboarding_step", context)
+        self.assertTrue(context["plans"])
+        plan = context["plans"][0]
+        self.assertIn("customer_summary", plan)
+        self.assertIn("environments", plan)
+        for forbidden in ("bench", "database_server", "runtime_namespace", "secret", "kubeconfig"):
+            self.assertNotIn(forbidden, plan)
+
     def test_lenscloud_document_links_reference_real_fields(self):
         for doctype in frappe.get_all("DocType", filters={"module": "Lenscloud", "istable": 0}, pluck="name"):
             meta = frappe.get_meta(doctype)

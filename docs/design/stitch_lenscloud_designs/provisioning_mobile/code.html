@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>LensCloud | Provisioning Progress</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .pulse-ring {
+            animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.33); }
+            80%, 100% { opacity: 0; }
+        }
+        .shimmer {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.4), transparent);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+        }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "secondary-container": "#d0e1fb",
+                        "surface-container-low": "#f2f4f6",
+                        "tertiary-fixed-dim": "#ffb59c",
+                        "secondary-fixed": "#d3e4fe",
+                        "tertiary-fixed": "#ffdbcf",
+                        "inverse-primary": "#b7c4ff",
+                        "surface": "#f7f9fb",
+                        "tertiary-container": "#a73400",
+                        "on-primary-fixed-variant": "#0039b5",
+                        "error": "#ba1a1a",
+                        "on-primary-container": "#cad3ff",
+                        "border-subtle": "#EDEDED",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "outline-variant": "#c4c5d7",
+                        "on-tertiary-container": "#ffc9b7",
+                        "text-muted": "#7C7C7C",
+                        "primary": "#0037b0",
+                        "background": "#f7f9fb",
+                        "primary-fixed-dim": "#b7c4ff",
+                        "tertiary": "#7f2500",
+                        "surface-dim": "#d8dadc",
+                        "on-error-container": "#93000a",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-bright": "#f7f9fb",
+                        "on-secondary": "#ffffff",
+                        "secondary": "#505f76",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface": "#191c1e",
+                        "primary-container": "#1d4ed8",
+                        "outline": "#747686",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#832700",
+                        "on-error": "#ffffff",
+                        "on-primary-fixed": "#001551",
+                        "surface-container": "#eceef0",
+                        "on-secondary-container": "#54647a",
+                        "on-primary": "#ffffff",
+                        "surface-container-high": "#e6e8ea",
+                        "emerald-green": "#10B981",
+                        "on-secondary-fixed": "#0b1c30",
+                        "frappe-blue": "#1D4ED8",
+                        "inverse-surface": "#2d3133",
+                        "surface-tint": "#2151da",
+                        "primary-fixed": "#dce1ff",
+                        "on-background": "#191c1e",
+                        "on-tertiary-fixed": "#390c00",
+                        "inverse-on-surface": "#eff1f3",
+                        "slate-gray": "#64748B",
+                        "surface-variant": "#e0e3e5",
+                        "on-surface-variant": "#434655"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "container-max": "1280px",
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display": ["Inter"],
+                        "label-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["18px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-sm": ["11px", {"lineHeight": "14px", "fontWeight": "500"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "body-sm": ["13px", {"lineHeight": "18px", "fontWeight": "400"}],
+                        "display": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.05em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col items-center">
+<!-- TopNavBar (Simulated for Mobile context) -->
+<header class="bg-surface-container-lowest border-b border-border-subtle w-full h-16 flex justify-between items-center px-4 sticky top-0 z-50">
+<div class="flex items-center gap-2">
+<span class="text-frappe-blue font-bold text-headline-md">LensCloud</span>
+</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-secondary" data-icon="notifications">notifications</span>
+<span class="material-symbols-outlined text-secondary" data-icon="settings">settings</span>
+</div>
+</header>
+<main class="w-full max-w-[480px] px-4 py-8 flex flex-col flex-grow">
+<!-- Header Section -->
+<div class="mb-8">
+<h1 class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface mb-2">Setting up your instance</h1>
+<p class="text-body-sm font-body-sm text-secondary">We are configuring your dedicated cloud workspace. This typically takes 2-3 minutes.</p>
+</div>
+<!-- Vertical Stepper Card -->
+<div class="bg-surface-container-lowest border border-border-subtle rounded-xl p-6 relative overflow-hidden">
+<!-- Background Shimmer for Active Feel -->
+<div class="absolute inset-0 shimmer opacity-5 pointer-events-none"></div>
+<div class="relative z-10 space-y-0">
+<!-- Step 1: Checked -->
+<div class="flex gap-4 min-h-[80px]">
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-emerald-green flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-[20px]" data-icon="check">check</span>
+</div>
+<div class="w-0.5 h-full bg-emerald-green opacity-30"></div>
+</div>
+<div class="pt-1.5">
+<h3 class="text-body-md font-semibold text-on-surface">Subscription approved</h3>
+<p class="text-label-md font-label-md text-emerald-green uppercase mt-0.5">Completed</p>
+</div>
+</div>
+<!-- Step 2: Checked -->
+<div class="flex gap-4 min-h-[80px]">
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full bg-emerald-green flex items-center justify-center text-white shrink-0">
+<span class="material-symbols-outlined text-[20px]" data-icon="check">check</span>
+</div>
+<div class="w-0.5 h-full bg-emerald-green opacity-30"></div>
+</div>
+<div class="pt-1.5">
+<h3 class="text-body-md font-semibold text-on-surface">Site reserved</h3>
+<p class="text-label-md font-label-md text-emerald-green uppercase mt-0.5">Completed</p>
+</div>
+</div>
+<!-- Step 3: Active/Pulsing -->
+<div class="flex gap-4 min-h-[80px]">
+<div class="flex flex-col items-center">
+<div class="relative w-8 h-8 flex items-center justify-center shrink-0">
+<div class="absolute inset-0 bg-frappe-blue rounded-full pulse-ring"></div>
+<div class="relative w-6 h-6 rounded-full bg-frappe-blue flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[16px] animate-spin" data-icon="progress_activity">progress_activity</span>
+</div>
+</div>
+<div class="w-0.5 h-full bg-outline-variant"></div>
+</div>
+<div class="pt-1.5">
+<h3 class="text-body-md font-semibold text-primary">Preparing workspace</h3>
+<p class="text-label-md font-label-md text-primary uppercase mt-0.5">In Progress...</p>
+<div class="mt-3 flex items-center gap-2 bg-surface-container-low p-2 rounded-lg border border-border-subtle">
+<div class="w-full bg-surface-container-highest h-1.5 rounded-full overflow-hidden">
+<div class="bg-frappe-blue h-full w-[65%] transition-all duration-1000 ease-in-out"></div>
+</div>
+<span class="text-label-sm font-label-sm text-secondary shrink-0">65%</span>
+</div>
+</div>
+</div>
+<!-- Step 4: Pending -->
+<div class="flex gap-4 min-h-[80px]">
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full border-2 border-outline-variant bg-surface-container flex items-center justify-center text-outline shrink-0">
+<span class="text-label-md font-bold">4</span>
+</div>
+<div class="w-0.5 h-full bg-outline-variant"></div>
+</div>
+<div class="pt-1.5 opacity-50">
+<h3 class="text-body-md font-semibold text-on-surface">Connecting HTTPS</h3>
+<p class="text-label-md font-label-md text-secondary uppercase mt-0.5">Pending</p>
+</div>
+</div>
+<!-- Step 5: Pending -->
+<div class="flex gap-4">
+<div class="flex flex-col items-center">
+<div class="w-8 h-8 rounded-full border-2 border-outline-variant bg-surface-container flex items-center justify-center text-outline shrink-0">
+<span class="text-label-md font-bold">5</span>
+</div>
+</div>
+<div class="pt-1.5 opacity-50">
+<h3 class="text-body-md font-semibold text-on-surface">Ready to open</h3>
+<p class="text-label-md font-label-md text-secondary uppercase mt-0.5">Pending</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Helper Text Section -->
+<footer class="mt-auto pt-8 pb-4">
+<div class="bg-secondary-container/30 border border-secondary-container rounded-xl p-4 flex gap-3">
+<span class="material-symbols-outlined text-secondary shrink-0" data-icon="info">info</span>
+<div>
+<h4 class="text-body-sm font-semibold text-on-secondary-container">What happens next?</h4>
+<p class="text-body-sm font-body-sm text-on-secondary-container/80 mt-1">
+                        Once the workspace is ready, you'll receive a secure link to your domain. We'll automatically configure your SSL certificate and initialize the core modules.
+                    </p>
+</div>
+</div>
+<button class="w-full mt-6 py-3 px-4 bg-surface-variant border border-outline-variant rounded-lg text-on-surface-variant font-semibold flex items-center justify-center gap-2 transition-all active:scale-95">
+<span class="material-symbols-outlined text-[20px]" data-icon="mail">mail</span>
+                Notify me when ready
+            </button>
+</footer>
+</main>
+<!-- Contextual FAB Suppression (As per logic: suppress on Details/Progress screens) -->
+<!-- BottomNavBar (Mobile-only version) -->
+<nav class="md:hidden w-full bg-surface-container-lowest h-16 flex justify-around items-center border-t border-border-subtle fixed bottom-0">
+<div class="flex flex-col items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="text-label-sm font-label-sm mt-1">Home</span>
+</div>
+<div class="flex flex-col items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined" data-icon="rocket_launch" data-weight="fill">rocket_launch</span>
+<span class="text-label-sm font-label-sm mt-1">Provisioning</span>
+</div>
+<div class="flex flex-col items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="receipt_long">receipt_long</span>
+<span class="text-label-sm font-label-sm mt-1">Billing</span>
+</div>
+<div class="flex flex-col items-center justify-center text-secondary">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="text-label-sm font-label-sm mt-1">Help</span>
+</div>
+</nav>
+<script>
+        // Micro-interaction for the progress bar
+        document.addEventListener('DOMContentLoaded', () => {
+            const progressBar = document.querySelector('.bg-frappe-blue');
+            let progress = 65;
+            
+            setInterval(() => {
+                if (progress < 95) {
+                    progress += Math.random() * 2;
+                    progressBar.style.width = `${progress}%`;
+                    const label = progressBar.parentElement.nextElementSibling;
+                    if (label) label.textContent = `${Math.floor(progress)}%`;
+                }
+            }, 3000);
+        });
+    </script>
+</body></html>

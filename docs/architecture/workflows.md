@@ -94,6 +94,20 @@ LensCloud uses a control-plane workspace model, not a literal CRM copy.
 - Read-only status surfaces must remain visually distinct from editable document fields.
 - CRM shell patterns may be used as a reference for split-workspace behavior, but the LensCloud layout must remain control-plane oriented.
 
+
+## Mobile Workspace Inspector
+
+The right contextual inspector is part of the LensCloud workspace contract, so it must remain reachable below desktop widths. Desktop and wide tablet layouts keep the fixed right rail. Mobile and narrow tablet layouts expose the same inspector slot through a bottom-sheet drawer opened by a persistent `Details` action in the main workspace.
+
+Rules:
+
+- Inspector content must not be desktop-only. Any field, status, progress, related record, or action placed in the inspector must be reachable on mobile.
+- The mobile drawer reuses the same inspector slot as desktop so pages do not fork customer/platform logic.
+- The trigger uses Frappe UI `Button`, LensCloud blue for primary access, and the Stitch service-portal token contract for white surfaces, subtle borders, compact typography, and restrained color.
+- Customer pages may use friendlier labels such as `Details`, `Progress`, or `Service details`, but the drawer must not expose platform-only terms or secrets.
+- Platform pages may expose operational inspector content according to role and DocType permissions.
+- Authenticated mobile Playwright must open the drawer and assert representative inspector-only content. Route-load checks alone are insufficient.
+
 ## Workspace Behavior by Surface
 
 - Platform console pages should favor dense operational context and fast record access.
@@ -103,28 +117,31 @@ LensCloud uses a control-plane workspace model, not a literal CRM copy.
 - Missing backend behavior must be surfaced as a gap rather than assumed.
 
 
-## Customer Site-First Workflow
+## Customer Plan-First Workflow
 
-The customer portal must optimize for converting signed-in/inbound users into active LensCloud customers who can create and manage sites.
+The customer portal must optimize for converting signed-in or lmnas.com-origin users into active LensCloud customers who can choose a Plan, create a Subscription, and receive a provisioned Site without seeing runtime internals.
 
 Customer navigation:
 
-- Dashboard: conversion-oriented overview with a primary `Create Site` CTA, site counts, lifecycle status, and pending gaps.
-- Sites: customer-friendly site cards/table with create/open/support actions; advanced operations are locked by default.
-- Create Site: dedicated guided flow for site creation requests.
+- Dashboard: conversion-oriented overview with a primary `Browse Plans` CTA, usage summaries, lifecycle status, and next steps.
+- Plans: customer-friendly Plan cards, Free Plan setup, and approval requests for non-Free Plans.
+- Subscriptions: customer-friendly service cards, Landscape progress, renewal/payment summary, and Site access when ready.
+- Sites: no standalone customer menu item; Sites are contextual outcomes of Subscription Landscapes.
+- Create Site: legacy compatibility route only, omitted from customer navigation.
 - Account: customer identity, region preference, subscription/billing placeholders, and linked account context.
 
 Customer action placement:
 
-- `Create Site` must be a first-class route and prominent CTA.
+- `Browse Plans`/`Add New Subscription` must be the first-class launch CTA. Free Plan setup creates the Subscription and Site together.
 - Customer create/support actions must appear in the main page body or site detail surface, not only in the inspector. Advanced operations must appear as locked/qualified features, not normal customer actions.
+- Plan entitlement limits are enforced server-side and rendered in the Plan catalog as disabled customer CTAs when exhausted.
 - The inspector may provide context, assistant help, technical metadata, and request history.
 - Missing backend behavior must be shown as pending/unavailable/captured-as-request; locked advanced operations must be labeled as qualification/platform-managed features. Do not implement backend business logic in this pass.
 
 Create Site state model references:
 
 - Customer: signed-in account and customer identity.
-- Subscription: plan/product placeholder until backend subscription behavior is wired through the configured billing system.
+- Subscription: durable customer service boundary. Free Plan self-approves; paid/beta Plans stay approval-gated until billing/workflow contracts are implemented.
 - Site: requested tenant instance and eventual provisioned site.
 - Region: preferred placement source, displayed customer-friendly even though Region is a platform tree doctype.
 - Bench: platform placement target with current Release and next Release context, not directly editable by the customer in the first pass.

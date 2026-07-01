@@ -38,6 +38,18 @@ async function assertClean(errors, scope) {
 	if (errors.length) throw new Error(`${scope} browser errors: ${errors.join('; ')}`)
 }
 
+async function openMobileInspector(page, expectedText, scope) {
+	if (!mobile) return
+	const trigger = page.getByTestId('mobile-inspector-trigger')
+	await trigger.waitFor()
+	await trigger.click()
+	const drawer = page.getByTestId('mobile-inspector-drawer')
+	await drawer.waitFor()
+	await drawer.getByText(expectedText).first().waitFor()
+	await drawer.getByTestId('mobile-inspector-close').click()
+	await drawer.waitFor({ state: 'hidden' })
+}
+
 async function assertPage(page, path, heading) {
 	const errors = collectErrors(page)
 	await page.goto(`${baseURL}${path}`)
@@ -68,6 +80,7 @@ async function testPlatform(browser) {
 	await page.goto(`${baseURL}/lenscloud/platform/dashboard`)
 	await page.getByRole('heading', { name: 'Dashboard', exact: true }).waitFor()
 	await page.getByRole('heading', { name: 'Customer onboarding gates', exact: true }).waitFor()
+	await openMobileInspector(page, /Truthful metrics|Launch gates need attention|Ready for customer onboarding/, 'Platform dashboard')
 	await page.getByRole('heading', { name: 'Action required', exact: true }).waitFor()
 	await page.getByRole('heading', { name: 'Regional capacity', exact: true }).waitFor()
 	let navigation = page.locator('aside')
@@ -94,9 +107,44 @@ async function testCustomer(browser) {
 	await page.close()
 	page = await context.newPage()
 	const errors = collectErrors(page)
-	await page.goto(`${baseURL}/lenscloud/customer/create-site`)
-	await page.getByRole('heading', { name: 'Create Site', exact: true }).waitFor()
-	await page.getByText('Free Plan', { exact: false }).first().waitFor()
+	await page.goto(`${baseURL}/lenscloud/customer/dashboard`)
+	await page.getByRole('heading', { name: 'Dashboard', exact: true }).waitFor()
+	await page.getByText(/Choose a Plan|Browse Plans/).first().waitFor()
+	await page.goto(`${baseURL}/lenscloud/customer/plans`)
+	await page.getByRole('heading', { name: 'Plans', exact: true }).waitFor()
+	await page.getByRole('heading', { name: 'Select your LensCloud service', exact: true }).first().waitFor()
+	await page.getByText('Tier 2 Growth', { exact: true }).waitFor()
+	await page.getByText('Tier 3 Scale', { exact: true }).waitFor()
+	if (await page.getByText('Tier 4 Enterprise', { exact: true }).count()) throw new Error('Tier 4 must not be visible in customer portal.')
+	const startFreeButton = page.getByRole('button', { name: /Start Free Plan/ })
+	if (await startFreeButton.count()) {
+		await startFreeButton.click()
+		await page.getByRole('heading', { name: 'Setup Your Site', exact: true }).first().waitFor()
+		await page.getByRole('textbox', { name: 'Subdomain' }).fill('playwright-free-site')
+		await page.getByRole('textbox', { name: 'Site Name' }).fill('playwright-free-site')
+		await page.getByText('Available', { exact: true }).waitFor()
+		const checkoutButton = page.getByRole('button', { name: /Continue to Review/ })
+		await checkoutButton.waitFor()
+		await checkoutButton.click()
+		await page.getByRole('heading', { name: 'Review Subscription', exact: true }).first().waitFor()
+		await page.getByText('₹0', { exact: false }).first().waitFor()
+		await page.getByText('No payment method required for Free Plan', { exact: false }).first().waitFor()
+		await page.getByRole('button', { name: /Start Free Subscription/ }).waitFor()
+	} else {
+		await page.getByText(/Limit reached|Subscription limit reached|Site limit reached/).first().waitFor()
+	}
+	await page.goto(`${baseURL}/lenscloud/customer/subscriptions`)
+	await page.getByRole('heading', { name: 'Subscriptions', exact: true }).waitFor()
+	await page.getByText(/My Subscriptions|No subscription yet/).first().waitFor()
+	await page.getByText(/Add New Subscription|Choose a Plan/).first().waitFor()
+	await openMobileInspector(page, /Landscape progress|Choose a Plan to create your first service subscription/, 'Customer subscriptions')
+	await page.goto(`${baseURL}/lenscloud/customer/dashboard`)
+	if (mobile) {
+		await page.getByRole('button', { name: 'Toggle navigation' }).click()
+		const customerNavigation = page.getByTestId('mobile-navigation')
+		await customerNavigation.getByText('Subscriptions', { exact: true }).waitFor()
+		if (await customerNavigation.getByText('Create Site', { exact: true }).count()) throw new Error('Create Site must not be visible in customer navigation.')
+	}
 	await assertClean(errors, 'Customer')
 	await context.close()
 	return true

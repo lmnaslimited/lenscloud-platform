@@ -332,3 +332,83 @@ Infra `ac86bdc` completed `INF-017` for the metadata-only `backup.status` runner
 Live proof: direct backend `backup.status` succeeded in `ORCH-2026-00170` with safe display `Backups: 0 available`; authenticated UI `backup.status` succeeded in `ORCH-2026-00172` and showed the same result card. Cleanup label verification for the browser-driven command returned no Job and no ConfigMap. `backup.create` remains Unsupported in both direct and UI checks (`ORCH-2026-00171`, `ORCH-2026-00173`), and restore, Bench Test trigger, and LATP commands remain Unsupported until Infra publishes those runner contracts.
 
 Validation passed: Python compile, 17 backend Bench Command tests, production frontend build, and authenticated Playwright `test:bench-command-backup-status`. Evidence: `docs/evidence/bench-command/bench-command-backup-status-evidence-20260630.md`. Canonical workitem `Bench Command backup status` is complete; `Remaining Bench Command runner families handoff` stays In Progress for backup create, restore, Bench Test trigger, and LATP.
+
+## June 30 Free-First Customer E2E Pivot
+
+Platform deferred the remaining Bench Command families (`backup.create`, restore, Bench Test trigger, and LATP) until after Free-first customer E2E. `backup.status` remains supported; the other commands must continue to return Unsupported. Infra handoff: `docs/handoffs/infra/bench-command-remaining-families-deferred-20260630.md`.
+
+The customer launch path is now Plan-first. Customer Dashboard points to Plan browsing, `/customer/plans` displays customer-friendly Plan cards and Free Plan setup, and `/customer/create-site` remains a compatibility setup route that calls the same customer subscription API. Backend context now returns Plans, Subscriptions, Sites, usage counts, and onboarding step without runtime internals. `request_customer_subscription` creates or links the Customer, self-approves Free subscriptions, reserves the hostname, creates the Prod Site, and starts the existing reconcile path; non-Free Plans create Pending Approval requests only.
+
+CUA model is documented in `docs/architecture/customer-identity-access.md`: LensCloud Platform is the Central User Access system; lmnas.com signed-token handoff is documented but not implemented in this pass; user invites/RBAC/site SSO are later work. SOPs were updated so `docs/operator-sop/full-platform-lifecycle-test-plan-20260625.md` starts with the immediate Free-first E2E gate before the multi-tier matrix. Validation so far: Python compile, `bench --site dev.localhost run-tests --module lenscloud.api.test_policy` (15 passed), production frontend build, and authenticated desktop/mobile Playwright passed. Live Free E2E with controlled apply, HTTPS/static-asset proof, and dated evidence remains pending.
+
+## June 30 Stitch Customer Portal UI Rehaul Start
+
+Implementation started for the Free-first customer portal UI rehaul using only non-legacy Stitch artifacts under `docs/design/stitch_lenscloud_designs`. Legacy screenshot folders are excluded from redesign decisions. The target flow is production-wired, not mocked: customer dashboard and Plans must use `get_customer_portal_context`, Free Plan subscription must use `request_customer_subscription`, and provisioning/ready states must reflect real Site and Subscription records.
+
+Documentation/evidence for this pass: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md`. Canonical workitem: `Stitch customer portal UI rehaul` in `docs/platform-workitems.md`. Required validation: backend tests where touched, production frontend build, authenticated desktop/mobile Playwright, and explicit notes for any design element adapted because the current backend cannot truthfully support it.
+
+## June 30 Stitch Customer Portal UI Rehaul Complete
+
+Customer portal UI rehaul is implemented from non-legacy Stitch artifacts. Customer Dashboard, Plans, Sites, Account, and the compatibility Free setup route now use customer-safe Plan/Subscription/Site language and hide runtime internals. The Plans page includes a guided Plan selection, setup details, Free checkout summary with `₹0` due today and no payment method required, and real `request_customer_subscription` submission. Provisioning and ready states use real Site/Subscription context, not mock state.
+
+Validation passed: Python compile, 15 backend policy/context tests, production frontend build, authenticated desktop Playwright, and authenticated mobile Playwright. Evidence: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md`. Workitems `Customer dashboard and plan browsing UX` and `Stitch customer portal UI rehaul` are complete. The remaining launch gate is controlled live Free E2E with apply enabled, HTTPS/static asset proof, action-log evidence, and cleanup/retention decision.
+
+## June 30 Customer Guided Activity Correction
+
+User review rejected the first Stitch UI implementation because the Plans page still stacked Plan, setup, and checkout content instead of behaving as a true one-screen-at-a-time guided activity. Corrective workitem: `Customer guided activity correction` in `docs/platform-workitems.md`. The correction must keep production API wiring and customer-safe language while changing the interaction model to explicit step transitions.
+
+## June 30 Customer Guided Activity Correction Complete
+
+Corrected the customer Plans page after user review: `/customer/plans` is now a true one-screen-at-a-time guided activity: Choose Plan -> Setup Site -> Free Checkout -> Provisioning/Approval result. The Free checkout remains production-wired through `request_customer_subscription`, and authenticated desktop/mobile Playwright now walks the guided activity through checkout without creating a live subscription. Workitem `Customer guided activity correction` is complete; evidence is recorded in `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md`.
+
+## June 30 Customer Dashboard Journey Entry Complete
+
+After user review, the customer dashboard was narrowed to the journey entry requirement. `/customer/dashboard` now uses real Subscription state: no Subscription renders the Stitch-token welcome/start screen with a blue `Choose a Plan` primary action; existing Subscription renders the subscribed service dashboard state with `Open Site`, `View progress`, or `Continue setup`. Workitem `Customer dashboard journey entry state` is complete; evidence is recorded in `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md`.
+
+## June 30 Customer Dashboard Visual Evidence And Token Polish Complete
+
+After user review, Platform added Playwright visual comparison for `/customer/dashboard` against non-legacy Stitch references. Artifacts live under `docs/evidence/customer-launch/screenshots/20260630-dashboard/`. The current customer test state is `welcome`, compared against `welcome_to_lenscloud/screen.png` at desktop and mobile capture sizes. The dashboard welcome state was then polished to use the Stitch blue token `#1D4ED8`, one obvious `Choose a Plan` CTA, aligned icon/text, stronger white canvas, and a compact onboarding checklist. Workitems `Customer dashboard visual parity evidence` and `Customer dashboard token polish` are complete.
+
+## June 30 Customer Self-Service Plan Catalog Requirement
+
+New requirement documented in `docs/architecture/customer-self-service-plan-catalog.md` and tracked by canonical workitem `Customer self-service Plan catalog`. The next implementation pass should make `/customer/plans` match the non-legacy Stitch `choose_your_plan` and `choose_plan_mobile` references using first-class submitted Platform `Plan` records, portal visibility flags, feature JSON, default/recommended centering, and request-access/experimental controls. Subscribed dashboard visual evidence remains deferred until after a real customer onboarding cycle.
+
+## June 30 Customer Self-Service Plan Catalog Complete
+
+Implemented the customer Plan catalog from first-class submitted Platform `Plan` records. Added Plan portal flags, feature JSON, submitted-record gating, idempotent tier Plan seed patch, customer-safe API summary, request/self-service CTA gating, and a rebuilt `/customer/plans` selection screen. The customer portal now shows Tier 2 Growth, Free, and Tier 3 Scale; Tier 4 Enterprise is configured but hidden. Visual evidence against non-legacy Stitch plan references is under `docs/evidence/customer-launch/screenshots/20260630-plans/`. Workitem `Customer self-service Plan catalog` is complete.
+
+## June 30 Customer Plan Selection UI Refinement Complete
+
+Refined `/customer/plans` after user review. The Plan choice screen no longer shows redundant usage/legacy activity elements or a separate CTA panel. Plan cards are now the action surface: click selects the card, and the selected card button becomes `Start Free Plan` or `Request access`. Sites, environments, and placement are compact list rows; placement can be filtered by All/Public/Private. Visual evidence now records desktop order `Tier 2 Growth, Free, Tier 3 Scale` and mobile order `Free, Tier 2 Growth, Tier 3 Scale`. Workitem `Customer Plan selection UI refinement` is complete.
+
+## July 1 Customer Plan Page Chrome Cleanup Complete
+
+Completed the focused `/customer/plans` cleanup after user review. The customer Plan activity no longer shows the redundant Free-first launch wrapper, old duplicated Plan heading/helper, or top-right `Refresh`/`Dashboard` actions. The right inspector now owns launch progress and current selection. Setup and checkout visible headings now match the guided activity (`Set up your first Site`, `Confirm your Free subscription`). Validation passed: production frontend build, authenticated desktop/mobile Playwright, and Plan visual comparison against non-legacy Stitch references. Evidence: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md` and `docs/evidence/customer-launch/screenshots/20260630-plans/report.md`. Workitem `Customer Plan page chrome cleanup` is complete.
+
+## July 1 Customer Setup And Review Stitch Mapping Complete
+
+Completed the focused setup/review mapping pass for `/customer/plans`. Launch progress now shows green completed-step checks, current blue step, and muted pending steps. The setup screen maps to `docs/design/stitch_lenscloud_designs/setup_your_site/screen.png`; the review screen maps to `docs/design/stitch_lenscloud_designs/review_subscription/screen.png` and the available checkout HTML structure. Frappe UI primitives remain in use where compatible (`Button`, `Alert`, `Badge`); the setup step intentionally uses the native `select` and `input` controls from Stitch `code.html`, with custom layout limited to Stitch-specific stepper/card/checkout composition. Validation passed: production frontend build, authenticated desktop/mobile Playwright, and expanded customer guided-flow visual report. Evidence: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md` and `docs/evidence/customer-launch/screenshots/20260630-plans/report.md`. Workitem `Customer setup and review Stitch mapping` is complete.
+
+## July 1 Customer Setup Exact Code Adaptation Complete
+
+After user review, Platform replaced the approximated setup step with a direct adaptation of `docs/design/stitch_lenscloud_designs/setup_your_site/code.html`. The setup screen now renders the supplied `Setup Your Site` card structure with Region select, segmented `https://` + subdomain + Platform domain input, availability badge, Site Name, Back, and `Continue to Review`. Region choices now come from active Regions attached to active Clusters; the domain suffix comes from Platform Settings `root_domain`; the internal customer/company value is derived from Site Name so the UI stays faithful to Stitch. Validation passed: production frontend build, 3 Plan catalog backend tests, authenticated desktop/mobile Playwright, and expanded visual report. Evidence: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md` and `docs/evidence/customer-launch/screenshots/20260630-plans/report.md`.
+
+## July 1 Customer Review Subscription Exact Code Adaptation Complete
+
+After user review, Platform replaced the approximated review step with a direct adaptation of `docs/design/stitch_lenscloud_designs/review_subscription/code.html`. The review screen now renders `Review Subscription`, `Order summary`, `Price breakdown`, `Total due today`, `No payment method required for Free Plan`, `Start Free Subscription`, and `Cancel`, with live Plan/Region/Subdomain values. The checkout inspector now uses the Stitch-style `Your service / Checkout details` copy. Customer Dashboard was also corrected to use `get_customer_portal_context.sites` instead of generic `/api/resource/Site`, removing a customer 403 console error. Validation passed: production frontend build, authenticated mobile and desktop Playwright, and expanded visual report. Evidence: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md` and `docs/evidence/customer-launch/screenshots/20260630-plans/report.md`.
+
+## July 1 Customer Subscription Summary Screen Complete
+
+Added the customer-facing `Subscriptions` sidebar entry and `/customer/subscriptions` page. The page intentionally uses service cards plus a compact detail inspector instead of the Platform list/detail model, because customers are expected to have a small number of subscriptions. It is wired to `get_customer_portal_context` and shows only customer-safe Plan/status/Region/Site/payment information. Runtime internals remain hidden. Validation passed: production frontend build plus authenticated desktop/mobile Playwright. Evidence: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md`. Canonical workitem `Customer subscription summary screen` is complete.
+
+## July 1 Customer Subscription Lifecycle Detail Complete
+
+Completed the customer Subscription detail refinement. The customer sidebar no longer includes a standalone `Sites` menu; Sites are shown inside the selected Subscription Landscape progression. Backend schema now includes Plan `billing_frequency` plus Subscription `plan_frequency` and `next_renewal_date`. `get_customer_portal_context` enriches each Subscription with Plan-specific payment copy and environment-by-environment progress, including ready Site links and customer-safe release version labels. Update architecture/SOP/evidence before further customer portal work.
+
+## July 1 Mobile Workspace Inspector Access Complete
+
+Added a shared mobile inspector bottom sheet to `WorkspaceLayout`. The desktop right rail remains unchanged, while mobile/tablet users get a persistent `Details` trigger that opens the same inspector slot content. Updated architecture, SOP, canonical workitems, evidence, and authenticated Playwright so mobile tests must open the inspector drawer and verify representative content.
+
+## July 1 Customer Subscription-Led Navigation Cleanup Complete
+
+Customer navigation is now subscription-led. Removed `Create Site` from the customer sidebar, changed Subscriptions CTA to `Add New Subscription`, routed Dashboard progress/setup actions and Subscription count to `/customer/subscriptions`, and left Site count cards informational. Added customer-specific Plan entitlement summaries to `get_customer_portal_context`; exhausted Plans remain visible but disabled, and `request_customer_subscription` enforces limits server-side. Account page redesign remains the next customer UX pass.
