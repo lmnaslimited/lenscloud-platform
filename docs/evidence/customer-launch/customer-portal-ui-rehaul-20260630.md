@@ -561,3 +561,22 @@ npm --prefix frontend run build: passed
 LENSCLOUD_CREDENTIAL_FILE=/tmp/lenscloud_credential_file.json npm --prefix frontend run test:auth: passed, Platform desktop and Customer
 LENSCLOUD_CREDENTIAL_FILE=/tmp/lenscloud_credential_file.json LENSCLOUD_VIEWPORT=mobile npm --prefix frontend run test:auth: passed, Platform mobile and Customer
 ```
+
+## July 1 Customer Account And Access Pass
+
+Started the Account redesign as a revenue-sensitive trust surface. Dashboard remains the service command center; Account owns identity, organization, Central User Access guidance, support/billing contact placeholders, and read-only service references. Account moves to the bottom customer navigation area, separated from launch workflow items.
+
+Validation results:
+
+```text
+npm --prefix frontend run build: passed
+bench --site dev.localhost run-tests --module lenscloud.api.test_plan_catalog: passed, 5 tests
+LENSCLOUD_CREDENTIAL_FILE=/tmp/lenscloud_credential_file.json npm --prefix frontend run test:auth: passed, Platform desktop and Customer
+LENSCLOUD_CREDENTIAL_FILE=/tmp/lenscloud_credential_file.json LENSCLOUD_VIEWPORT=mobile npm --prefix frontend run test:auth: passed, Platform mobile and Customer
+```
+
+Implementation notes:
+
+- Account uses `get_customer_portal_context` plus `update_customer_account`; it does not call generic `/api/resource/Customer` from the customer browser.
+- Account sits in bottom customer navigation, separate from Dashboard/Plans/Subscriptions.
+- Account references service state only through counts and links; service progress remains in Subscriptions.

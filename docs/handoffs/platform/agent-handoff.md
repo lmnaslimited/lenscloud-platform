@@ -412,3 +412,19 @@ Added a shared mobile inspector bottom sheet to `WorkspaceLayout`. The desktop r
 ## July 1 Customer Subscription-Led Navigation Cleanup Complete
 
 Customer navigation is now subscription-led. Removed `Create Site` from the customer sidebar, changed Subscriptions CTA to `Add New Subscription`, routed Dashboard progress/setup actions and Subscription count to `/customer/subscriptions`, and left Site count cards informational. Added customer-specific Plan entitlement summaries to `get_customer_portal_context`; exhausted Plans remain visible but disabled, and `request_customer_subscription` enforces limits server-side. Account page redesign remains the next customer UX pass.
+
+## July 1 Customer Account And Access Pass Started
+
+Account redesign is now canonical scope. Dashboard is the service command center; Account is the identity, organization, and Central User Access trust surface. Account should sit in the bottom/profile area of customer navigation and avoid duplicating Plan/Site/provisioning workflows. Architecture, SOP, workitems, and evidence were updated before implementation.
+
+## July 1 Customer Account And Access Pass Complete
+
+Completed Account redesign. Customer navigation now separates primary service workflow items from the bottom Account/profile area. Account is a warm identity/access surface with profile editing through the customer-safe `update_customer_account` API, organization/customer context, Central User Access guidance, coming-soon team invites, support/billing placeholders, and read-only links back to Subscriptions. Dashboard remains the service command center; Account avoids Plan comparison, checkout, and provisioning-heavy timelines. Build, backend plan catalog tests, desktop Playwright, and mobile Playwright passed.
+
+## July 1 Customer Visual Coherence Redesign Handoff
+
+User review found that individual customer screens still do not feel visually coherent enough for launch, even though the functional subscription-led flow is improving. Broad customer UI work should pause until the design team/Stitch returns a complete coherence package. Canonical workitem: `Customer portal visual coherence redesign`.
+
+Design prompt: `docs/design/stitch-customer-portal-coherence-prompt.md`. The prompt explicitly asks Stitch for desktop/mobile screens, Frappe UI mapping, tokens, interaction specs, accessibility notes, and implementation-ready code artifacts. The design should unify Dashboard, Plans, guided setup, review/checkout, provisioning, Subscriptions, Account, navigation, and the mobile Details drawer. The Subscription screen pattern is the current strongest in-product reference.
+
+E2E can continue against the current functional baseline using `docs/operator-sop/platform-customer-e2e-acceptance.md`. Treat visual coherence defects as launch UX findings unless they block the customer from choosing a Plan, creating a Free Subscription, tracking progress, opening the Site, or understanding Account/access boundaries.

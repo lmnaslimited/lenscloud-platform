@@ -46,3 +46,49 @@ The token receiver is not implemented in this pass. E2E testing uses native Lens
 - User deactivation and access revocation across Sites.
 - Audit trail for access grants, login handoffs, and role changes.
 - Platform operator views for customer users and access state.
+
+## Dashboard And Account Responsibility Split
+
+Dashboard is the customer's service command center. It answers: `What should I do next with my LensCloud service?` It owns onboarding state, the next service action, subscription progress, Site readiness, usage cards, support-needed alerts, and quick links to Subscriptions, Plans, and ready Sites.
+
+Account is the customer's identity and trust surface. It answers: `Who am I, what organization do I belong to, and how is access governed?` It owns signed-in identity, Customer/company profile, default region preference, role/status summaries, Central User Access guidance, invite/user-management placeholders, account-level support/billing contact placeholders, and read-only links back to Subscriptions.
+
+Duplication rules:
+
+- Dashboard may show identity snippets only when they help the service journey, such as signed-in customer name or default Region.
+- Dashboard must not edit profile, organization, support contact, billing contact, or access preferences.
+- Account may show Subscription/Site counts only as references with links to Subscriptions.
+- Account must not show provisioning-heavy timelines, Plan comparison, Free checkout, or Site runtime management.
+- Account must never expose Bench, Database Server, Runtime Namespace, Kubernetes, CR names, Secrets, action logs, pod logs, kubeconfig, or raw operator resource names.
+
+Navigation rules:
+
+- Customer primary navigation carries Dashboard, Plans, and Subscriptions.
+- Account belongs in a bottom/profile-settings navigation area, visually separate from the launch workflow.
+- Support may join the bottom area in a later pass.
+
+## Customer Account And Access Page
+
+The Account page should feel personal, steady, and trustworthy. It should reassure customers that LensCloud Platform is their Central User Access home while clearly labeling future functionality.
+
+Main area:
+
+- Hero card: signed-in identity, Customer/company, account status, and one sentence of reassurance.
+- Profile card: first name, last name, default Region, and external customer reference when present.
+- Organization card: Customer record, company/customer name, preferred Region, and support context.
+- Access card: LensCloud Platform is the access home; Site access is managed here, not independently inside Sites.
+- Team/Invites card: future CUA user invites and role management, marked coming soon.
+- Support/Billing contact card: account-level contacts and external-system placeholders, marked configured/coming soon as appropriate.
+
+Inspector:
+
+- Identity context.
+- Customer record and default Region.
+- CUA roadmap summary.
+- Subscription reference counts with links to Subscriptions.
+
+Tone:
+
+- Use customer-safe language: account, organization, access, team, support, trust, signed in, service subscription.
+- Avoid infrastructure or operator language.
+- Make every future capability explicit as `Coming soon` or `Platform-managed`, not a fake working control.

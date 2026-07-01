@@ -35,6 +35,8 @@ Do not delete or mutate `default/frappe-mariadb`.
 
 Run this gate before the multi-tier lifecycle matrix. The remaining Bench Command families (`backup.create`, restore, Bench Test trigger, and LATP) are deferred and must not block this gate while they truthfully return Unsupported.
 
+Use `docs/operator-sop/platform-customer-e2e-acceptance.md` as the segmented execution SOP for the Platform operator and Customer launch portions of this gate.
+
 1. Confirm Platform readiness:
    - signup enabled;
    - wildcard root domain configured;
@@ -464,3 +466,15 @@ During Free-first E2E and customer regression testing:
 8. Open Plans and confirm Free remains visible but disabled with a limit message.
 9. Confirm attempting to request the exhausted Plan through the API is rejected or returns the existing Subscription without creating another Site.
 10. Confirm customer screens still hide Bench, Database Server, Runtime Namespace, Kubernetes, CR names, Secrets, action logs, pod logs, kubeconfig, and raw operator resource names.
+
+## Customer Account And Access Check
+
+During customer portal regression testing:
+
+1. Confirm customer navigation separates Dashboard/Plans/Subscriptions from bottom Account/profile navigation.
+2. Open Account and confirm it focuses on identity, Customer/company, Region, account status, Central User Access guidance, and support/billing contact placeholders.
+3. Confirm Account only references service state through small read-only counts or links to Subscriptions.
+4. Confirm Account does not show Plan comparison, Free checkout, provisioning-heavy timelines, or Site runtime management.
+5. Confirm future user invites, role management, SSO, and Site access management are labeled `Coming soon` or `Platform-managed`; no fake controls.
+6. Confirm mobile Details opens Account inspector content.
+7. Confirm Account never exposes Bench, Database Server, Runtime Namespace, Kubernetes, CR names, Secrets, action logs, pod logs, kubeconfig, or raw operator resource names.

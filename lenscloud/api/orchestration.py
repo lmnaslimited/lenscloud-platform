@@ -1593,7 +1593,7 @@ def get_customer_portal_context():
 	if user == "Guest":
 		frappe.throw(_("Authentication is required."), frappe.PermissionError)
 	customer_name = frappe.db.get_value("Customer", {"user": user}, "name")
-	customer = frappe.db.get_value("Customer", customer_name, ["name", "first_name", "last_name", "region"], as_dict=True) if customer_name else None
+	customer = frappe.db.get_value("Customer", customer_name, ["name", "first_name", "last_name", "region", "external_customer_id"], as_dict=True) if customer_name else None
 	active_clusters = {row.name for row in frappe.get_all("Cluster", filters={"status": "Active"}, fields=["name"])}
 	regions = [
 		region for region in frappe.get_all("Region", filters={"deployment_status": "Active", "cluster": ["!=", ""]}, fields=["name", "title", "cluster"], order_by="lft asc")
@@ -1624,6 +1624,20 @@ def get_customer_portal_context():
 			"support_system": settings.support_system,
 		},
 	}
+
+
+@frappe.whitelist(methods=["POST"])
+def update_customer_account(first_name=None, last_name=None, region=None, external_customer_id=None):
+	customer = ensure_customer_for_user(region)
+	doc = frappe.get_doc("Customer", customer)
+	doc.first_name = first_name or ""
+	doc.last_name = last_name or ""
+	if region is not None:
+		doc.region = region
+	if external_customer_id is not None:
+		doc.external_customer_id = external_customer_id
+	doc.save(ignore_permissions=True)
+	return {"name": doc.name, "first_name": doc.first_name, "last_name": doc.last_name, "region": doc.region, "external_customer_id": doc.external_customer_id}
 
 
 def eligible_customer_bench(region, customer, plan=None):

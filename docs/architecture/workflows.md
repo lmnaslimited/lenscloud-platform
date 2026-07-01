@@ -128,7 +128,7 @@ Customer navigation:
 - Subscriptions: customer-friendly service cards, Landscape progress, renewal/payment summary, and Site access when ready.
 - Sites: no standalone customer menu item; Sites are contextual outcomes of Subscription Landscapes.
 - Create Site: legacy compatibility route only, omitted from customer navigation.
-- Account: customer identity, region preference, subscription/billing placeholders, and linked account context.
+- Account: customer identity, organization, Central User Access, support/billing contact placeholders, and read-only service references. Account is the customer identity/access surface, not a service command center.
 
 Customer action placement:
 

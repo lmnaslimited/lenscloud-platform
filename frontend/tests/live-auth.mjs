@@ -138,11 +138,17 @@ async function testCustomer(browser) {
 	await page.getByText(/My Subscriptions|No subscription yet/).first().waitFor()
 	await page.getByText(/Add New Subscription|Choose a Plan/).first().waitFor()
 	await openMobileInspector(page, /Landscape progress|Choose a Plan to create your first service subscription/, 'Customer subscriptions')
+	await page.goto(`${baseURL}/lenscloud/customer/account`)
+	await page.getByRole('heading', { name: 'Account', exact: true }).waitFor()
+	await page.getByText('Central User Access', { exact: true }).waitFor()
+	if (!mobile) await page.getByText('Service work stays in Subscriptions', { exact: true }).waitFor()
+	await openMobileInspector(page, /Identity context|Service work stays in Subscriptions/, 'Customer account')
 	await page.goto(`${baseURL}/lenscloud/customer/dashboard`)
 	if (mobile) {
 		await page.getByRole('button', { name: 'Toggle navigation' }).click()
 		const customerNavigation = page.getByTestId('mobile-navigation')
 		await customerNavigation.getByText('Subscriptions', { exact: true }).waitFor()
+		await customerNavigation.getByRole('link', { name: 'Account' }).waitFor()
 		if (await customerNavigation.getByText('Create Site', { exact: true }).count()) throw new Error('Create Site must not be visible in customer navigation.')
 	}
 	await assertClean(errors, 'Customer')

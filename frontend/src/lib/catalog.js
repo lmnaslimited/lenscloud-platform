@@ -1125,7 +1125,13 @@ export const customerNav = [
 			{ key: 'customer-dashboard', label: 'Dashboard', note: 'Site status and next steps', route: '/customer/dashboard', icon: LayoutDashboard },
 			{ key: 'customer-plans', label: 'Plans', note: 'Choose a subscription', route: '/customer/plans', icon: Package },
 			{ key: 'customer-subscriptions', label: 'Subscriptions', note: 'Service status', route: '/customer/subscriptions', icon: CreditCard },
-			{ key: 'customer-account', label: 'Account', note: 'Identity and region', route: '/customer/account', icon: UserRound },
+		],
+	},
+	{
+		heading: 'Account',
+		placement: 'bottom',
+		items: [
+			{ key: 'customer-account', label: 'Account', note: 'Identity and access', route: '/customer/account', icon: UserRound },
 		],
 	},
 ]

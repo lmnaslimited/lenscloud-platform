@@ -1,53 +1,38 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { Alert, Badge, Button, ListView, Tabs, TextInput } from 'frappe-ui'
-import { listDocs, saveDoc } from '@/lib/api'
-import { customerResources } from '@/lib/catalog'
+import { RouterLink } from 'vue-router'
+import { Alert, Badge, Button, TextInput } from 'frappe-ui'
+import { Building2, CheckCircle2, CreditCard, ExternalLink, LifeBuoy, LockKeyhole, MapPin, RefreshCcw, ShieldCheck, UserRound, UsersRound } from 'lucide-vue-next'
+import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import { useSessionStore } from '@/lib/session'
 
 const session = useSessionStore()
 const loading = ref(true)
-const error = ref(null)
+const error = ref('')
 const saveState = ref('idle')
 const customer = ref(null)
-const sites = ref([])
-const inspectorTab = ref(0)
-const inspectorTabs = [
-	{ label: 'Summary' },
-	{ label: 'Sites' },
-	{ label: 'Requests' },
-]
-const formState = reactive({
-	first_name: '',
-	last_name: '',
-	region: '',
-	external_customer_id: '',
-})
+const context = ref(null)
+const formState = reactive({ first_name: '', last_name: '', region: '', external_customer_id: '' })
+
+const subscriptions = computed(() => context.value?.subscriptions || [])
+const usage = computed(() => context.value?.usage || {})
+const settings = computed(() => context.value?.settings || {})
+const primarySubscription = computed(() => subscriptions.value[0] || null)
+const displayName = computed(() => [formState.first_name, formState.last_name].filter(Boolean).join(' ') || customer.value?.name || session.user)
+const accountInitial = computed(() => (displayName.value || 'L').slice(0, 1).toUpperCase())
+const regionLabel = computed(() => formState.region || context.value?.customer?.region || 'Not selected')
+const accountStatus = computed(() => customer.value ? 'Linked and ready' : 'Needs customer link')
 
 async function load() {
 	loading.value = true
-	error.value = null
+	error.value = ''
 	try {
-		const customers = await listDocs('Customer', {
-			fields: ['name', 'first_name', 'last_name', 'region', 'external_customer_id'],
-			limit: 1,
-			filters: [['user', '=', session.user]],
-		})
-
-		customer.value = customers[0] || null
+		const portalResponse = await callMethod('lenscloud.api.orchestration.get_customer_portal_context')
+		context.value = portalResponse.message || portalResponse
+		customer.value = context.value?.customer || null
 		if (customer.value) {
-			for (const key of Object.keys(formState)) {
-				formState[key] = customer.value[key] || ''
-			}
-
-			sites.value = await listDocs('Site', {
-				fields: ['name', 'title', 'domain', 'site_status', 'provisioning_status', 'route_status', 'access_url', 'plan', 'subscription', 'environment', 'modified'],
-				limit: 8,
-				filters: [['customer', '=', customer.value.name]],
-			})
-		} else {
-			sites.value = []
+			for (const key of Object.keys(formState)) formState[key] = customer.value[key] || ''
 		}
 	} catch (err) {
 		error.value = err?.message || 'Unable to load account.'
@@ -58,33 +43,33 @@ async function load() {
 
 async function save() {
 	if (!customer.value) return
-
 	saveState.value = 'saving'
+	error.value = ''
 	try {
-		const saved = await saveDoc('Customer', customer.value.name, formState)
-		customer.value = saved
+		const response = await callMethod('lenscloud.api.orchestration.update_customer_account', { ...formState }, 'POST')
+		customer.value = response.message || response
 		saveState.value = 'saved'
 		await load()
 	} catch (err) {
 		saveState.value = 'error'
-		error.value = err?.message || 'Unable to save customer account.'
+		error.value = err?.message || 'Unable to save account details.'
 	}
 }
 
-const assistantContext = computed(() => ({
-	scope: 'customer',
-	summary: customer.value ? 'Guidance for customer account details and linked site context.' : 'Customer account linkage is missing for this signed-in user.',
-	badges: ['Account', customer.value ? 'linked' : 'gap', `${sites.value.length} site(s)`],
-	sections: [
-		{ label: 'Customer record', value: customer.value?.name || 'No linked Customer record' },
-		{ label: 'Region', value: formState.region || 'No region selected' },
-		{ label: 'External customer ID', value: formState.external_customer_id || 'Not configured' },
-	],
-	gaps: customer.value ? [] : ['Signed-in user has no linked Customer record'],
-	nextSteps: customer.value
-		? ['Keep profile fields current.', 'Use Plans to start or request subscriptions.', 'Use Sites for progress and access.']
-		: ['Create or link a Customer record to this Frappe user before customer flows can show account data.'],
-}))
+const trustCards = computed(() => [
+	{ label: 'Signed in', value: session.user, icon: UserRound, tone: 'blue' },
+	{ label: 'Customer record', value: customer.value?.name || 'Not linked', icon: Building2, tone: customer.value ? 'green' : 'amber' },
+	{ label: 'Default Region', value: regionLabel.value, icon: MapPin, tone: 'blue' },
+	{ label: 'Subscriptions', value: usage.value.subscriptions || 0, icon: CreditCard, tone: 'blue', route: '/customer/subscriptions' },
+])
+
+const inspectorItems = computed(() => [
+	{ label: 'Customer', value: customer.value?.name || 'No linked Customer' },
+	{ label: 'Signed-in user', value: session.user },
+	{ label: 'Default Region', value: regionLabel.value },
+	{ label: 'Active subscriptions', value: usage.value.subscriptions || 0 },
+	{ label: 'Support system', value: settings.value.support_system || 'Platform-managed' },
+])
 
 onMounted(load)
 </script>
@@ -92,141 +77,108 @@ onMounted(load)
 <template>
 	<WorkspaceLayout
 		title="Account"
-		subtitle="Your customer profile, linked Sites, and future access management."
-		inspector-kicker="Customer inspector"
-		inspector-title="Account context"
-		inspector-subtitle="LensCloud Platform is the access home for customer users and Sites."
-		assistant-label="Assistant"
-		assistant-hint="The assistant will help explain customer-facing lifecycle actions, account status, and request flow context."
-		:assistant-context="assistantContext"
+		subtitle="Identity, organization, and access for your LensCloud relationship."
+		inspector-kicker="Identity context"
+		:inspector-title="customer ? 'Account linked' : 'Account needs attention'"
+		inspector-subtitle="Account is for identity and trust. Service progress stays in Subscriptions."
+		mobile-inspector-label="Account details"
 	>
 		<template #actions>
-			<Badge v-if="customer" class="bg-surface-gray-2 text-ink-gray-6">Linked</Badge>
-			<Badge v-else class="bg-surface-gray-2 text-ink-gray-6">Gap: no customer record</Badge>
-			<Button variant="subtle" @click="load">Refresh</Button>
+			<Badge v-if="customer" class="bg-emerald-50 text-emerald-700">Linked</Badge>
+			<Badge v-else class="bg-amber-50 text-amber-700">Needs link</Badge>
+			<Button variant="subtle" @click="load"><RefreshCcw class="size-4" />Refresh</Button>
 		</template>
 
 		<template #main>
-			<div class="h-full overflow-y-auto p-4">
-			<Alert v-if="error" theme="red" title="Account gap" :description="error" />
+			<div class="h-full overflow-y-auto bg-[#f7f9fb] p-4 lg:p-6">
+				<Alert v-if="error" theme="red" title="Account unavailable" :description="error" class="mb-4" />
+				<div v-if="loading" class="rounded-xl border border-[#EDEDED] bg-white p-6 text-sm text-[#64748B]">Loading your account...</div>
 
-			<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
-				<div v-if="loading" class="flex items-center gap-3">
-					<LoadingIndicator />
-					<div>
-						<p class="text-sm font-medium text-ink-gray-9">Loading account…</p>
-						<p class="text-sm leading-6 text-ink-gray-5">Reading the linked customer record.</p>
-					</div>
-				</div>
-
-				<div v-else-if="!customer" class="rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
-					<p class="text-sm font-medium text-ink-gray-9">No linked customer record yet</p>
-					<p class="mt-1 text-sm leading-6 text-ink-gray-5">The UI expects a Customer document tied to the signed-in user. If that linkage is missing, the gap is surfaced instead of invented data.</p>
-				</div>
-
-				<div v-else class="space-y-4">
-					<div>
-						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Customer record</p>
-						<p class="mt-1 text-sm leading-6 text-ink-gray-5">Keep your profile current. User invites and fine-grained access management are coming in the CUA pass.</p>
-					</div>
-
-					<div class="grid gap-3 sm:grid-cols-2">
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">First name</span>
-							<TextInput v-model="formState.first_name" variant="subtle" class="w-full" />
-						</label>
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">Last name</span>
-							<TextInput v-model="formState.last_name" variant="subtle" class="w-full" />
-						</label>
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">Primary region</span>
-							<TextInput v-model="formState.region" placeholder="Region name" variant="subtle" class="w-full" />
-						</label>
-						<label class="space-y-1.5">
-							<span class="text-xs font-medium uppercase tracking-[0.14em] text-ink-gray-5">External customer ID</span>
-							<TextInput v-model="formState.external_customer_id" placeholder="Billing or CRM identifier" variant="subtle" class="w-full" />
-						</label>
+				<section v-else class="mx-auto max-w-6xl space-y-4">
+					<div class="rounded-2xl border border-[#EDEDED] bg-white p-6 lg:p-8">
+						<div class="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-center">
+							<div>
+								<div class="inline-flex items-center gap-2 rounded-full border border-[#cad3ff] bg-[#dce1ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.05em] text-[#0039b5]">
+									<ShieldCheck class="size-3.5" />
+									Your LensCloud identity
+								</div>
+								<h2 class="mt-5 text-[28px] font-bold leading-9 tracking-[-0.02em] text-[#191c1e] lg:text-[34px] lg:leading-[42px]">This is where your team learns to trust the platform.</h2>
+								<p class="mt-4 max-w-2xl text-sm leading-6 text-[#505f76]">Account keeps identity, organization, and access clear. Dashboard stays focused on your service journey; Subscriptions carries setup progress.</p>
+								<div class="mt-6 flex flex-wrap gap-3">
+									<Button :as="RouterLink" to="/customer/subscriptions" class="!bg-[#1D4ED8] !text-white hover:!bg-[#0037b0]">View Subscriptions <ExternalLink class="size-4" /></Button>
+									<Button :as="RouterLink" to="/customer/plans" variant="subtle">Add New Subscription</Button>
+								</div>
+							</div>
+							<div class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5 text-center">
+								<div class="mx-auto grid size-16 place-items-center rounded-2xl bg-[#1D4ED8] text-2xl font-bold text-white">{{ accountInitial }}</div>
+								<h3 class="mt-4 text-lg font-semibold text-[#191c1e]">{{ displayName }}</h3>
+								<p class="mt-1 break-all text-sm text-[#64748B]">{{ session.user }}</p>
+								<Badge class="mt-4" :class="customer ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ accountStatus }}</Badge>
+							</div>
+						</div>
 					</div>
 
-					<div class="flex flex-wrap items-center gap-2">
-						<Badge v-if="saveState === 'saved'" class="bg-emerald-50 text-emerald-700">Saved</Badge>
-						<Badge v-else-if="saveState === 'saving'" class="bg-surface-gray-2 text-ink-gray-6">Saving…</Badge>
-						<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Save failed</Badge>
-						<Button @click="save">Save account</Button>
+					<div class="grid gap-3 md:grid-cols-4">
+						<component :is="card.route ? RouterLink : 'div'" v-for="card in trustCards" :key="card.label" :to="card.route" class="rounded-xl border border-[#EDEDED] bg-white p-4 transition" :class="card.route ? 'hover:border-[#1D4ED8] hover:bg-[#f7f9fb]' : ''">
+							<div class="flex items-center justify-between gap-3">
+								<p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">{{ card.label }}</p>
+								<component :is="card.icon" class="size-4" :class="card.tone === 'green' ? 'text-emerald-600' : card.tone === 'amber' ? 'text-amber-600' : 'text-[#1D4ED8]'" />
+							</div>
+							<p class="mt-3 truncate text-sm font-semibold text-[#191c1e]">{{ card.value }}</p>
+						</component>
 					</div>
-				</div>
-			</div>
 
-			<div class="mt-3 rounded border border-outline-gray-2 bg-surface-white p-4">
-				<div class="flex items-center justify-between gap-3">
-					<div>
-						<p class="text-sm font-medium text-ink-gray-9">Linked sites</p>
-						<p class="mt-1 text-xs text-ink-gray-5">Recent sites tied to your account.</p>
+					<div class="grid gap-4 lg:grid-cols-[1fr_1fr]">
+						<section class="rounded-2xl border border-[#EDEDED] bg-white p-5">
+							<div class="flex items-start justify-between gap-3">
+								<div><p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">Profile</p><h3 class="mt-2 text-lg font-semibold text-[#191c1e]">Your account details</h3><p class="mt-1 text-sm leading-6 text-[#64748B]">Keep the basics right so every LensCloud handoff feels personal.</p></div>
+								<Badge v-if="saveState === 'saved'" class="bg-emerald-50 text-emerald-700">Saved</Badge>
+								<Badge v-else-if="saveState === 'saving'" class="bg-blue-50 text-blue-700">Saving</Badge>
+								<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Needs retry</Badge>
+							</div>
+							<div v-if="!customer" class="mt-5 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">No Customer record is linked to this signed-in user yet. Platform should link the Customer before subscriptions and access can feel complete.</div>
+							<div v-else class="mt-5 grid gap-3 sm:grid-cols-2">
+								<label class="space-y-1.5"><span class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">First name</span><TextInput v-model="formState.first_name" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">Last name</span><TextInput v-model="formState.last_name" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">Default Region</span><TextInput v-model="formState.region" placeholder="Region" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">Customer reference</span><TextInput v-model="formState.external_customer_id" placeholder="CRM or billing reference" /></label>
+								<div class="sm:col-span-2"><Button :disabled="saveState === 'saving'" @click="save">{{ saveState === 'saving' ? 'Saving...' : 'Save account details' }}</Button></div>
+							</div>
+						</section>
+
+						<section class="rounded-2xl border border-[#EDEDED] bg-white p-5">
+							<p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">Access</p>
+							<h3 class="mt-2 text-lg font-semibold text-[#191c1e]">Central User Access</h3>
+							<p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud Platform will be the access home for your team. You will sign in here, invite users here, and reach Sites through platform-governed access.</p>
+							<div class="mt-5 space-y-3">
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LockKeyhole class="mt-0.5 size-4 text-[#1D4ED8]" /><div><p class="text-sm font-semibold text-[#191c1e]">Site access is platform-managed</p><p class="text-xs leading-5 text-[#64748B]">Customers should not manage users independently inside each Site.</p></div></div>
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><UsersRound class="mt-0.5 size-4 text-[#1D4ED8]" /><div><p class="text-sm font-semibold text-[#191c1e]">Team invites</p><p class="text-xs leading-5 text-[#64748B]">Coming soon: invite users, assign customer roles, and audit access.</p></div></div>
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LifeBuoy class="mt-0.5 size-4 text-[#1D4ED8]" /><div><p class="text-sm font-semibold text-[#191c1e]">Support and billing contacts</p><p class="text-xs leading-5 text-[#64748B]">{{ settings.support_system || 'Support' }} and {{ settings.billing_system || 'billing' }} details will connect here as external systems mature.</p></div></div>
+							</div>
+						</section>
 					</div>
-					<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ sites.length }}</Badge>
-				</div>
-
-				<div v-if="!sites.length" class="mt-3 rounded border border-dashed border-outline-gray-2 bg-surface-gray-1 p-4">
-					<p class="text-sm font-medium text-ink-gray-9">No sites linked yet</p>
-					<p class="mt-1 text-sm leading-6 text-ink-gray-5">Choose a Plan to start your first Free Site setup.</p>
-				</div>
-
-				<div v-else class="mt-3 overflow-hidden rounded border border-outline-gray-2">
-					<ListView
-						class="h-[360px]"
-						:columns="[
-							{ label: 'Name', key: 'name', width: 3, getLabel: ({ row }) => row.title || row.name },
-							{ label: 'Status', key: 'site_status', width: '140px', getLabel: ({ row }) => row.site_status || 'Pending' },
-							{ label: 'Access', key: 'route_status', width: '140px', getLabel: ({ row }) => row.route_status === 'Ready' ? 'Ready' : 'Preparing' },
-						]"
-						:rows="sites"
-						row-key="name"
-						:options="{ selectable: false, showTooltip: true }"
-					/>
-				</div>
-			</div>
+				</section>
 			</div>
 		</template>
 
 		<template #inspector>
-			<Tabs v-model="inspectorTab" as="div" :tabs="inspectorTabs" class="h-full [&_[role='tab']]:py-2 [&_[role='tab']]:text-sm [&_[role='tablist']]:gap-4 [&_[role='tablist']]:px-1 [&_[role='tabpanel']]:px-1 [&_[role='tabpanel']]:py-3">
-				<template #tab-panel="{ tab }">
-					<div v-if="tab.label === 'Summary'" class="space-y-3">
-						<div class="rounded border border-outline-gray-2 bg-surface-gray-1 p-3">
-							<div class="flex items-start justify-between gap-3">
-								<div class="min-w-0">
-									<p class="text-xs font-medium text-ink-gray-5">Customer</p>
-									<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ customer ? (customer.first_name || customer.name) : 'No customer record' }}</p>
-								</div>
-								<Avatar :label="customer ? (customer.first_name || customer.name) : 'Gap'" size="sm" />
-							</div>
-						</div>
-						<div v-if="customer" class="grid gap-2">
-							<div v-for="item in customerResources[0].detailFields.slice(0, 4)" :key="item.key" class="rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
-								<p class="text-sm text-ink-gray-5">{{ item.label }}</p>
-								<p class="mt-1 truncate text-sm font-medium text-ink-gray-9">{{ customer[item.key] || '-' }}</p>
-							</div>
-						</div>
-						<p v-else class="text-sm leading-5 text-ink-gray-5">A Customer record linked to the signed-in user has not been found yet.</p>
+			<div class="space-y-4">
+				<div class="rounded-xl border border-[#EDEDED] bg-white p-4">
+					<p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">Identity context</p>
+					<div class="mt-4 space-y-3">
+						<div v-for="item in inspectorItems" :key="item.label" class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] px-3 py-2"><p class="text-xs text-[#64748B]">{{ item.label }}</p><p class="mt-1 truncate text-sm font-semibold text-[#191c1e]">{{ item.value }}</p></div>
 					</div>
-					<div v-else-if="tab.label === 'Sites'" class="space-y-2">
-						<div class="flex items-center justify-between rounded border border-outline-gray-2 bg-surface-white px-3 py-2">
-							<span class="text-sm text-ink-gray-5">Linked sites</span>
-							<span class="text-sm font-medium text-ink-gray-9">{{ sites.length }}</span>
-						</div>
-						<p v-if="!sites.length" class="text-sm leading-5 text-ink-gray-5">No linked sites yet.</p>
-						<div v-for="site in sites" v-else :key="site.name" class="rounded px-2 py-1.5 text-sm hover:bg-surface-gray-1">
-							<p class="truncate font-medium text-ink-gray-9">{{ site.title || site.name }}</p>
-							<p class="truncate text-xs text-ink-gray-5">{{ site.route_status === 'Ready' ? 'Ready to open' : (site.provisioning_status || 'Preparing') }}</p>
-						</div>
-					</div>
-					<div v-else class="space-y-3">
-						<p class="text-sm leading-5 text-ink-gray-5">Customer user invitations, role profiles, and Site access grants are planned in the Central User Access pass. For now, use Plans and Sites for launch flow.</p>
-						<Button :to="'/customer/sites'" tag="RouterLink" variant="subtle">Open Sites</Button>
-					</div>
-				</template>
-			</Tabs>
+				</div>
+				<div class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-4">
+					<p class="text-sm font-semibold text-[#191c1e]">What belongs here</p>
+					<ul class="mt-3 space-y-2 text-sm leading-6 text-[#64748B]"><li>Identity and organization truth.</li><li>Customer access model and future invites.</li><li>Support and billing contact context.</li></ul>
+				</div>
+				<div class="rounded-xl border border-[#EDEDED] bg-white p-4">
+					<p class="text-sm font-semibold text-[#191c1e]">Service work stays in Subscriptions</p>
+					<p class="mt-2 text-sm leading-6 text-[#64748B]">Provisioning, Plan changes, and Site progress belong in Subscriptions so Account stays calm and trustworthy.</p>
+					<Button :as="RouterLink" to="/customer/subscriptions" variant="subtle" class="mt-3">Open Subscriptions</Button>
+				</div>
+			</div>
 		</template>
 	</WorkspaceLayout>
 </template>
