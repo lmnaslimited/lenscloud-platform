@@ -25,3 +25,9 @@ Platform cannot declare reset clean or continue live Free Plan E2E against a fre
 ## Platform Incident
 
 Tracked as `LC-E2E-20260702-002` in `docs/incidents/e2e-incident-tracker.md`; supporting evidence is in `docs/evidence/customer-launch/e2e-acceptance-20260702.md`.
+
+## Resolution - 2026-07-02
+
+Infra resolved this blocker in revision `1bfc57c`; evidence is in `lenscloud-infra/docs/e2e-cleanup-pvc-blocker-evidence-20260702.md` and handoff `lenscloud-infra/docs/platform-e2e-cleanup-pvc-blocker-handoff-20260702.md`. Platform verified old runtime absence with `ORCH-2026-00188`.
+
+The remaining cleanup issue is no longer this PVC/PV. It is tracked separately as `LC-E2E-20260702-003` and handoff `docs/handoffs/infra/e2e-bench-command-pod-cleanup-rbac-20260702.md`.

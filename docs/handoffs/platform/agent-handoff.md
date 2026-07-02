@@ -16,6 +16,12 @@ Complete first-class Platform runtime lifecycle management, then finish live EU 
 
 Platform operators must inspect and delete Platform-owned runtime resources without manager access. Both platform operators and customers using the Free Plan must create real Sites through the same server-side orchestration service.
 
+## 2026-07-02 Free Plan E2E Status
+
+Infra `1bfc57c` resolved the old PVC/PV blocker for `run-20260629-free-prod-bench`; Platform verified old runtime absence with `ORCH-2026-00188`. A fresh Free Plan launch then passed: `SUB-00001`, `run-20260702-free-prod-bench`, `run-20260702-free-site.cloud.lmnaslens.com`, Site Ready/HTTPS/static asset proof `ORCH-2026-00199`, inventory `ORCH-2026-00200`. Apply was disabled after the live window.
+
+Open blocker: `LC-E2E-20260702-003`. Platform Bench Command cleanup now deletes Jobs/ConfigMaps, waits for pod garbage collection, and verifies terminal pod absence/removal. The restricted service account is still denied `delete pods`, leaving succeeded `bcmd-*` pods in `lenscloud-runtime-eu`. Infra handoff: `docs/handoffs/infra/e2e-bench-command-pod-cleanup-rbac-20260702.md`.
+
 ## Runtime Truth
 
 - cluster: `lenscloud-eu-dev`

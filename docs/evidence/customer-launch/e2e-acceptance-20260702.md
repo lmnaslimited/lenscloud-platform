@@ -15,53 +15,52 @@ Pre-final Free-first E2E acceptance covering Platform operator readiness, Custom
 
 | Scenario ID | Segment | Scenario | Expected Result | Status | Evidence | Incident |
 | --- | --- | --- | --- | --- | --- | --- |
-| PLAT-001 | Platform | Preflight, migrations, build, backend tests | All gates pass before live run | Partial Pass | `python3 -m py_compile`, frontend build, `test_plan_catalog`, desktop/mobile Playwright passed; migration pending live rerun; full policy tests passed |  |
-| PLAT-002 | Platform | Product baseline: Plan, Landscape, Privacy, Site Control, Release | Free Plan resolves to Single/Prod/Public and approved Release | Pending |  |  |
-| PLAT-003 | Platform | Runtime baseline: Cluster, Region, Runtime Namespace, Free Bench | One ready shared Free Bench exists in target Region | Pending |  |  |
-| PLAT-004 | Platform | Permission/protection checks | Protected/default resources remain safe; no secret exposure | Pending |  |  |
-| CUST-001 | Customer | No-subscription dashboard | Customer sees one clear `Choose a Plan` action | Pending |  |  |
-| CUST-002 | Customer | Plan browse | Plans are first-class submitted records; hidden/exhausted Plans behave correctly | Pending |  |  |
-| CUST-003 | Customer | Setup Site | Region/domain/subdomain use Platform data, no runtime choices | Pending |  |  |
-| CUST-004 | Customer | Review and Free checkout | Free checkout shows zero due and no payment method required | Pending |  |  |
-| CUST-005 | Customer | Paused provisioning | Apply-disabled run shows saved request and retry guidance, not fake success | Fixed Pending Retest | Backend now maps reconcile `dry_run` to `paused`; UI renders paused/retry state; existing dry-run evidence `ORCH-2026-00175` | LC-E2E-20260702-001 |
-| CUST-006 | Customer | Retry provisioning | Existing reserved Site retries after controlled apply is enabled | Blocked | Retry API implemented; live retest blocked by cleanup PVC incident | LC-E2E-20260702-001, LC-E2E-20260702-002 |
-| LIVE-001 | Runtime | Real Site provisioning | FrappeSite accepted by Kubernetes API and reaches ready/accessible state | Blocked | Runtime reset not clean; Free Bench deleted but PVC remains terminating | LC-E2E-20260702-002 |
-| LIVE-002 | Runtime | HTTPS/static asset | Site HTTPS and static asset return success | Pending |  |  |
-| LIVE-003 | Runtime | Cleanup | Test resources are removed or retained by explicit launch decision | Blocked | Bench CR absent; sites PVC still terminating | LC-E2E-20260702-002 |
-| UX-001 | Customer | Mobile drawer/detail access | Required details are reachable on mobile | Pass | Authenticated mobile Playwright passed |  |
-| UX-002 | Customer | No runtime internals | Customer screens hide Bench, Database Server, namespace, CR, Secret, action-log terms | Pass | Authenticated desktop/mobile Playwright passed for current customer pages |  |
+| PLAT-001 | Platform | Preflight, focused tests, apply gate | Apply is controlled and focused backend tests pass | Pass | `python3 -m py_compile lenscloud/api/bench_command.py lenscloud/api/test_bench_command.py`; `bench --site dev.localhost run-tests --module lenscloud.api.test_bench_command` passed 19 tests; apply disabled after live window |  |
+| PLAT-002 | Platform | Runtime baseline after Infra PVC fix | Old 2026-06-29 Bench/Site/PVC state is absent | Pass | Infra `1bfc57c`; Platform inventory `ORCH-2026-00188` | LC-E2E-20260702-002 closed |
+| PLAT-003 | Platform | Free Bench capacity | One fresh shared Free Bench reaches Ready in `lenscloud-runtime-eu` | Pass | `run-20260702-free-prod-bench`; reconcile `ORCH-2026-00189`; sync `ORCH-2026-00190`/`ORCH-2026-00191` |  |
+| CUST-001 | Customer | Free Plan subscription and Site request | Customer gets approved Subscription and Prod Site without choosing runtime internals | Pass | `CUST001`; `SUB-00001` Approved; Site Request `ORCH-2026-00192` |  |
+| LIVE-001 | Runtime | Real Site provisioning | FrappeSite accepted by Kubernetes API and reaches Ready | Pass | Site reconcile `ORCH-2026-00193`; status sync Ready `ORCH-2026-00199` |  |
+| LIVE-002 | Runtime | HTTPS/static asset | Site HTTPS route and generated static asset return success | Pass | `https://run-20260702-free-site.cloud.lmnaslens.com`; route `200`; asset `200`; `ORCH-2026-00199` |  |
+| LIVE-003 | Runtime | Secret-safe runtime inventory | Platform can inspect runtime without Secret values | Pass | `ORCH-2026-00200` collected Site inventory without Secret values |  |
+| LIVE-004 | Runtime | Bench Command result and cleanup | Result should be captured and command Job/ConfigMap/terminal pods cleaned or verified absent | Partial Pass / Blocked Cleanup | `bench_test.status` result path reached terminal command pod cleanup; command Jobs/ConfigMaps are absent; terminal pods remain because Platform is denied `delete pods` | LC-E2E-20260702-003 |
+| SAFE-001 | Runtime safety | Protected baseline MariaDB | `default/frappe-mariadb` remains untouched | Pass | No Platform mutation was made to `default/frappe-mariadb`; shared DB remained the selected protected baseline |  |
 
 ## Incident Register
 
 Canonical tracker: `docs/incidents/e2e-incident-tracker.md`.
 
-Active incidents for this evidence file:
+- `LC-E2E-20260702-001`: customer paused/dry-run retry gap, closed by fresh live Free Plan launch retest.
+- `LC-E2E-20260702-002`: old PVC cleanup blocker, closed after Infra `1bfc57c` and Platform runtime inventory verification.
+- `LC-E2E-20260702-003`: Bench Command terminal pods remain because Platform service account cannot delete pods; open for Infra RBAC/admission follow-up.
 
-- `LC-E2E-20260702-001`: customer dry-run/retry gap, fixed pending live retest.
-- `LC-E2E-20260702-002`: runtime cleanup PVC blocker, open for Infra.
+## Reset And Launch Inventory
 
-## Cleanup Inventory
+After reset and fresh launch:
 
-Captured before and during cleanup:
+- Customers: 1 (`CUST001`)
+- Subscriptions: 1 (`SUB-00001`, status `Approved`, Plan `Free`, Region `EU`, next renewal `2026-08-02`, frequency `Monthly`)
+- Sites: 1 (`run-20260702-free-site.cloud.lmnaslens.com`, provisioning `Ready`, route `Ready`)
+- Benches: 1 (`run-20260702-free-prod-bench`, namespace `lenscloud-runtime-eu`)
+- Database Servers: 1 protected baseline (`EU Shared MariaDB 01`, runtime `default/frappe-mariadb`)
+- Orchestration Action Logs after reset/fresh run: 15
 
-- Customers: 2 (`CUST001`, `CUST002`)
-- Subscriptions: 3 (`SUB-00001`, `SUB-00002`, `SUB-00003`)
-- Sites: 2 (`run-20260629-free-prod-site.cloud.lmnaslens.com` Ready, `acme.cloud.lmnaslens.com` Requested/Pending dry-run)
-- Benches: 1 (`run-20260629-free-prod-bench`, Ready, namespace `lenscloud-runtime-eu`)
-- Database Servers: 1 protected baseline (`EU Shared MariaDB 01`, namespace `default`, operator resource `frappe-mariadb`)
-- Orchestration Action Logs: 41
-- Runtime resources: `acme` FrappeSite absent; `run-20260629-free-prod-site` FrappeSite absent; `run-20260629-free-prod-bench` FrappeBench absent; `run-20260629-free-prod-bench-sites` PVC still terminating with `kubernetes.io/pvc-protection`
+## Runtime Evidence
+
+- Old PVC/PV from `LC-E2E-20260702-002`: Infra evidence says both are `NotFound`; Platform inventory `ORCH-2026-00188` verified the old Bench owner and related runtime resources absent.
+- Fresh Bench: `run-20260702-free-prod-bench`; reconcile accepted `ORCH-2026-00189`; Ready sync `ORCH-2026-00190`/`ORCH-2026-00191`.
+- Fresh Site: `run-20260702-free-site.cloud.lmnaslens.com`; request `ORCH-2026-00192`; reconcile accepted `ORCH-2026-00193`; Ready/HTTPS/static asset proof `ORCH-2026-00199`; inventory `ORCH-2026-00200`.
+- Bench Command cleanup: `ORCH-2026-00201`, `ORCH-2026-00202`, and `ORCH-2026-00203` failed only at terminal pod deletion. Exact final command cleanup inventory: five `Succeeded` `bcmd-*` pods remain; no command Jobs or ConfigMaps remain.
 
 ## Test Results
 
-- Backend syntax: `python3 -m py_compile apps/lenscloud/lenscloud/api/orchestration.py` passed.
-- Frontend build: `npm --prefix apps/lenscloud/frontend run build` passed.
-- Backend focused tests: `bench --site dev.localhost run-tests --module lenscloud.api.test_plan_catalog` passed, 6 tests.
-- Backend policy tests: `bench --site dev.localhost run-tests --module lenscloud.api.test_policy` passed, 15 tests.
-- Authenticated Playwright desktop: `LENSCLOUD_CREDENTIAL_FILE=/tmp/lenscloud_credential_file.json npm --prefix apps/lenscloud/frontend run test:auth` passed.
-- Authenticated Playwright mobile: `LENSCLOUD_CREDENTIAL_FILE=/tmp/lenscloud_credential_file.json LENSCLOUD_VIEWPORT=mobile npm --prefix apps/lenscloud/frontend run test:auth` passed.
-- Live Free provisioning: blocked by `LC-E2E-20260702-002` until terminating PVC is resolved or Infra approves separate fresh capacity creation.
+- Bench Command backend syntax: `python3 -m py_compile lenscloud/api/bench_command.py lenscloud/api/test_bench_command.py` passed.
+- Bench Command backend tests: `bench --site dev.localhost run-tests --module lenscloud.api.test_bench_command` passed, 19 tests.
+- Live Free provisioning: passed through real Kubernetes apply and reached HTTPS/static-asset Ready.
+- Live Bench Command cleanup verification: blocked at pod-delete RBAC; Platform now deletes Job/ConfigMap first, waits for pod garbage collection, then attempts/raises on terminal pod cleanup.
+- Apply gate: `kubernetes_apply_enabled=0` after the controlled live window.
 
 ## Go/No-Go
 
-Blocked for live reset/E2E until `LC-E2E-20260702-002` is resolved or Infra confirms the terminating PVC is safe/expected and new capacity can be provisioned separately.
+Free Plan customer launch E2E is functionally passing for subscription, Site creation, HTTPS, static asset, and customer-safe provisioning state.
+
+Reset-clean is not yet fully green because `LC-E2E-20260702-003` leaves terminal Bench Command pods in `lenscloud-runtime-eu`. Infra should clear the listed pods and update the INF-010 contract so Platform can remove or verify terminal command pods after result capture without manual PVC finalizer intervention.

@@ -372,7 +372,56 @@ def sanitized_termination_summary(pods):
 	return None
 
 
-def cleanup_command_resources(cluster, namespace, job_name, request_name):
+def pod_phase(pod):
+	return ((pod.get("status") or {}).get("phase") or "Unknown")
+
+
+def is_terminal_pod(pod):
+	if pod_phase(pod) in {"Succeeded", "Failed"}:
+		return True
+	for container in (pod.get("status") or {}).get("containerStatuses") or []:
+		state = container.get("state") or {}
+		if state.get("terminated"):
+			return True
+	return False
+
+
+def pod_name(pod):
+	return ((pod.get("metadata") or {}).get("name") or "")
+
+
+def cleanup_command_pods(client, namespace, job_name, wait_seconds=20):
+	if not job_name:
+		return []
+	deleted = []
+	selector = f"job-name={job_name}"
+	deadline = time.time() + wait_seconds
+	pods = client.list_namespaced("pods", namespace, label_selector=selector)
+	while pods and time.time() < deadline and all(is_terminal_pod(pod) for pod in pods):
+		time.sleep(2)
+		pods = client.list_namespaced("pods", namespace, label_selector=selector)
+	active = []
+	for pod in pods:
+		name = pod_name(pod)
+		if not name:
+			continue
+		if is_terminal_pod(pod):
+			try:
+				client.delete_namespaced("pods", namespace, name)
+				deleted.append(f"pods/{namespace}/{name}")
+			except KubernetesClientError as exc:
+				if "Kubernetes API 404:" not in str(exc):
+					raise
+		else:
+			active.append(f"{namespace}/{name}:{pod_phase(pod)}")
+	remaining = client.list_namespaced("pods", namespace, label_selector=selector)
+	remaining_names = [pod_name(pod) for pod in remaining if pod_name(pod)]
+	if remaining_names or active:
+		raise KubernetesClientError(f"Bench Command cleanup still sees pod(s) for job {job_name}: {', '.join(active or remaining_names)}")
+	return deleted
+
+
+def cleanup_command_resources(cluster, namespace, job_name, request_name, pod_wait_seconds=20):
 	deleted = []
 	with get_cluster_client(cluster) as client:
 		for resource, name, group in (("jobs", job_name, "batch"), ("configmaps", request_name, "")):
@@ -384,6 +433,7 @@ def cleanup_command_resources(cluster, namespace, job_name, request_name):
 			except KubernetesClientError as exc:
 				if "Kubernetes API 404:" not in str(exc):
 					raise
+		deleted.extend(cleanup_command_pods(client, namespace, job_name, wait_seconds=pod_wait_seconds))
 	return deleted
 
 
@@ -464,7 +514,7 @@ def command_result_next_actions(summary):
 				"Confirm the runner can see the target Site directory and site_config.json without exposing file contents or Secrets.",
 				"Keep backup, restore, Bench Test trigger, and LATP unsupported until runner contracts are complete.",
 			]
-	return ["Open the action log for the sanitized request/job evidence.", "If cleanup failed, rerun cleanup for the listed Job/ConfigMap only."]
+	return ["Open the action log for the sanitized request/job evidence.", "If cleanup failed, rerun cleanup for the listed Job, ConfigMap, and terminal command pods only."]
 
 
 def unsupported_response(command, log, site_doc, reason="Production runner is not available for this command."):
@@ -494,10 +544,16 @@ def failure_next_action(exc):
 			"watcher is current, then retry. If the operator network changed, ask Infra to run "
 			"`./scripts/52-authorize-platform-api.sh --watch` from the lenscloud-infra host checkout."
 		)
+	if "cannot delete resource \"pods\"" in text or "cannot delete resource pods" in text:
+		return (
+			"Ask Infra to add or confirm the INF-010 Bench Command terminal-pod cleanup permission for the "
+			"Platform service account in the target Runtime Namespace. Platform already captured the sanitized "
+			"command result and deleted the Job/ConfigMap; retry after pod cleanup RBAC/admission is fixed."
+		)
 	if "403" in text or "forbidden" in text:
 		return (
 			"Ask Infra to verify INF-010 RBAC/admission for the Platform service account, the target Runtime Namespace, "
-			"and the Bench Command Job/ConfigMap verbs, then retry."
+			"and the Bench Command Job/ConfigMap/pod cleanup verbs, then retry."
 		)
 	if "denied" in text or "admission" in text:
 		return (

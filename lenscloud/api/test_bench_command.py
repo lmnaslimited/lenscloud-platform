@@ -1,11 +1,39 @@
 import json
 import unittest
+from unittest.mock import patch
 from types import SimpleNamespace
 
 import frappe
 
 from lenscloud.api import bench_command
 from lenscloud.api.orchestration import PLATFORM_MANAGER_LABEL, RESOURCE_KIND_LABEL
+
+
+class FakeCleanupClient:
+	def __init__(self, pods):
+		self.pods = list(pods)
+		self.deleted = []
+
+	def __enter__(self):
+		return self
+
+	def __exit__(self, *_args):
+		return False
+
+	def list_namespaced(self, resource, namespace, label_selector=None, group="", version="v1", field_selector=None):
+		if resource != "pods":
+			return []
+		return list(self.pods)
+
+	def delete_namespaced(self, resource, namespace, name, group="", version="v1"):
+		self.deleted.append((resource, namespace, name, group))
+		if resource == "pods":
+			self.pods = [pod for pod in self.pods if (pod.get("metadata") or {}).get("name") != name]
+		return {}
+
+
+def pod(name, phase):
+	return {"metadata": {"name": name}, "status": {"phase": phase, "containerStatuses": []}}
 
 
 class BenchCommandContractTest(unittest.TestCase):
@@ -151,3 +179,17 @@ class BenchCommandContractTest(unittest.TestCase):
 		message = bench_command.failure_next_action(Exception("Max retries exceeded with url: /api/v1/namespaces/x/configmaps"))
 		self.assertIn("Kubernetes API is reachable", message)
 		self.assertIn("52-authorize-platform-api.sh --watch", message)
+
+	def test_cleanup_deletes_terminal_command_pods_and_verifies_absence(self):
+		client = FakeCleanupClient([pod("bcmd-test-job-abc", "Succeeded")])
+		with patch("lenscloud.api.bench_command.get_cluster_client", return_value=client):
+			deleted = bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
+		self.assertIn("pods/lenscloud-runtime-eu/bcmd-test-job-abc", deleted)
+		self.assertIn("jobs/lenscloud-runtime-eu/bcmd-test-job", deleted)
+		self.assertIn("configmaps/lenscloud-runtime-eu/bcmd-test-request", deleted)
+
+	def test_cleanup_refuses_to_hide_active_command_pods(self):
+		client = FakeCleanupClient([pod("bcmd-test-job-active", "Running")])
+		with patch("lenscloud.api.bench_command.get_cluster_client", return_value=client):
+			with self.assertRaises(bench_command.KubernetesClientError):
+				bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
