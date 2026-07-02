@@ -125,6 +125,12 @@ The Customer segment validates the launch experience and customer-safe language.
 
 Expected result: a customer can understand what they bought, what happens next, and where to return, without learning platform runtime internals.
 
+Provisioning retry checks:
+
+- With Kubernetes apply disabled, a Free Subscription submission may reserve the Site but must show a customer-safe paused state and `Retry Setup`, not a fake success.
+- After Platform enables apply for the controlled window, `Retry Setup` must reuse the existing reserved Site and move the same Subscription/Site toward real provisioning.
+- If retry fails, create an incident and keep the customer message free of action-log, namespace, Bench, Database Server, Secret, and Kubernetes terms.
+
 ## Controlled Live Provisioning Segment
 
 Run this only after the common preflight and both UI segments pass.
@@ -166,6 +172,23 @@ Run where applicable:
 - authenticated mobile Playwright
 
 Browser validation must include console-error checks. Any customer-facing 403, missing route, hidden detail pane, or leaked platform runtime term is a stop condition.
+
+## Incident Handling
+
+Create an incident entry in `docs/incidents/e2e-incident-tracker.md` for every failed or suspicious scenario before continuing to the next major segment. Use `docs/architecture/e2e-incident-management.md` for severity and required fields.
+
+For this pass, incidents live in `docs/incidents/e2e-incident-tracker.md`. Dated evidence files must link to incident IDs. If an incident blocks launch, update `docs/platform-workitems.md` and keep the incident open until fix and retest evidence are recorded.
+
+Required incident triggers:
+
+- customer provisioning ends as dry run without clear paused/retry guidance;
+- retry cannot reuse an already reserved Site;
+- real Kubernetes apply is expected but no runtime resource is created;
+- customer sees runtime internals;
+- Platform cannot inspect Customer, Subscription, Site, Bench, or action-log evidence;
+- protected resources are mutated or deletion scope is ambiguous;
+- mobile hides required detail content;
+- any test failure with no documented next action.
 
 ## Evidence Template
 

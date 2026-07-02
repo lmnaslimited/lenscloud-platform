@@ -1,7 +1,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from lenscloud.api.orchestration import customer_plan_summary, get_customer_portal_context, plan_customer_entitlement, plan_payment_summary, subscription_next_renewal
+from lenscloud.api.orchestration import customer_plan_summary, customer_reconcile_state, get_customer_portal_context, plan_customer_entitlement, plan_payment_summary, subscription_next_renewal
 
 
 class TestCustomerPlanCatalog(FrappeTestCase):
@@ -64,6 +64,11 @@ class TestCustomerPlanCatalog(FrappeTestCase):
         self.assertTrue(summary["exhausted"])
         self.assertIn("Subscription limit reached", summary["reason"])
         self.assertIn("Site limit reached", summary["reason"])
+
+    def test_customer_reconcile_state_does_not_treat_dry_run_as_started(self):
+        self.assertEqual(customer_reconcile_state({"status": "accepted"}), "started")
+        self.assertEqual(customer_reconcile_state({"status": "dry_run"}), "paused")
+        self.assertEqual(customer_reconcile_state(None), "failed")
 
     def test_customer_portal_context_plan_catalog(self):
         user = frappe.session.user

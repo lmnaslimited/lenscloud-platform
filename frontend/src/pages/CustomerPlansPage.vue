@@ -3,6 +3,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
+	AlertTriangle,
 	ArrowLeft,
 	Check,
 	CheckCircle2,
@@ -11,9 +12,11 @@ import {
 	Globe2,
 	HelpCircle,
 	MapPin,
+	RefreshCcw,
 	Send,
 	ShieldCheck,
 	Sparkles,
+	XCircle,
 } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -52,6 +55,11 @@ const setupComplete = computed(() => Boolean(form.region && form.site_name.trim(
 const canStartFree = computed(() => Boolean(selectedPlanRecord.value?.is_free && !planDisabled(selectedPlanRecord.value) && setupComplete.value))
 const hasReadySite = computed(() => existingSites.value.some((site) => ['Ready', 'Active'].includes(site.site_status)))
 const readySiteUrl = computed(() => result.value?.access_url || existingSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.access_url)?.access_url || '')
+const provisioningMode = computed(() => result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
+const resultStarted = computed(() => provisioningMode.value === 'started')
+const resultPaused = computed(() => provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run')
+const resultFailed = computed(() => provisioningMode.value === 'failed')
+const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultPaused.value || resultFailed.value)))
 
 const flowSteps = computed(() => [
 	{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
@@ -75,14 +83,14 @@ const screenSubtitle = computed(() => {
 })
 
 const provisioningSteps = computed(() => {
-	const started = result.value?.provisioning === 'started'
+	const attempted = Boolean(resultStarted.value || resultPaused.value || resultFailed.value)
 	const ready = Boolean(readySiteUrl.value && hasReadySite.value)
 	return [
-		{ label: 'Subscription approved', state: started ? 'done' : 'pending' },
-		{ label: 'Site reserved', state: started ? 'done' : 'pending' },
-		{ label: 'Preparing workspace', state: started && !ready ? 'active' : ready ? 'done' : 'pending' },
-		{ label: 'Connecting HTTPS', state: ready ? 'done' : started ? 'pending' : 'pending' },
-		{ label: 'Ready to open', state: ready ? 'active' : 'pending' },
+		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
+		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
+		{ label: 'Preparing workspace', state: resultFailed.value ? 'failed' : resultPaused.value ? 'paused' : resultStarted.value && !ready ? 'active' : ready ? 'done' : 'pending', helper: resultFailed.value ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : resultStarted.value && !ready ? 'LensCloud is preparing your workspace.' : ready ? 'Workspace preparation is complete.' : 'Waiting to start.' },
+		{ label: 'Connecting HTTPS', state: ready ? 'done' : resultStarted.value ? 'pending' : 'pending', helper: ready ? 'Secure access is ready.' : 'This starts after workspace preparation.' },
+		{ label: 'Ready to open', state: ready ? 'active' : 'pending', helper: ready ? 'Your Site is ready.' : 'We will show the Open Site action here.' },
 	]
 })
 
@@ -213,6 +221,22 @@ async function requestAccess(plan) {
 		await load()
 	} catch (err) {
 		error.value = err?.message || 'Unable to request access.'
+	} finally {
+		submitting.value = false
+	}
+}
+
+async function retrySetup() {
+	if (!result.value?.site) return
+	submitting.value = true
+	error.value = ''
+	try {
+		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site }, 'POST')
+		result.value = response.message || response
+		step.value = 'result'
+		await load()
+	} catch (err) {
+		error.value = err?.message || 'Unable to retry setup.'
 	} finally {
 		submitting.value = false
 	}
@@ -388,19 +412,43 @@ onMounted(load)
 							</div>
 
 							<div v-else class="grid gap-5 xl:grid-cols-[1fr_340px]">
-								<div class="rounded-xl border border-outline-gray-2 bg-surface-white p-5">
-									<Badge :class="result?.provisioning === 'started' ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">{{ result?.provisioning === 'started' ? 'Provisioning' : 'Approval pending' }}</Badge>
-									<h3 class="mt-3 text-xl font-semibold text-ink-gray-9">{{ result?.provisioning === 'started' ? 'Setting up your Site' : 'Subscription request received' }}</h3>
-									<p class="mt-2 text-sm leading-6 text-ink-gray-5">{{ result?.provisioning === 'started' ? 'We are preparing your workspace. You can follow progress from here or return to the dashboard.' : 'The LensCloud team will review this request before setup starts.' }}</p>
-									<div class="mt-6 space-y-4">
-										<div v-for="item in provisioningSteps" :key="item.label" class="flex gap-3">
-											<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="item.state === 'done' ? 'bg-emerald-500 text-white' : item.state === 'active' ? 'bg-blue-100 text-blue-700' : 'bg-surface-gray-2 text-ink-gray-5'"><Check v-if="item.state === 'done'" class="size-4" /><Clock3 v-else class="size-4" /></div>
-											<div><p class="text-sm font-medium text-ink-gray-9">{{ item.label }}</p><p class="text-xs text-ink-gray-5">{{ item.state === 'done' ? 'Completed' : item.state === 'active' ? 'In progress' : 'Waiting' }}</p></div>
+								<div class="rounded-xl border border-[#EDEDED] bg-white p-6">
+									<Badge :class="resultFailed ? 'bg-red-50 text-red-700' : resultPaused ? 'bg-amber-50 text-amber-800' : resultStarted ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">{{ resultFailed ? 'Setup needs retry' : resultPaused ? 'Setup paused' : resultStarted ? 'Provisioning' : 'Approval pending' }}</Badge>
+									<h3 class="mt-3 text-xl font-semibold text-[#191c1e]">{{ resultFailed ? 'Workspace setup needs attention' : resultPaused ? 'Workspace setup is paused' : resultStarted ? 'Setting up your Site' : 'Subscription request received' }}</h3>
+									<p class="mt-2 text-sm leading-6 text-[#64748B]">{{ resultFailed ? 'Setup did not complete. You can retry after Platform readiness is restored, or contact support and we will continue from the Platform side.' : resultPaused ? 'Your Subscription and Site reservation are saved. Live setup needs the controlled Platform apply window before it can create the actual Site.' : resultStarted ? 'We are preparing your workspace. You can follow progress from here or return to the dashboard.' : 'The LensCloud team will review this request before setup starts.' }}</p>
+
+									<div class="mt-8 space-y-0">
+										<div v-for="(item, index) in provisioningSteps" :key="item.label" class="relative flex items-start pb-7 last:pb-0">
+											<div v-if="index < provisioningSteps.length - 1" class="absolute left-[11px] top-6 h-full w-0.5" :class="item.state === 'done' ? 'bg-[#10B981]' : 'bg-[#eceef0]'"></div>
+											<div class="z-10 grid size-6 shrink-0 place-items-center rounded-full" :class="item.state === 'done' ? 'bg-[#10B981] text-white' : item.state === 'failed' ? 'bg-red-600 text-white' : item.state === 'paused' ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-200' : item.state === 'active' ? 'bg-blue-100 text-[#1D4ED8]' : 'border-2 border-[#c4c5d7] bg-[#f7f9fb] text-[#64748B]'">
+												<Check v-if="item.state === 'done'" class="size-4" />
+												<XCircle v-else-if="item.state === 'failed'" class="size-4" />
+												<AlertTriangle v-else-if="item.state === 'paused'" class="size-4" />
+												<Clock3 v-else class="size-4" />
+											</div>
+											<div class="ml-4">
+												<p class="text-sm font-semibold" :class="item.state === 'failed' ? 'text-red-700' : 'text-[#191c1e]'">{{ item.label }}</p>
+												<p class="mt-1 text-xs leading-5 text-[#64748B]">{{ item.helper }}</p>
+											</div>
 										</div>
 									</div>
-									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="`/customer/sites/${encodeURIComponent(result.site)}`" variant="subtle">View Site</Button><Button v-if="readySiteUrl && hasReadySite" as="a" :href="readySiteUrl" target="_blank" variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
+
+									<div v-if="resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
+										<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+											<div class="flex items-start gap-3">
+												<AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-700" />
+												<p class="max-w-md text-sm leading-6 text-[#505f76]">{{ resultPaused ? 'Your request is saved. Ask the Platform operator to open the controlled live apply window, then retry setup.' : 'Workspace setup took longer than expected. Our team can inspect the Platform evidence while you retry safely.' }}</p>
+											</div>
+											<div class="flex shrink-0 flex-wrap gap-3">
+												<a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a>
+												<button v-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting" @click="retrySetup"><RefreshCcw class="size-4" :class="submitting ? 'animate-spin' : ''" />{{ submitting ? 'Retrying...' : 'Retry Setup' }}</button>
+											</div>
+										</div>
+									</div>
+
+									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="`/customer/subscriptions`" variant="subtle">View Subscription</Button><Button v-if="readySiteUrl && hasReadySite" as="a" :href="readySiteUrl" target="_blank" variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
 								</div>
-								<aside class="rounded-xl border border-outline-gray-2 bg-surface-gray-1 p-4"><div class="grid size-10 place-items-center rounded-full bg-emerald-50 text-emerald-700"><ShieldCheck class="size-5" /></div><h3 class="mt-4 text-base font-semibold text-ink-gray-9">What happens next</h3><p class="mt-2 text-sm leading-6 text-ink-gray-5">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, contact support and we will help from the Platform side.</p><Button class="mt-4" variant="subtle"><HelpCircle class="size-4" />Contact support</Button></aside>
+								<aside class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5"><div class="grid size-10 place-items-center rounded-full bg-[#dce1ff] text-[#1D4ED8]"><ShieldCheck class="size-5" /></div><h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3><p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p><a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com"><HelpCircle class="size-4" />Contact support</a></aside>
 							</div>
 						</div>
 					</div>

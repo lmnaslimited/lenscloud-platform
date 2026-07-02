@@ -1741,6 +1741,36 @@ def request_customer_subscription(plan=None, region=None, site_name=None, compan
 	return provision_free_plan_site(customer, plan_doc, region, site_name, company_name, subdomain, notes)
 
 
+def customer_reconcile_state(reconcile):
+	if not reconcile:
+		return "failed"
+	status = reconcile.get("status")
+	if status == "accepted":
+		return "started"
+	if status == "dry_run":
+		return "paused"
+	return status or "failed"
+
+
+def customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, reconcile=None, created_subscription=False, message=None):
+	provisioning = customer_reconcile_state(reconcile)
+	return {
+		"subscription": subscription.name,
+		"subscription_created": created_subscription,
+		"status": subscription.status,
+		"site": site_doc.name,
+		"domain": site_doc.domain,
+		"hostname": site_doc.title,
+		"access_url": site_doc.access_url,
+		"plan": plan_doc.name,
+		"reconcile": reconcile,
+		"provisioning": provisioning,
+		"retry_available": provisioning in {"paused", "failed", "dry_run"},
+		"message": message or (reconcile or {}).get("message"),
+		"next_actions": (reconcile or {}).get("next_actions") or [],
+	}
+
+
 def provision_free_plan_site(customer, plan_doc, region, site_name=None, company_name=None, subdomain=None, notes=None):
 	settings = get_platform_settings()
 	if not settings.root_domain or settings.domain_strategy != "Wildcard":
@@ -1755,14 +1785,47 @@ def provision_free_plan_site(customer, plan_doc, region, site_name=None, company
 		frappe.throw(_("Subdomain could not be derived."))
 	domain = settings.root_domain.strip().lower().strip(".")
 	title = f"{subdomain}.{domain}"
+	existing_site = frappe.db.get_value("Site", {"title": title, "customer": customer, "plan": plan_doc.name, "site_status": ["!=", "Deleted"]}, "name")
+	if existing_site:
+		site_doc = frappe.get_doc("Site", existing_site)
+		return retry_customer_site_provisioning(site_doc.name)
 	if frappe.db.exists("Site", {"title": title}):
 		frappe.throw(_("Hostname {0} is already reserved.").format(title))
 	bench = eligible_customer_bench(region, customer, plan_doc.name)
 	site_doc = frappe.get_doc({"doctype": "Site", "customer": customer, "subscription": subscription.name, "environment": "Prod", "bench": bench.name, "region": region, "cluster": cluster.name, "plan": plan_doc.name, "subdomain": subdomain, "domain": domain, "site_status": "Requested", "provisioning_status": "Pending", "hostname_reservation_status": "Reserved", "route_status": "Pending", "tls_status": "Inherited", "operator_resource_name": subdomain, "access_url": f"https://{title}"})
 	site_doc.insert(ignore_permissions=True)
-	request_log = create_action_log("Site Request", "Succeeded", site=site_doc.name, dry_run=False, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan subscription approved and Site provisioning started.", resource_kind="Site", operation="request")
-	reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
-	return {"subscription": subscription.name, "subscription_created": created_subscription, "status": subscription.status, "site": site_doc.name, "domain": domain, "hostname": title, "access_url": site_doc.access_url, "cluster": cluster.name, "bench": bench.name, "plan": plan_doc.name, "action_log": request_log.name, "reconcile": reconcile, "provisioning": "started"}
+	create_action_log("Site Request", "Succeeded", site=site_doc.name, dry_run=False, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan subscription approved and Site provisioning started.", resource_kind="Site", operation="request")
+	try:
+		reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
+		return customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, reconcile, created_subscription)
+	except Exception:
+		site_doc.reload()
+		return customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, None, created_subscription, _("Site setup could not start. Retry after Platform readiness is restored or contact support."))
+
+
+@frappe.whitelist(methods=["POST"])
+def retry_customer_site_provisioning(site):
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Authentication is required."), frappe.PermissionError)
+	customer = frappe.db.get_value("Customer", {"user": frappe.session.user}, "name")
+	if not customer:
+		frappe.throw(_("Customer account is required before retrying Site setup."))
+	site_doc = frappe.get_doc("Site", site)
+	if site_doc.customer != customer:
+		frappe.throw(_("You can retry only your own Site setup."), frappe.PermissionError)
+	if site_doc.site_status == "Deleted":
+		frappe.throw(_("Deleted Sites cannot be retried."))
+	subscription = frappe.get_doc("Subscription", site_doc.subscription)
+	plan_doc = frappe.get_doc("Plan", site_doc.plan)
+	cluster = get_region_cluster(site_doc.region)
+	settings = get_platform_settings()
+	try:
+		reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
+		site_doc.reload()
+		return customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, reconcile, False)
+	except Exception:
+		site_doc.reload()
+		return customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, None, False, _("Site setup could not restart. Contact support if this continues."))
 
 
 @frappe.whitelist()
