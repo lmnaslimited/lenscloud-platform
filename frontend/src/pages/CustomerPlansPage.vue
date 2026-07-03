@@ -42,6 +42,11 @@ const plans = computed(() => context.value?.plans || [])
 const regions = computed(() => context.value?.regions || [])
 const settings = computed(() => context.value?.settings || {})
 const usage = computed(() => context.value?.usage || {})
+const membership = computed(() => context.value?.membership || context.value?.customer || {})
+const membershipPending = computed(() => membership.value?.status === 'Pending' || membership.value?.membership_status === 'Pending')
+const permissions = computed(() => context.value?.permissions || {})
+const canCreateSubscription = computed(() => Boolean(permissions.value.can_create_subscription))
+const canReadPlans = computed(() => Boolean(permissions.value.doctypes?.Plan?.read))
 const existingSites = computed(() => context.value?.sites || [])
 const freePlan = computed(() => plans.value.find((plan) => plan.is_free) || null)
 const selectedPlanRecord = computed(() => plans.value.find((plan) => plan.name === selectedPlan.value) || freePlan.value || plans.value[0] || null)
@@ -107,6 +112,7 @@ function priceLabel(plan) {
 
 function planCtaLabel(plan) {
 	if (!plan) return 'Choose Plan'
+	if (!canCreateSubscription.value) return 'Ask Admin'
 	if (planDisabled(plan)) return 'Limit reached'
 	if (plan.cta_mode === 'self_service') return 'Start Free Plan'
 	if (plan.cta_mode === 'request_access') return 'Request access'
@@ -114,10 +120,11 @@ function planCtaLabel(plan) {
 }
 
 function planDisabled(plan) {
-	return Boolean(plan?.cta_disabled || plan?.entitlement?.exhausted)
+	return Boolean(!canCreateSubscription.value || plan?.cta_disabled || plan?.entitlement?.exhausted)
 }
 
 function planDisabledReason(plan) {
+	if (!canCreateSubscription.value) return 'Your LensCloud role can browse Plans, but cannot create subscriptions. Ask a Customer admin to start a subscription.'
 	return plan?.cta_disabled_reason || plan?.entitlement?.reason || 'Your current entitlement for this Plan is already used.'
 }
 
@@ -160,7 +167,7 @@ function selectPlan(plan) {
 }
 
 function continueFromPlan() {
-	if (!selectedPlanRecord.value || planDisabled(selectedPlanRecord.value)) return
+	if (membershipPending.value || !canCreateSubscription.value || !selectedPlanRecord.value || planDisabled(selectedPlanRecord.value)) return
 	if (selectedPlanRecord.value.cta_mode === 'self_service') {
 		step.value = 'setup'
 		return
@@ -188,7 +195,7 @@ async function load() {
 }
 
 async function startFreePlan() {
-	if (!canStartFree.value) return
+	if (membershipPending.value || !canCreateSubscription.value || !canStartFree.value) return
 	submitting.value = true
 	error.value = ''
 	try {
@@ -211,7 +218,7 @@ async function startFreePlan() {
 }
 
 async function requestAccess(plan) {
-	if (!plan || planDisabled(plan) || !form.region) return
+	if (membershipPending.value || !canCreateSubscription.value || !plan || planDisabled(plan) || !form.region) return
 	submitting.value = true
 	error.value = ''
 	try {
@@ -264,13 +271,17 @@ onMounted(load)
 					</div>
 				</div>
 
-				<section v-else class="mx-auto max-w-6xl">
+				<Alert v-else-if="!canReadPlans" theme="amber" title="Plans need access" description="Your current LensCloud role does not include read access to Plans. Ask a Customer admin or Platform operator to update your Role Profile if you should compare Plans." />
+				<Alert v-else-if="membershipPending" theme="amber" title="Your account is waiting for approval" description="Your email domain is already connected to a LensCloud Customer. A Customer admin or Platform operator needs to approve your access before you can start a subscription." />
+				<Alert v-if="!loading && !membershipPending && canReadPlans && !canCreateSubscription" theme="amber" title="Subscription creation needs an admin" description="Your current LensCloud role can browse Plans, but it cannot create subscriptions. Ask a Customer admin to start or approve the subscription for this Customer." class="mb-4" />
+
+				<section v-if="!loading && !membershipPending && canReadPlans" class="mx-auto max-w-6xl">
 					<div class="rounded-2xl border border-outline-gray-2 bg-surface-white">
 						<div class="p-5 lg:p-6">
 							<div v-if="step === 'choose'" class="space-y-6">
 								<div class="mx-auto max-w-3xl text-center">
-									<p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#64748B]">Choose Plan</p>
-									<h3 class="mt-2 text-2xl font-semibold tracking-[-0.01em] text-[#191c1e]">Select your LensCloud service</h3>
+									<p class="text-xs font-semibold text-[#64748B]">Choose Plan</p>
+									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Select your LensCloud service</h3>
 									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a submitted Platform Plan. Start free today or request access to higher tiers.</p>
 									<div class="mt-5 inline-flex rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-1">
 										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-[#1D4ED8] shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
@@ -460,7 +471,7 @@ onMounted(load)
 			<div v-if="step === 'checkout'" class="space-y-4">
 				<div class="rounded-xl border border-gray-200 bg-white p-6">
 					<div class="flex items-start justify-between">
-						<div><p class="text-[10px] font-semibold uppercase text-gray-400">Your service</p><h3 class="text-base font-bold text-gray-900">Checkout details</h3></div>
+						<div><p class="text-[10px] font-semibold text-gray-400">Your service</p><h3 class="text-base font-bold text-gray-900">Checkout details</h3></div>
 						<div class="text-gray-400"><Check class="size-5" /></div>
 					</div>
 					<div class="mt-6 space-y-4">

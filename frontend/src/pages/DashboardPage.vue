@@ -120,11 +120,11 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 									<div class="grid size-9 place-items-center rounded-lg bg-[#1D4ED8] text-white"><Sparkles class="size-4" /></div>
 									<span class="text-lg font-bold text-[#1D4ED8]">LensCloud</span>
 								</div>
-								<div class="inline-flex items-center gap-2 rounded-full border border-[#cad3ff] bg-[#dce1ff] px-3 py-1 text-xs font-semibold uppercase tracking-[0.05em] text-[#0039b5]">
+								<div class="inline-flex items-center gap-2 rounded-full border border-[#cad3ff] bg-[#dce1ff] px-3 py-1 text-xs font-semibold text-[#0039b5]">
 									<CheckCircle2 class="size-3.5" />
 									Account ready
 								</div>
-								<h2 class="mt-5 max-w-2xl text-[28px] font-bold leading-[36px] tracking-[-0.02em] text-[#191c1e] lg:text-[36px] lg:leading-[44px]">Launch your first LensCloud Site in a guided flow</h2>
+								<h2 class="mt-5 max-w-2xl text-[28px] font-bold leading-[36px] text-[#191c1e] lg:text-[36px] lg:leading-[44px]">Launch your first LensCloud Site in a guided flow</h2>
 								<p class="mt-4 max-w-xl text-base leading-6 text-[#505f76]">Choose the Free Plan, confirm your ₹0 subscription, and LensCloud will prepare your Site. You will always know the next step.</p>
 								<div class="mt-7 flex flex-col gap-3 sm:flex-row">
 									<RouterLink to="/customer/plans" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2 active:scale-[0.99]">
@@ -135,7 +135,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 							</div>
 
 							<aside class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5">
-								<p class="text-xs font-semibold uppercase tracking-[0.05em] text-[#64748B]">What happens next</p>
+								<p class="text-xs font-semibold text-[#64748B]">What happens next</p>
 								<div class="mt-4 space-y-3">
 									<div v-for="(item, index) in [
 										{ label: 'Choose Free Plan', detail: 'Start with ₹0 due today' },
@@ -156,7 +156,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 							<div class="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
 								<div>
 									<Badge :class="onboardingStep === 'ready' ? 'bg-emerald-50 text-emerald-700' : onboardingStep === 'provisioning' ? 'bg-blue-50 text-blue-700' : 'bg-[#dce1ff] text-[#0039b5]'">{{ onboardingStep === 'ready' ? 'Ready to open' : onboardingStep === 'provisioning' ? 'Provisioning' : 'Subscription active' }}</Badge>
-									<h2 class="mt-4 text-[24px] font-semibold leading-8 tracking-[-0.01em] text-[#191c1e]">{{ activeSite ? 'Your LensCloud Site is on its way' : 'Your subscription is active' }}</h2>
+									<h2 class="mt-4 text-[24px] font-semibold leading-8 text-[#191c1e]">{{ activeSite ? 'Your LensCloud Site is on its way' : 'Your subscription is active' }}</h2>
 									<p class="mt-3 max-w-xl text-sm leading-6 text-[#505f76]">{{ activeSite ? 'Follow setup progress and open your Site as soon as it is ready.' : 'Your service subscription is ready. Start or review your Site setup from here.' }}</p>
 									<div class="mt-6 flex flex-col gap-3 sm:flex-row">
 										<a v-if="activeSite && ['Ready','Active'].includes(activeSite.site_status) && activeSite.access_url" :href="activeSite.access_url" target="_blank" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">

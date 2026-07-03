@@ -50,6 +50,22 @@ async function openMobileInspector(page, expectedText, scope) {
 	await drawer.waitFor({ state: 'hidden' })
 }
 
+async function openAccountMenu(page) {
+	if (mobile) {
+		if (!(await page.getByTestId('mobile-navigation').isVisible().catch(() => false))) {
+			await page.getByRole('button', { name: 'Toggle navigation' }).click()
+		}
+		await page.getByTestId('mobile-account-menu-trigger').click()
+		const menu = page.getByTestId('mobile-account-menu')
+		await menu.waitFor()
+		return menu
+	}
+	await page.getByTestId('account-menu-trigger').click()
+	const menu = page.getByTestId('account-menu')
+	await menu.waitFor()
+	return menu
+}
+
 async function assertPage(page, path, heading) {
 	const errors = collectErrors(page)
 	await page.goto(`${baseURL}${path}`)
@@ -112,12 +128,27 @@ async function testCustomer(browser) {
 	await page.getByText(/Choose a Plan|Browse Plans/).first().waitFor()
 	await page.goto(`${baseURL}/lenscloud/customer/plans`)
 	await page.getByRole('heading', { name: 'Plans', exact: true }).waitFor()
-	await page.getByRole('heading', { name: 'Select your LensCloud service', exact: true }).first().waitFor()
-	await page.getByText('Tier 2 Growth', { exact: true }).waitFor()
-	await page.getByText('Tier 3 Scale', { exact: true }).waitFor()
-	if (await page.getByText('Tier 4 Enterprise', { exact: true }).count()) throw new Error('Tier 4 must not be visible in customer portal.')
+	await page.getByText(/Select your LensCloud service|Subscription creation needs an admin|Plans need access/).first().waitFor()
+	const plansHidden = await page.getByText('Plans need access', { exact: true }).count()
+	const adminBlocked = await page.getByText('Subscription creation needs an admin', { exact: true }).count()
+	if (plansHidden) {
+		await page.getByText('does not include read access to Plans', { exact: false }).waitFor()
+	} else if (adminBlocked) {
+		await page.getByText('Your current LensCloud role can browse Plans, but it cannot create subscriptions.', { exact: false }).waitFor()
+	} else {
+		await page.getByRole('heading', { name: 'Select your LensCloud service', exact: true }).first().waitFor()
+	}
+	if (!plansHidden) {
+		await page.getByText('Tier 2 Growth', { exact: true }).waitFor()
+		await page.getByText('Tier 3 Scale', { exact: true }).waitFor()
+		if (await page.getByText('Tier 4 Enterprise', { exact: true }).count()) throw new Error('Tier 4 must not be visible in customer portal.')
+	}
 	const startFreeButton = page.getByRole('button', { name: /Start Free Plan/ })
-	if (await startFreeButton.count()) {
+	if (plansHidden) {
+		await page.getByText('Plans need access', { exact: true }).waitFor()
+	} else if (adminBlocked) {
+		await page.getByRole('button', { name: /Ask Admin|Limit reached/ }).first().waitFor().catch(() => {})
+	} else if (await startFreeButton.count()) {
 		await startFreeButton.click()
 		await page.getByRole('heading', { name: 'Setup Your Site', exact: true }).first().waitFor()
 		await page.getByRole('textbox', { name: 'Subdomain' }).fill('playwright-free-site')
@@ -135,20 +166,39 @@ async function testCustomer(browser) {
 	}
 	await page.goto(`${baseURL}/lenscloud/customer/subscriptions`)
 	await page.getByRole('heading', { name: 'Subscriptions', exact: true }).waitFor()
-	await page.getByText(/My Subscriptions|No subscription yet/).first().waitFor()
+	await page.getByText(/My Subscriptions|No Subscription Yet/).first().waitFor()
 	await page.getByText(/Add New Subscription|Choose a Plan/).first().waitFor()
-	await openMobileInspector(page, /Landscape progress|Choose a Plan to create your first service subscription/, 'Customer subscriptions')
+	await openMobileInspector(page, /Landscape Progress|Choose a Plan to create your first service subscription/, 'Customer subscriptions')
+	const planAction = page.getByRole('link', { name: /Add New Subscription|Choose a Plan/ }).first()
+	await planAction.click()
+	await page.getByRole('heading', { name: 'Plans', exact: true }).waitFor()
 	await page.goto(`${baseURL}/lenscloud/customer/account`)
 	await page.getByRole('heading', { name: 'Account', exact: true }).waitFor()
+	let accountMenu = await openAccountMenu(page)
+	await accountMenu.getByRole('button', { name: 'Change Password' }).click()
+	const passwordDialog = page.getByRole('dialog')
+	await passwordDialog.getByRole('heading', { name: 'Change Password' }).waitFor()
+	await passwordDialog.getByLabel('Current Password', { exact: true }).fill('current-password-probe')
+	await passwordDialog.getByLabel('New Password', { exact: true }).fill('new-password-probe')
+	await passwordDialog.getByLabel('Confirm New Password', { exact: true }).fill('new-password-probe')
+	if (await passwordDialog.getByLabel('Current Password', { exact: true }).inputValue() !== 'current-password-probe') throw new Error('Change Password current password field is not editable.')
+	await passwordDialog.getByRole('button', { name: 'Cancel' }).click()
+	accountMenu = await openAccountMenu(page)
+	await accountMenu.getByRole('button', { name: 'Sign Out' }).waitFor()
+	await page.keyboard.press('Escape').catch(() => {})
 	await page.getByText('Central User Access', { exact: true }).waitFor()
-	if (!mobile) await page.getByText('Service work stays in Subscriptions', { exact: true }).waitFor()
-	await openMobileInspector(page, /Identity context|Service work stays in Subscriptions/, 'Customer account')
+	await page.getByRole('link', { name: 'View Subscriptions' }).click()
+	await page.getByRole('heading', { name: 'Subscriptions', exact: true }).waitFor()
+	await page.goto(`${baseURL}/lenscloud/customer/account`)
+	if (!mobile) await page.getByText('Service Work Stays In Subscriptions', { exact: true }).waitFor()
+	await openMobileInspector(page, /Identity Context|Service Work Stays In Subscriptions/, 'Customer account')
 	await page.goto(`${baseURL}/lenscloud/customer/dashboard`)
 	if (mobile) {
 		await page.getByRole('button', { name: 'Toggle navigation' }).click()
 		const customerNavigation = page.getByTestId('mobile-navigation')
 		await customerNavigation.getByText('Subscriptions', { exact: true }).waitFor()
-		await customerNavigation.getByRole('link', { name: 'Account' }).waitFor()
+		await customerNavigation.getByTestId('mobile-account-menu-trigger').click()
+		await customerNavigation.getByTestId('mobile-account-menu').getByRole('link', { name: 'Profile' }).waitFor()
 		if (await customerNavigation.getByText('Create Site', { exact: true }).count()) throw new Error('Create Site must not be visible in customer navigation.')
 	}
 	await assertClean(errors, 'Customer')

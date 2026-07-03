@@ -93,6 +93,13 @@ Expected command families include:
 
 The contract must be secret-safe, role-gated, namespace-scoped, idempotent where possible, and auditable. Platform remains responsible for policy resolution and deciding whether a command is allowed. Infra/operator remains responsible for the wrapper that safely executes the command against the runtime workload. Until that contract exists, Platform can validate and snapshot Site Control Profiles but cannot claim live runtime enforcement of those controls.
 
+
+### CUA Setup And Site Access Inputs
+
+Subscription topology now feeds CUA Site bootstrap. Landscape and Environment decide which Sites exist; Site Control/Profile defaults decide setup policy; Customer/Subscription data supplies company and first-user context; Privacy/Profile does not grant access by itself. Platform resolves these inputs and passes only a typed, secret-safe payload to the Bench Execute runner described in `docs/architecture/cua-site-bootstrap-sso-sequence.md`.
+
+The setup/OAuth/member-sync runner contract is distinct from backup/restore/LATP runner families. Until Infra publishes the contract, Platform may model Site Bootstrap State and Site Access Grants but must mark live enforcement as runner-pending.
+
 ### Platform Integration Status
 
 Platform consumes the INF-010/INF-011 Kubernetes Job/ConfigMap contract through the Python Kubernetes API only. `bench_test.status` remains the harmless verification smoke path. Infra verification is complete through revision `f3d8057`; Platform live smoke succeeded in action log `ORCH-2026-00137`, and Platform now integrates the pinned production runner for `maintenance_mode.*`, `developer_mode.*`, approved `site_config.*`, and `cors.allowlist.*` behind Site Control policy. Backup, restore, Bench Test trigger, and LATP remain `Unsupported` with `COMMAND_UNSUPPORTED` until their runner contracts are built.

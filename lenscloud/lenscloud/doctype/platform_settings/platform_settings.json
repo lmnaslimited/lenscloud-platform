@@ -6,35 +6,46 @@
  "engine": "InnoDB",
  "field_order": [
   "cluster_section",
-  "active_cluster_context",
-  "operator_namespace",
-  "default_storage_class",
-  "default_bench_namespace_pattern",
+  "default_signup_region",
   "default_plan",
+  "column_break_odvf",
+  "default_storage_class",
+  "active_cluster_context",
+  "column_break_tmea",
+  "operator_namespace",
+  "default_bench_namespace_pattern",
   "dns_route53_section",
   "root_domain",
   "domain_strategy",
   "wildcard_dns_status",
   "wildcard_tls_status",
   "ingress_status",
+  "column_break_qjcw",
+  "dns_automation_enabled",
+  "dns_provider",
   "route53_hosted_zone_id",
   "route53_zone_reference",
-  "dns_provider",
   "aws_region",
   "dns_credential_reference",
-  "dns_automation_enabled",
-  "kubernetes_apply_enabled",
   "route53_apply_enabled",
+  "column_break_riyd",
+  "kubernetes_apply_enabled",
   "tab_break_nfns",
   "billing_system",
   "billing_integration_enabled",
   "billing_integration_status",
+  "column_break_jstk",
   "crm_system",
   "crm_integration_enabled",
   "crm_integration_status",
+  "column_break_ntkb",
   "support_system",
   "support_integration_enabled",
-  "support_integration_status"
+  "support_integration_status",
+  "customer_portal_tab",
+  "default_customer_admin_role_profile",
+  "column_break_bhtq",
+  "default_customer_member_role_profile"
  ],
  "fields": [
   {
@@ -45,8 +56,8 @@
   {
    "fieldname": "active_cluster_context",
    "fieldtype": "Data",
-   "label": "Deprecated Active Cluster/Context Reference",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Deprecated Active Cluster/Context Reference"
   },
   {
    "fieldname": "operator_namespace",
@@ -70,6 +81,12 @@
    "options": "Plan"
   },
   {
+   "fieldname": "default_signup_region",
+   "fieldtype": "Link",
+   "label": "Default Signup Region",
+   "options": "Region"
+  },
+  {
    "fieldname": "dns_route53_section",
    "fieldtype": "Section Break",
    "label": "Wildcard Domain And Legacy Custom DNS"
@@ -82,51 +99,54 @@
   {
    "fieldname": "route53_hosted_zone_id",
    "fieldtype": "Data",
-   "label": "Route53 Hosted Zone ID",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Route53 Hosted Zone ID"
   },
   {
    "fieldname": "route53_zone_reference",
    "fieldtype": "Data",
-   "label": "Route53 Zone Reference",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Route53 Zone Reference"
   },
   {
+   "default": "Route53",
    "fieldname": "dns_provider",
    "fieldtype": "Select",
+   "hidden": 1,
    "label": "DNS Provider",
-   "options": "Route53\nManual\nOther",
-   "default": "Route53",
-   "hidden": 1
+   "options": "Route53\nManual\nOther"
   },
   {
    "fieldname": "aws_region",
    "fieldtype": "Data",
-   "label": "AWS Region",
-   "hidden": 1
+   "hidden": 1,
+   "label": "AWS Region"
   },
   {
    "fieldname": "dns_credential_reference",
    "fieldtype": "Data",
-   "label": "DNS Credential Reference",
-   "hidden": 1
+   "hidden": 1,
+   "label": "DNS Credential Reference"
   },
   {
+   "default": "0",
    "fieldname": "dns_automation_enabled",
    "fieldtype": "Check",
-   "label": "DNS Automation Enabled",
-   "hidden": 1
+   "hidden": 1,
+   "label": "DNS Automation Enabled"
   },
   {
+   "default": "0",
    "fieldname": "kubernetes_apply_enabled",
    "fieldtype": "Check",
    "label": "Kubernetes Apply Enabled"
   },
   {
+   "default": "0",
    "fieldname": "route53_apply_enabled",
    "fieldtype": "Check",
-   "label": "Route53 Apply Enabled",
-   "hidden": 1
+   "hidden": 1,
+   "label": "Route53 Apply Enabled"
   },
   {
    "fieldname": "tab_break_nfns",
@@ -139,16 +159,17 @@
    "label": "Billing System"
   },
   {
+   "default": "0",
    "fieldname": "billing_integration_enabled",
    "fieldtype": "Check",
    "label": "Billing Integration Enabled"
   },
   {
+   "default": "Not Configured",
    "fieldname": "billing_integration_status",
    "fieldtype": "Select",
    "label": "Billing Integration Status",
-   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled",
-   "default": "Not Configured"
+   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled"
   },
   {
    "fieldname": "crm_system",
@@ -156,16 +177,17 @@
    "label": "CRM System"
   },
   {
+   "default": "0",
    "fieldname": "crm_integration_enabled",
    "fieldtype": "Check",
    "label": "CRM Integration Enabled"
   },
   {
+   "default": "Not Configured",
    "fieldname": "crm_integration_status",
    "fieldtype": "Select",
    "label": "CRM Integration Status",
-   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled",
-   "default": "Not Configured"
+   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled"
   },
   {
    "fieldname": "support_system",
@@ -173,51 +195,97 @@
    "label": "Support System"
   },
   {
+   "default": "0",
    "fieldname": "support_integration_enabled",
    "fieldtype": "Check",
    "label": "Support Integration Enabled"
   },
   {
+   "default": "Not Configured",
    "fieldname": "support_integration_status",
    "fieldtype": "Select",
    "label": "Support Integration Status",
-   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled",
-   "default": "Not Configured"
+   "options": "Not Configured\nConfigured\nHealthy\nDegraded\nDisabled"
   },
   {
+   "default": "Wildcard",
    "fieldname": "domain_strategy",
    "fieldtype": "Select",
    "label": "Domain Strategy",
-   "options": "Wildcard\nCustom Domains",
-   "default": "Wildcard"
+   "options": "Wildcard\nCustom Domains"
   },
   {
+   "default": "Unknown",
    "fieldname": "wildcard_dns_status",
    "fieldtype": "Select",
    "label": "Wildcard DNS Status",
-   "options": "Unknown\nReady\nDegraded\nFailed",
-   "default": "Unknown"
+   "options": "Unknown\nReady\nDegraded\nFailed"
   },
   {
+   "default": "Unknown",
    "fieldname": "wildcard_tls_status",
    "fieldtype": "Select",
    "label": "Wildcard TLS Status",
-   "options": "Unknown\nReady\nDegraded\nFailed",
-   "default": "Unknown"
+   "options": "Unknown\nReady\nDegraded\nFailed"
   },
   {
+   "default": "Unknown",
    "fieldname": "ingress_status",
    "fieldtype": "Select",
    "label": "Ingress Status",
-   "options": "Unknown\nReady\nDegraded\nFailed",
-   "default": "Unknown"
+   "options": "Unknown\nReady\nDegraded\nFailed"
+  },
+  {
+   "fieldname": "column_break_odvf",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_tmea",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_qjcw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_riyd",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "customer_portal_tab",
+   "fieldtype": "Tab Break",
+   "label": "Customer Portal"
+  },
+  {
+   "fieldname": "default_customer_admin_role_profile",
+   "fieldtype": "Link",
+   "label": "Default Customer Admin Role Profile",
+   "options": "Role Profile"
+  },
+  {
+   "fieldname": "column_break_bhtq",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "default_customer_member_role_profile",
+   "fieldtype": "Link",
+   "label": "Default Customer Member Role Profile",
+   "options": "Role Profile"
+  },
+  {
+   "fieldname": "column_break_jstk",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_ntkb",
+   "fieldtype": "Column Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-06-03 00:00:00.000000",
+ "modified": "2026-07-03 12:33:27.975952",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Platform Settings",

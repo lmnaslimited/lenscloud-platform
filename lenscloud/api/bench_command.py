@@ -390,34 +390,68 @@ def pod_name(pod):
 	return ((pod.get("metadata") or {}).get("name") or "")
 
 
+def pod_labels(pod):
+	return ((pod.get("metadata") or {}).get("labels") or {})
+
+
+def is_platform_bench_command_pod(pod):
+	labels = pod_labels(pod)
+	return labels.get(PLATFORM_MANAGER_LABEL) == PLATFORM_MANAGER_VALUE and labels.get(RESOURCE_KIND_LABEL) == BENCH_COMMAND_RESOURCE_KIND
+
+
+def delete_terminal_command_pods(client, namespace, pods):
+	deleted = []
+	unsafe = []
+	active = []
+	for pod in pods:
+		name = pod_name(pod)
+		if not name:
+			continue
+		if not is_platform_bench_command_pod(pod):
+			unsafe.append(f"{namespace}/{name}")
+			continue
+		if not is_terminal_pod(pod):
+			active.append(f"{namespace}/{name}:{pod_phase(pod)}")
+			continue
+		try:
+			client.delete_namespaced("pods", namespace, name)
+			deleted.append(f"pods/{namespace}/{name}")
+		except KubernetesClientError as exc:
+			if "Kubernetes API 404:" not in str(exc):
+				raise
+	if unsafe:
+		raise KubernetesClientError(f"Bench Command cleanup refused pod(s) without Platform bench-command labels: {', '.join(unsafe)}")
+	if active:
+		raise KubernetesClientError(f"Bench Command cleanup refused non-terminal pod(s): {', '.join(active)}")
+	return deleted
+
+
 def cleanup_command_pods(client, namespace, job_name, wait_seconds=20):
 	if not job_name:
 		return []
-	deleted = []
 	selector = f"job-name={job_name}"
 	deadline = time.time() + wait_seconds
 	pods = client.list_namespaced("pods", namespace, label_selector=selector)
 	while pods and time.time() < deadline and all(is_terminal_pod(pod) for pod in pods):
 		time.sleep(2)
 		pods = client.list_namespaced("pods", namespace, label_selector=selector)
-	active = []
-	for pod in pods:
-		name = pod_name(pod)
-		if not name:
-			continue
-		if is_terminal_pod(pod):
-			try:
-				client.delete_namespaced("pods", namespace, name)
-				deleted.append(f"pods/{namespace}/{name}")
-			except KubernetesClientError as exc:
-				if "Kubernetes API 404:" not in str(exc):
-					raise
-		else:
-			active.append(f"{namespace}/{name}:{pod_phase(pod)}")
+	deleted = delete_terminal_command_pods(client, namespace, pods)
 	remaining = client.list_namespaced("pods", namespace, label_selector=selector)
 	remaining_names = [pod_name(pod) for pod in remaining if pod_name(pod)]
-	if remaining_names or active:
-		raise KubernetesClientError(f"Bench Command cleanup still sees pod(s) for job {job_name}: {', '.join(active or remaining_names)}")
+	if remaining_names:
+		raise KubernetesClientError(f"Bench Command cleanup still sees pod(s) for job {job_name}: {', '.join(remaining_names)}")
+	return deleted
+
+
+def cleanup_terminal_bench_command_pods(cluster, namespace):
+	selector = f"{PLATFORM_MANAGER_LABEL}={PLATFORM_MANAGER_VALUE},{RESOURCE_KIND_LABEL}={BENCH_COMMAND_RESOURCE_KIND}"
+	with get_cluster_client(cluster) as client:
+		pods = client.list_namespaced("pods", namespace, label_selector=selector)
+		deleted = delete_terminal_command_pods(client, namespace, pods)
+		remaining = client.list_namespaced("pods", namespace, label_selector=selector)
+		terminal_remaining = [pod_name(pod) for pod in remaining if pod_name(pod) and is_terminal_pod(pod)]
+		if terminal_remaining:
+			raise KubernetesClientError(f"Bench Command cleanup still sees terminal pod(s): {', '.join(terminal_remaining)}")
 	return deleted
 
 

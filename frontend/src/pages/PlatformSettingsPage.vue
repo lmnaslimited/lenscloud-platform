@@ -196,7 +196,7 @@ onMounted(load)
 
 				<div v-else class="space-y-4">
 					<div>
-						<p class="text-[11px] font-medium uppercase tracking-[0.18em] text-ink-gray-5">Settings record</p>
+						<p class="text-[11px] font-medium text-ink-gray-5">Settings record</p>
 						<p class="mt-1 text-sm leading-6 text-ink-gray-5">This page uses standard Frappe document save APIs. Cluster-specific runtime access stays on Cluster records; these settings provide only global fallbacks and shared edge state.</p>
 					</div>
 

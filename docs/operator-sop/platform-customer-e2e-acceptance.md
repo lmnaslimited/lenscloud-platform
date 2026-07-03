@@ -37,6 +37,12 @@ Run this before Platform or Customer E2E.
    - one ready shared Free Bench exists for the target Region.
 7. Stop immediately if readiness, RBAC, runtime namespace, root domain, Free capacity, migrations, build, or authenticated login fails.
 
+8. Confirm customer RBAC baseline:
+   - Platform Settings has Customer Admin and Customer Member Role Profiles configured, or the conventional `LensCloud Customer Admin` and `LensCloud Customer Member` Role Profiles exist;
+   - Role Profiles carry native DocType permissions for Plan, Subscription, Site, and Customer Member as intended;
+   - signup/member approval creates a Customer User Permission;
+   - customer menus are expected to appear only when the current user's Role Profile grants DocType read permission.
+
 ## Platform Operator Segment
 
 The Platform operator verifies the service can safely provision and observe the customer journey.
@@ -86,7 +92,16 @@ Expected result: Platform has enough product, capacity, runtime, and audit visib
 The Customer segment validates the launch experience and customer-safe language.
 
 1. Sign up or sign in as a test customer through the native LensCloud flow.
-2. Open Customer Dashboard.
+2. For a fresh signup, confirm LensCloud automatically creates or links Customer identity before Plan selection:
+   - first company-domain user becomes active Customer Owner;
+   - same-domain later signup becomes Pending Customer Member;
+   - legacy Customer without `primary_domain` does not capture a later signup by email domain;
+   - Frappe account verification copy is not treated as LensCloud membership approval;
+   - customer login lands at `/lenscloud/customer/dashboard`, not `/me`;
+   - public email signup creates an individual Customer;
+   - Platform users are not created through signup.
+3. Confirm a customer-only signup lands on Customer Dashboard, while Platform users land on Platform Dashboard only when they hold Platform roles.
+4. Open Customer Dashboard.
 3. If no Subscription exists, confirm the dashboard shows one primary action: `Choose a Plan`.
 4. If a Subscription exists, confirm the dashboard shows service state and routes progress to Subscriptions.
 5. Open Plans.
@@ -120,8 +135,19 @@ The Customer segment validates the launch experience and customer-safe language.
     - Site status and ready URL where available.
 17. Open Account.
 18. Confirm Account focuses on identity, organization, access roadmap, support, and contact preferences; it must not duplicate Plan comparison or provisioning workflow.
-19. On mobile, confirm detail/inspector content is reachable through the Details drawer.
-20. Confirm no customer screen exposes Kubernetes, namespaces, Benches, MariaDB, Database Server, Secrets, CR names, kubeconfig, pod logs, or action logs.
+19. Click the shell Account/profile chip and confirm the floating widget shows Profile, Change Password, and Sign Out.
+20. From the widget, click Change Password and confirm the Account page opens a compact password dialog without navigating to `/update-password` or leaving the LensCloud workspace. Do not print passwords in evidence.
+21. Confirm Sign Out is available only from the widget/menu surface, not as a noisy Account page header action.
+22. On mobile, confirm detail/inspector content is reachable through the Details drawer and Account actions are reachable from the mobile account widget.
+23. Confirm no customer screen exposes Kubernetes, namespaces, Benches, MariaDB, Database Server, Secrets, CR names, kubeconfig, pod logs, or action logs.
+
+24. Confirm customer menu and action access follows native Frappe permissions:
+    - granting Plan read makes the Plans menu visible and Plan records load;
+    - removing Plan read hides the Plans menu and direct Plans access shows a permission state;
+    - granting Customer Member read/write makes the Members menu and approval actions available;
+    - removing Customer Member access hides the Members menu;
+    - users without Subscription create can browse Plans if Plan read is granted, but cannot start a Subscription;
+    - if Customer User Permission is missing, APIs still return only the Customer from active membership or legacy `Customer.user` and must not leak another Customer.
 
 Expected result: a customer can understand what they bought, what happens next, and where to return, without learning platform runtime internals.
 
@@ -130,6 +156,52 @@ Provisioning retry checks:
 - With Kubernetes apply disabled, a Free Subscription submission may reserve the Site but must show a customer-safe paused state and `Retry Setup`, not a fake success.
 - After Platform enables apply for the controlled window, `Retry Setup` must reuse the existing reserved Site and move the same Subscription/Site toward real provisioning.
 - If retry fails, create an incident and keep the customer message free of action-log, namespace, Bench, Database Server, Secret, and Kubernetes terms.
+
+
+## CUA Site Bootstrap And SSO Segment
+
+Run this segment after Infra publishes the CUA Site bootstrap/SSO runner contract and Platform implements the integration. Shared sequence: `docs/architecture/cua-site-bootstrap-sso-sequence.md`.
+
+Platform preflight:
+
+1. Confirm the LensPure Release includes the LensCloud branding/bootstrap app.
+2. Confirm Infra runner supports `site_setup.status`, `site_setup.complete`, `oauth.status`, `oauth.configure`, `user.ensure`, `user.disable`, `user.roles.set`, and `site_access.status`, or marks unsupported commands truthfully.
+3. Confirm Platform Settings has OAuth issuer/client defaults and root domain.
+4. Confirm no Administrator password, OAuth client secret, bootstrap token, kubeconfig, Secret value, pod log, or raw `site_config.json` appears in Platform API responses or action logs.
+5. Confirm Site Bootstrap State and Site Access Grant records exist or migrations are ready.
+
+Positive customer path:
+
+1. Create a fresh Free Plan Subscription and provision one Prod Site.
+2. Wait for Site Ready.
+3. Trigger setup status and setup completion through Platform.
+4. Verify setup wizard is complete.
+5. Trigger OAuth status and OAuth configure through Platform.
+6. Verify target Site trusts LensCloud Platform as OAuth/Social Login provider.
+7. Ensure the Customer Owner/Admin user on the target Site through Platform.
+8. Verify Site Access Grant is Active.
+9. Click `Open Site` from the customer Subscription page.
+10. Verify the customer reaches the target Site without a Site password dialog.
+11. Add or approve a second Customer Member, grant Site access, and verify that member can open the Site through Platform SSO.
+12. Revoke or disable the member and verify target Site access is denied.
+
+Negative/security path:
+
+- direct customer access to Bench, Database Server, runtime namespace, Secret, CR names, action logs, pod logs, and raw setup details remains hidden;
+- unsupported runner command returns Unsupported;
+- wrong Customer/Site/Subscription relation is rejected;
+- unlabelled/wrong-namespace runner requests are rejected by Infra admission/RBAC;
+- Platform never asks a customer or operator to paste a Site Administrator password into the browser.
+
+Evidence required:
+
+- Subscription, Site, Customer Member, and Site Access Grant IDs;
+- action log IDs for setup status, setup complete, OAuth status, OAuth configure, user ensure, access status, and revoke/disable;
+- sanitized runner result summaries;
+- screenshot or Playwright proof that `Open Site` enters without password dialog;
+- negative security proof;
+- cleanup proof;
+- incident IDs for any failed step.
 
 ## Controlled Live Provisioning Segment
 
@@ -175,12 +247,18 @@ Browser validation must include console-error checks. Any customer-facing 403, m
 
 ## Incident Handling
 
-Create an incident entry in `docs/incidents/e2e-incident-tracker.md` for every failed or suspicious scenario before continuing to the next major segment. Use `docs/architecture/e2e-incident-management.md` for severity and required fields.
+Create an incident entry in `docs/incidents/e2e-incident-tracker.md` for every failed or suspicious scenario before continuing to the next major segment. Use `docs/architecture/e2e-incident-management.md` for severity, required fields, and the recovery loop.
 
 For this pass, incidents live in `docs/incidents/e2e-incident-tracker.md`. Dated evidence files must link to incident IDs. If an incident blocks launch, update `docs/platform-workitems.md` and keep the incident open until fix and retest evidence are recorded.
 
+Every incident must also link a follow-up prompt under `docs/handoffs/platform/` or `docs/handoffs/infra/`. The follow-up prompt is the autonomous resume instruction: after the fix lands, the next agent must read it, retest the incident, close or update the tracker, update evidence/workitems, and continue from the next unpassed scenario instead of waiting for a manual reminder.
+
 Required incident triggers:
 
+- customer signup does not create/link Customer identity;
+- same-domain signup is not pending or is granted active access without approval;
+- customer-only user can access Platform routes;
+- platform user is treated as customer signup;
 - customer provisioning ends as dry run without clear paused/retry guidance;
 - retry cannot reuse an already reserved Site;
 - real Kubernetes apply is expected but no runtime resource is created;

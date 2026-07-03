@@ -12,6 +12,9 @@
   "column_break_tdxu",
   "last_name",
   "region",
+  "organization_name",
+  "primary_domain",
+  "signup_source",
   "external_customer_id"
  ],
  "fields": [
@@ -50,6 +53,25 @@
    "reqd": 1
   },
   {
+   "fieldname": "organization_name",
+   "fieldtype": "Data",
+   "label": "Organization Name",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "primary_domain",
+   "fieldtype": "Data",
+   "label": "Primary Domain",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "signup_source",
+   "fieldtype": "Select",
+   "label": "Signup Source",
+   "options": "Signup\nDomain Match\nInvite\nPlatform\nlmnas.com\nManual",
+   "default": "Signup"
+  },
+  {
    "fieldname": "external_customer_id",
    "fieldtype": "Data",
    "label": "External Customer Id"
@@ -58,6 +80,11 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [
+  {
+   "group": "Access",
+   "link_doctype": "Customer Member",
+   "link_fieldname": "customer"
+  },
   {
    "group": "Commerce",
    "link_doctype": "Subscription",

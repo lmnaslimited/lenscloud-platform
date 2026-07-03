@@ -51,3 +51,29 @@ Each incident must link back to:
 ## Future First-Class Requirement
 
 If incidents remain frequent after the Free-first launch pass, add a Platform `Incident` DocType with links to Customer, Subscription, Site, Bench, Database Server, Orchestration Action Log, owner, severity, status, and retest evidence. Until then, `docs/incidents/e2e-incident-tracker.md` is the canonical incident ledger for acceptance.
+
+## Recovery Loop
+
+E2E testing must be restartable without relying on chat memory. Every new incident must create or link a follow-up prompt under `docs/handoffs/platform/` or `docs/handoffs/infra/`, depending on owner. The prompt is the executable resume artifact for the fixing agent and must include enough context to close and retest the incident autonomously.
+
+When an incident is opened, the tester must update these artifacts before moving to the next major segment:
+
+1. `docs/incidents/e2e-incident-tracker.md` active incident row.
+2. Dated evidence file with scenario status, symptom, and incident ID.
+3. `docs/platform-workitems.md` row if the failure changes launch scope or status.
+4. Follow-up prompt file, named with the incident ID and short topic, for example `docs/handoffs/platform/e2e-resume-LC-E2E-YYYYMMDD-NNN-<topic>.md`.
+
+The follow-up prompt must include:
+
+- incident ID, owner, severity, scenario ID, and status;
+- exact evidence/action-log/screenshot references;
+- safe reproduction steps;
+- expected result and current actual result;
+- implementation or Infra contract boundary;
+- retest commands/scenarios;
+- closure checklist;
+- instruction to update the tracker, evidence, workitems, and handoff after retest.
+
+When an incident is fixed, the fixing agent must not only mark the incident closed. It must also resume from the next unpassed scenario in the dated E2E evidence matrix, unless a stop condition remains.
+
+If the incident owner is Infra, Platform still creates the Platform-side source handoff under `docs/handoffs/infra/`. After Infra returns evidence, Platform consumes it and closes the incident only after Platform-side retest passes.

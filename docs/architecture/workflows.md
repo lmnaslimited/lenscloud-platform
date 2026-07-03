@@ -147,6 +147,28 @@ Create Site state model references:
 - Bench: platform placement target with current Release and next Release context, not directly editable by the customer in the first pass.
 - Platform Settings: `root_domain` is mandatory for customer domain previews; customers enter subdomains only.
 
+
+## Customer Site Access And SSO Workflow
+
+Customer Site access is Subscription-led. A Site becomes customer-openable only after runtime Ready, setup wizard completion, OAuth/Social Login configuration, and an Active Site Access Grant for the signed-in Customer Member. The shared sequence is `docs/architecture/cua-site-bootstrap-sso-sequence.md`.
+
+Customer flow:
+
+1. Customer signs in to Platform.
+2. Customer opens Subscriptions.
+3. Platform shows each Landscape environment with Site status and access status.
+4. If access is ready, customer clicks `Open Site`.
+5. Target Site redirects to Platform OAuth when no Site session exists.
+6. Platform authenticates and returns the customer to the Site without asking for a Site password.
+7. If access is pending, Platform shows setup/OAuth/user-sync progress and recovery guidance.
+
+Platform operator flow:
+
+1. Inspect Site Bootstrap State and Site Access Grants from Platform.
+2. Retry setup/OAuth/user sync through secret-safe runner actions.
+3. Review action logs without credentials or pod logs.
+4. Revoke or resync access when Customer Member status changes.
+
 ## Commercial And Integration Workflow
 
 Commercial and relationship information is surfaced in LensCloud but sourced from external systems configured in `Platform Settings`.

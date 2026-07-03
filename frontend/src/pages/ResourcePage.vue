@@ -1745,7 +1745,7 @@ function resizeEditorByKeyboard(event) {
 									<p class="mt-1 text-sm leading-5 text-red-700">{{ actionFailure.message }}</p>
 									<RouterLink v-if="actionFailure.actionLog" class="mt-2 inline-block text-sm font-medium text-ink-blue-3 hover:underline" :to="`/platform/orchestration-logs/${encodeURIComponent(actionFailure.actionLog)}`">Open action log {{ actionFailure.actionLog }}</RouterLink>
 									<div class="mt-3">
-										<p class="text-xs font-semibold uppercase text-red-700">What to do next</p>
+										<p class="text-xs font-semibold text-red-700">What to do next</p>
 										<ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-red-700">
 											<li v-for="step in actionFailure.steps" :key="step">{{ step }}</li>
 										</ol>
@@ -1761,14 +1761,14 @@ function resizeEditorByKeyboard(event) {
 								</div>
 
 								<div v-if="actionResult" class="mt-3 rounded border border-outline-gray-2 bg-surface-white p-3">
-									<p class="text-xs font-medium uppercase text-ink-gray-5">Action result</p>
+									<p class="text-xs font-medium text-ink-gray-5">Action result</p>
 									<div v-if="safeCommandDisplay(actionResult)" class="mt-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-2">
-										<p class="text-xs font-semibold uppercase text-emerald-700">Bench Command result</p>
+										<p class="text-xs font-semibold text-emerald-700">Bench Command result</p>
 										<p class="mt-1 text-sm text-emerald-900"><span class="font-medium">{{ safeCommandDisplay(actionResult).label }}:</span> {{ displayValue(safeCommandDisplay(actionResult).value) }}</p>
 										<p v-if="safeCommandDisplay(actionResult).kind" class="mt-1 text-xs text-emerald-700">Kind: {{ safeCommandDisplay(actionResult).kind }}</p>
 									</div>
 									<div v-else-if="actionResult.fallback_summary" class="mt-2 rounded border border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
-										<p class="text-xs font-semibold uppercase text-ink-gray-5">Sanitized summary</p>
+										<p class="text-xs font-semibold text-ink-gray-5">Sanitized summary</p>
 										<p class="mt-1 text-sm text-ink-gray-8">{{ actionResult.fallback_summary }}</p>
 									</div>
 									<div class="mt-2 space-y-1 text-xs text-ink-gray-6">

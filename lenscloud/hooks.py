@@ -56,6 +56,8 @@ app_license = "mit"
 # Home Pages
 # ----------
 
+get_website_user_home_page = "lenscloud.api.customer_identity.get_lenscloud_home_page"
+
 # application home page (will override Website Settings)
 # home_page = "login"
 
@@ -144,13 +146,11 @@ website_route_rules = [
 # ---------------
 # Hook on document methods and events
 
-# doc_events = {
-# 	"*": {
-# 		"on_update": "method",
-# 		"on_cancel": "method",
-# 		"on_trash": "method"
-# 	}
-# }
+doc_events = {
+	"User": {
+		"after_insert": "lenscloud.api.customer_identity.provision_customer_for_user_after_insert",
+	}
+}
 
 # Scheduled Tasks
 # ---------------

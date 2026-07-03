@@ -68,12 +68,12 @@ onMounted(load)
 	<WorkspaceLayout
 		title="Subscriptions"
 		subtitle="Review your LensCloud service subscriptions and setup progress."
-		inspector-kicker="Your service"
-		:inspector-title="selectedSubscription ? 'Subscription details' : 'No subscription yet'"
+		inspector-kicker="Your Service"
+		:inspector-title="selectedSubscription ? 'Subscription Details' : 'No Subscription Yet'"
 		inspector-subtitle="Customer-safe Plan, payment, and Site progress."
 	>
 		<template #actions>
-			<Button variant="subtle" @click="load"><RefreshCcw class="size-4" />Refresh</Button>
+			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load"><RefreshCcw class="size-4 shrink-0" /><span>Refresh</span></Button>
 		</template>
 
 		<template #main>
@@ -85,20 +85,20 @@ onMounted(load)
 				<section v-else-if="!hasSubscriptions" class="mx-auto grid min-h-[560px] max-w-4xl place-items-center rounded-xl border border-[#EDEDED] bg-white p-8 text-center">
 					<div class="max-w-lg">
 						<div class="mx-auto grid size-14 place-items-center rounded-xl bg-[#dce1ff] text-[#1D4ED8]"><CreditCard class="size-7" /></div>
-						<h2 class="mt-5 text-2xl font-semibold tracking-[-0.01em] text-[#191c1e]">No subscription yet</h2>
+						<h2 class="mt-5 text-2xl font-semibold text-[#191c1e]">No Subscription Yet</h2>
 						<p class="mt-3 text-sm leading-6 text-[#64748B]">Choose a Plan to start your LensCloud service. The Free Plan has ₹0 due today and no payment method requirement.</p>
-						<Button :as="RouterLink" to="/customer/plans" class="mt-6 !bg-[#1D4ED8] !text-white hover:!bg-[#0037b0]">Choose a Plan <ArrowRight class="size-4" /></Button>
+						<RouterLink to="/customer/plans" class="mt-6 inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0037b0]"><span>Choose a Plan</span><ArrowRight class="size-4 shrink-0" /></RouterLink>
 					</div>
 				</section>
 
 				<section v-else class="mx-auto max-w-6xl">
 					<div class="mb-5 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
 						<div>
-							<p class="text-xs font-semibold uppercase tracking-[0.14em] text-[#64748B]">Your service</p>
-							<h2 class="mt-2 text-2xl font-semibold tracking-[-0.01em] text-[#191c1e]">My Subscriptions</h2>
+							<p class="text-xs font-semibold text-[#64748B]">Your Service</p>
+							<h2 class="mt-2 text-2xl font-semibold text-[#191c1e]">My Subscriptions</h2>
 							<p class="mt-2 text-sm leading-6 text-[#64748B]">Small, clear cards for each service subscription. No infrastructure details here.</p>
 						</div>
-						<Button :as="RouterLink" to="/customer/plans" variant="subtle">Add New Subscription</Button>
+						<RouterLink to="/customer/plans" class="inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#f2f4f6] px-4 py-2 text-sm font-semibold text-[#434655] transition hover:bg-[#e8ecf1]"><span>Add New Subscription</span><ArrowRight class="size-4 shrink-0" /></RouterLink>
 					</div>
 
 					<div class="grid gap-4 lg:grid-cols-3">
@@ -135,7 +135,7 @@ onMounted(load)
 		<template #inspector>
 			<div v-if="selectedSubscription" class="space-y-4">
 				<div class="rounded-xl border border-[#EDEDED] bg-white p-4">
-					<p class="text-xs font-semibold uppercase tracking-[0.12em] text-[#64748B]">Subscription</p>
+					<p class="text-xs font-semibold text-[#64748B]">Subscription</p>
 					<h3 class="mt-2 text-base font-semibold text-[#191c1e]">{{ selectedSubscription.plan_title || selectedPlan?.title || selectedSubscription.plan || selectedSubscription.name }}</h3>
 					<div class="mt-4 space-y-2 text-sm leading-6 text-[#505f76]">
 						<p>Status: <span class="font-medium text-[#191c1e]">{{ selectedSubscription.status || 'Active' }}</span></p>
@@ -149,7 +149,7 @@ onMounted(load)
 					</div>
 				</div>
 				<div class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-4">
-					<p class="text-sm font-semibold text-[#191c1e]">Landscape progress</p>
+					<p class="text-sm font-semibold text-[#191c1e]">Landscape Progress</p>
 					<p class="mt-1 text-xs leading-5 text-[#64748B]">{{ selectedSubscription.landscape_summary?.landscape || 'Standard landscape' }}</p>
 					<div v-if="environmentSequence.length" class="mt-4 space-y-3">
 						<div v-for="item in environmentSequence" :key="item.environment" class="flex gap-3 rounded-lg border border-[#EDEDED] bg-white p-3">

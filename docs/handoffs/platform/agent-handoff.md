@@ -20,7 +20,51 @@ Platform operators must inspect and delete Platform-owned runtime resources with
 
 Infra `1bfc57c` resolved the old PVC/PV blocker for `run-20260629-free-prod-bench`; Platform verified old runtime absence with `ORCH-2026-00188`. A fresh Free Plan launch then passed: `SUB-00001`, `run-20260702-free-prod-bench`, `run-20260702-free-site.cloud.lmnaslens.com`, Site Ready/HTTPS/static asset proof `ORCH-2026-00199`, inventory `ORCH-2026-00200`. Apply was disabled after the live window.
 
-Open blocker: `LC-E2E-20260702-003`. Platform Bench Command cleanup now deletes Jobs/ConfigMaps, waits for pod garbage collection, and verifies terminal pod absence/removal. The restricted service account is still denied `delete pods`, leaving succeeded `bcmd-*` pods in `lenscloud-runtime-eu`. Infra handoff: `docs/handoffs/infra/e2e-bench-command-pod-cleanup-rbac-20260702.md`.
+`LC-E2E-20260702-003` is closed. Infra `e2a5483` added narrow terminal Bench Command pod cleanup RBAC/admission, and Platform retested successfully with `ORCH-2026-00206`. Final inventory showed no Platform-labelled Bench Command Pods, Jobs, or ConfigMaps in `lenscloud-runtime-eu`; Bench sites PVCs were Bound with no deletion timestamp. No remaining launch blocker is known from this pass.
+
+## 2026-07-02 E2E Recovery And SOP Resume
+
+E2E incident recovery is now documented. Every new incident must link an executable follow-up prompt under `docs/handoffs/platform/` or `docs/handoffs/infra/`, then close with retest evidence and resume from the next unpassed scenario. References: `docs/architecture/e2e-incident-management.md`, `docs/operator-sop/platform-customer-e2e-acceptance.md`, `docs/handoffs/platform/e2e-incident-followup-template.md`.
+
+Resumed Free-first E2E validation passed: migration, frontend build, backend plan/policy/bench-command tests, authenticated desktop/mobile Playwright, subscribed dashboard visual check, and subscribed/exhausted Plans visual check. The test customer already owns the Free Subscription, so setup/review visual capture was skipped in this resumed run; entitlement behavior passed because Free is not startable again. Evidence: `docs/evidence/customer-launch/e2e-acceptance-20260702.md`.
+
+
+## 2026-07-03 Customer Signup And Membership Status
+
+Native Frappe signup is now wired as customer-only onboarding. Public signup creates or links a LensCloud Customer, creates a `Customer Member`, and keeps Platform users as admin-created users only. Same-domain signups join the existing Customer as `Pending` members and cannot provision until approved. `Customer Member` is exposed in the Platform Customers and Commerce area for operator review.
+
+Validation passed: `bench --site dev.localhost run-tests --module lenscloud.api.test_customer_identity` passed 6 tests, including native Frappe signup, first company-domain owner, second same-domain pending member, public email individual Customer, Platform/System user skip, and pending-member provisioning rejection. Authenticated desktop and mobile route smoke also passed.
+
+
+## 2026-07-03 Additional Signup Incident
+
+`LC-E2E-20260703-001` is closed. A reported `user2@example.com` signup created `CUST002` as Active Owner because the existing `CUST001` legacy Customer has no `primary_domain`; same-domain pending membership only applies when Platform has an explicit `Customer.primary_domain` match. Frappe's `Please ask your administrator to verify your sign-up` message is account/email verification copy, not LensCloud Customer Member approval.
+
+Fixes: LensCloud now provides `get_website_user_home_page` so Website Users land at `/lenscloud/customer/dashboard` rather than `/me`; Platform users land at `/lenscloud/platform/dashboard`; Customer Members is present in the Platform sidebar under Customers and Commerce. Validation: `test_customer_identity` passed 9 tests, migration passed, frontend build passed, and authenticated desktop/mobile route smoke passed.
+
+
+## 2026-07-03 Account And Subscription UI Sanity
+
+`LC-E2E-20260703-002` is closed and superseded for Account action placement by `LC-E2E-20260703-003`. Account no longer exposes password/sign-out actions in the header; those actions live in the shell account widget. Subscription `Choose a Plan` / `Add New Subscription` actions are explicit RouterLinks to `/customer/plans`. Forced all-caps/tracking styling was removed across LensCloud SPA Vue surfaces so headings and labels render in natural title/Pascal Case. Validation: frontend build passed, authenticated desktop/mobile Playwright passed, and the action smoke verifies Account/Subscription navigation.
+
+
+
+## 2026-07-03 Password Dialog Editability Retest
+
+`LC-E2E-20260703-003` was reopened after user retest found password fields were not editable. The fix replaces the password entry Dialog surfaces with deterministic native modal markup in Customer Account and Platform shell contexts. The authenticated test now fills Current Password, New Password, and Confirm New Password and verifies the values, so future regressions are caught. Validation: frontend build passed, targeted customer/platform browser probes passed, and authenticated desktop Playwright passed.
+
+## 2026-07-03 Customer Native RBAC And Menus
+
+`LC-E2E-20260703-004` is closed. Customer access now follows native Frappe Role Profiles and DocType permissions. Platform Settings may specify default Customer Admin/Member Role Profiles; if blank, the launch-safe conventional profiles `LensCloud Customer Admin` and `LensCloud Customer Member` are used when present. Signup/member approval creates or repairs Customer User Permission for the Customer. Customer sidebar entries with a DocType appear only when the backend permission payload grants read access. Subscription creation is denied unless native `Subscription` create permission is granted. The customer Members menu/approval page appears only with Customer Member permission. Legacy `Customer.user` owners are repaired without requiring a data migration.
+
+Validation passed: `test_customer_identity` 10 tests, frontend production build, authenticated desktop Playwright, authenticated mobile Playwright, and an authenticated browser menu probe. Evidence: `docs/evidence/customer-launch/e2e-acceptance-20260702.md`.
+
+
+## 2026-07-03 CUA Site Bootstrap And SSO Plan
+
+Approved direction: implement Site setup wizard completion, OAuth/Social Login configuration, first-user/member sync, Site Access Grants, and passwordless `Open Site` through a Kubernetes API Bench Execute runner contract. Do not use target Site Administrator password as a browser/API credential. Platform documents the model in `docs/architecture/customer-identity-access.md` and the shared sequence in `docs/architecture/cua-site-bootstrap-sso-sequence.md`. Infra handoff: `docs/handoffs/infra/cua-site-bootstrap-sso-runner-20260703.md`.
+
+Resume order: Infra implements/verifies the runner contract and returns sanitized evidence plus a Platform prompt. Platform then adds Site Bootstrap State, Site Access Grant, OAuth/client settings, backend runner calls, customer Subscription/Open Site UI, member access sync, tests, SOP evidence, and E2E acceptance.
 
 ## Runtime Truth
 
@@ -444,3 +488,7 @@ Evidence and scenario register: `docs/evidence/customer-launch/e2e-acceptance-20
 Cleanup status: `acme.cloud.lmnaslens.com` was dry-run only and is marked Deleted (`ORCH-2026-00179`). `run-20260629-free-prod-site.cloud.lmnaslens.com` was deleted normally and runtime inventory showed the owner/related resources absent (`ORCH-2026-00180` through `ORCH-2026-00183`). `run-20260629-free-prod-bench` delete was accepted and the FrappeBench owner CR is absent (`ORCH-2026-00184`/`ORCH-2026-00187`), but PVC `lenscloud-runtime-eu/run-20260629-free-prod-bench-sites` remains terminating with `kubernetes.io/pvc-protection`. Incident `LC-E2E-20260702-002` blocks clean live E2E reset. Infra handoff: `docs/handoffs/infra/e2e-cleanup-pvc-blocker-20260702.md`.
 
 Validation passed: Python compile for `orchestration.py`, production frontend build, `lenscloud.api.test_plan_catalog` including the new dry-run-to-paused regression, authenticated desktop Playwright, and authenticated mobile Playwright. Live Free provisioning/HTTPS/static-asset proof is still blocked until Infra resolves the terminating PVC or approves fresh capacity creation while the old PVC is handled separately.
+
+## July 3 Customer Account Widget Correction Complete
+
+Closed incident `LC-E2E-20260703-003`. Account actions no longer sit in the Account page header. The shell account chip now opens a floating widget with Profile, Change Password, and Sign Out. Change Password routes to `/customer/account?changePassword=1` and opens a compact in-page dialog that calls Frappe's native password update method without leaving LensCloud. Sign Out remains in the widget and returns the user to `/login`. Validation passed: `npm --prefix frontend run build`, authenticated desktop Playwright, authenticated mobile Playwright, and forced all-caps Vue scan returned no matches.

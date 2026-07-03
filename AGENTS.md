@@ -40,3 +40,12 @@ Before changing Platform or customer frontend code, read:
 
 Do not treat `.agents` as a backlog. New agent context starts in
 `docs/platform-workitems.md` first.
+
+
+## Token And Tool Hygiene
+
+- Prefer narrow reads (`rg`, small `sed` ranges) over dumping whole files.
+- Use targeted browser probes for a single UI defect before running full Playwright.
+- Run full desktop/mobile Playwright only when the touched flow or release gate needs it.
+- When testing dialogs/forms, assert the actual interaction, such as typing into inputs and reading values, not just that the dialog opens.
+- Keep updates and evidence concise; link files instead of repeating long logs.

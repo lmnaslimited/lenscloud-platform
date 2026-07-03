@@ -32,8 +32,11 @@ class FakeCleanupClient:
 		return {}
 
 
-def pod(name, phase):
-	return {"metadata": {"name": name}, "status": {"phase": phase, "containerStatuses": []}}
+def pod(name, phase, labels=True):
+	metadata = {"name": name}
+	if labels:
+		metadata["labels"] = {PLATFORM_MANAGER_LABEL: "platform", RESOURCE_KIND_LABEL: "bench-command"}
+	return {"metadata": metadata, "status": {"phase": phase, "containerStatuses": []}}
 
 
 class BenchCommandContractTest(unittest.TestCase):
@@ -193,3 +196,10 @@ class BenchCommandContractTest(unittest.TestCase):
 		with patch("lenscloud.api.bench_command.get_cluster_client", return_value=client):
 			with self.assertRaises(bench_command.KubernetesClientError):
 				bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
+
+	def test_cleanup_refuses_unlabelled_terminal_command_pods(self):
+		client = FakeCleanupClient([pod("bcmd-test-job-unsafe", "Succeeded", labels=False)])
+		with patch("lenscloud.api.bench_command.get_cluster_client", return_value=client):
+			with self.assertRaises(bench_command.KubernetesClientError):
+				bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
+		self.assertNotIn(("pods", "lenscloud-runtime-eu", "bcmd-test-job-unsafe", ""), client.deleted)

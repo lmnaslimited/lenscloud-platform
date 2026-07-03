@@ -28,10 +28,10 @@ export const useSessionStore = defineStore('session', {
 		isAuthenticated: (state) => !isGuestUser(state.user),
 		isPlatformUser: (state) => state.roles.some((role) => PLATFORM_ROLES.has(role)),
 		isCustomerUser: (state) => state.roles.some((role) => CUSTOMER_ROLES.has(role)),
-		canAccessPlatform: (state) => !isGuestUser(state.user) && (state.roles.some((role) => PLATFORM_ROLES.has(role)) || state.roles.length === 0),
+		canAccessPlatform: (state) => !isGuestUser(state.user) && state.roles.some((role) => PLATFORM_ROLES.has(role)),
 		canAccessCustomer: (state) => !isGuestUser(state.user),
 		defaultHome: (state) => {
-			if (state.roles.some((role) => PLATFORM_ROLES.has(role)) || state.roles.length === 0) {
+			if (state.roles.some((role) => PLATFORM_ROLES.has(role))) {
 				return '/platform/dashboard'
 			}
 

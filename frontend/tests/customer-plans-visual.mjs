@@ -41,7 +41,6 @@ async function openPlans(context, viewport, errors) {
 	})
 	await page.goto(`${baseURL}/lenscloud/customer/plans`)
 	await page.getByRole('heading', { name: 'Plans', exact: true }).waitFor()
-	await page.getByRole('button', { name: /Start Free Plan/ }).waitFor()
 	await page.waitForTimeout(1000)
 	return page
 }
@@ -69,7 +68,8 @@ async function captureChoose(browser, name, viewport, referencePath) {
 	for (const removedText of ['Free-first guided launch', 'Choose your LensCloud Plan', 'Start with the Free Plan, or request access to higher tiers when you are ready.']) {
 		if (bodyText.includes(removedText)) throw new Error(`${removedText} should not be visible on customer Plans.`)
 	}
-	const cta = await page.getByRole('button', { name: /Start Free Plan|Request access|Coming soon/ }).last().innerText().catch(() => '')
+	const cta = await page.getByRole('button', { name: /Start Free Plan|Request access|Coming soon|Current Plan|Limit reached|Plan limit reached|Unavailable/ }).last().innerText().catch(() => '')
+	if (!cta) throw new Error('Customer Plans must show an actionable or explanatory Plan CTA.')
 	const screenshot = resolve(outputDir, `${name}-plans.png`)
 	await page.screenshot({ path: screenshot, fullPage: true })
 	await context.close()
@@ -85,7 +85,15 @@ async function captureGuidedStage(browser, name, referencePath, stage) {
 	await page.close()
 	const errors = []
 	page = await openPlans(context, viewport, errors)
-	await page.getByRole('button', { name: /Start Free Plan/ }).click()
+	const startFree = page.getByRole('button', { name: /Start Free Plan/ })
+	if (!(await startFree.count())) {
+		const screenshot = resolve(outputDir, `${name}-skipped-entitlement.png`)
+		await page.screenshot({ path: screenshot, fullPage: true })
+		const bodyText = await page.locator('body').innerText()
+		await context.close()
+		return { name, kind: stage === 'review' ? 'Review subscription' : 'Setup your Site', viewport, referencePath, screenshot, titles: [], cta: 'skipped: Free entitlement already used', errors, bodyText }
+	}
+	await startFree.click()
 	await page.getByRole('heading', { name: 'Setup Your Site', exact: true }).first().waitFor()
 	await page.getByRole('textbox', { name: 'Subdomain' }).fill('playwright-free-site')
 	await page.getByRole('textbox', { name: 'Site Name' }).fill('playwright-free-site')

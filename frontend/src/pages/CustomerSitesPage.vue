@@ -99,7 +99,7 @@ onMounted(load)
 				<SquareArrowOutUpRight class="size-4" />
 				Choose Plan
 			</Button>
-			<Button variant="subtle" @click="load">Refresh</Button>
+			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load">Refresh</Button>
 		</template>
 
 		<template #main>

@@ -11,6 +11,7 @@ from frappe import _
 from frappe.utils import add_months, now_datetime
 
 from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientError, RESOURCE_PATHS, kubeconfig_path, sanitize_error
+from lenscloud.api.customer_identity import can_create_subscription, can_manage_customer_members, can_read_customer_doctype, customer_doctype_permissions, customer_membership_for_user, ensure_customer_access_for_user, provision_customer_for_user, require_active_customer_membership, require_subscription_create_permission
 from lenscloud.api.policy import get_free_bench
 
 
@@ -1592,16 +1593,24 @@ def get_customer_portal_context():
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Authentication is required."), frappe.PermissionError)
-	customer_name = frappe.db.get_value("Customer", {"user": user}, "name")
-	customer = frappe.db.get_value("Customer", customer_name, ["name", "first_name", "last_name", "region", "external_customer_id"], as_dict=True) if customer_name else None
+	provision_customer_for_user(user, source="Signup")
+	membership = ensure_customer_access_for_user(user) or customer_membership_for_user(user)
+	customer_name = membership.customer if membership else frappe.db.get_value("Customer", {"user": user}, "name")
+	customer = frappe.db.get_value("Customer", customer_name, ["name", "first_name", "last_name", "region", "external_customer_id", "organization_name", "primary_domain", "signup_source"], as_dict=True) if customer_name else None
+	if membership:
+		customer = customer or frappe._dict({"name": membership.customer})
+		customer["membership_status"] = membership.status
+		customer["member_role"] = membership.member_role
+		customer["is_primary_owner"] = membership.is_primary_owner
 	active_clusters = {row.name for row in frappe.get_all("Cluster", filters={"status": "Active"}, fields=["name"])}
 	regions = [
 		region for region in frappe.get_all("Region", filters={"deployment_status": "Active", "cluster": ["!=", ""]}, fields=["name", "title", "cluster"], order_by="lft asc")
 		if region.cluster in active_clusters
 	]
-	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name else []
-	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "site_status", "provisioning_status", "route_status", "access_url", "plan", "subscription", "environment", "bench", "modified"], order_by="modified desc", limit=20) if customer_name else []
-	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc")
+	permissions = customer_doctype_permissions(user)
+	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name and permissions.get("Subscription", {}).get("read") else []
+	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "site_status", "provisioning_status", "route_status", "access_url", "plan", "subscription", "environment", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
+	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc") if permissions.get("Plan", {}).get("read") else []
 	plans = []
 	for row in plan_rows:
 		summary = customer_plan_summary(frappe.get_doc("Plan", row.name))
@@ -1611,6 +1620,12 @@ def get_customer_portal_context():
 	subscriptions = [customer_subscription_summary(subscription, sites) for subscription in subscriptions]
 	return {
 		"customer": customer,
+		"membership": membership,
+		"permissions": {
+			"can_create_subscription": permissions.get("Subscription", {}).get("create", False),
+			"can_manage_members": permissions.get("Customer Member", {}).get("read", False),
+			"doctypes": permissions,
+		},
 		"regions": regions,
 		"plans": plans,
 		"subscriptions": subscriptions,
@@ -1662,17 +1677,9 @@ def ensure_customer_for_user(region=None):
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Authentication is required."), frappe.PermissionError)
-	customer = frappe.db.get_value("Customer", {"user": user}, "name")
-	if customer:
-		return customer
-	customer_doc = frappe.get_doc({
-		"doctype": "Customer",
-		"first_name": frappe.db.get_value("User", user, "first_name") or user,
-		"user": user,
-		"region": region,
-	})
-	customer_doc.insert(ignore_permissions=True)
-	return customer_doc.name
+	provision_customer_for_user(user, source="Signup")
+	membership = require_active_customer_membership(user)
+	return membership.customer
 
 
 def subscription_next_renewal(effective_from, frequency):
@@ -1704,12 +1711,14 @@ def create_or_get_customer_subscription(customer, plan, region):
 
 @frappe.whitelist()
 def request_customer_subscription(plan=None, region=None, site_name=None, company_name=None, subdomain=None, notes=None):
+	user = frappe.session.user
 	if not region:
 		frappe.throw(_("Region is required."))
 	plan = plan or get_free_plan()
 	if not plan:
 		frappe.throw(_("A default or Free Plan is required."))
 	customer = ensure_customer_for_user(region)
+	require_subscription_create_permission(user)
 	plan_doc = frappe.get_doc("Plan", plan)
 	if not plan_doc.publish_in_customer_portal or plan_doc.status != "Active" or plan_doc.docstatus != 1:
 		frappe.throw(_("This Plan is not available for customer subscription."))
