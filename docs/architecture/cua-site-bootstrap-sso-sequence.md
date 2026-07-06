@@ -10,19 +10,20 @@ Use the Kubernetes API Bench Execute / Bench Command style. Platform creates a s
 
 Do not make browser-visible Platform APIs call target Site HTTP APIs with Administrator credentials. Administrator passwords, OAuth client secrets, bootstrap tokens, private keys, kubeconfig contents, pod logs, raw `site_config.json`, and full environment dumps must never appear in browser responses, action logs, evidence, or docs.
 
-## Required Site App
+## Site Setup Runner
 
-The approved LensPure image will include a LensCloud branding/bootstrap app. That app owns setup-wizard completion and any site-local helper methods needed by the runner. The app should expose whitelisted or executable methods that are safe to call from a bench execution context.
+INF-021 established that setup wizard completion does not require a special LensCloud branding/bootstrap app. The Bench Command runner uses native Frappe v16 APIs inside the target Bench/Site context:
 
-Expected app methods, names illustrative until implementation:
+- `frappe.is_setup_complete()`
+- `frappe.core.doctype.installed_applications.installed_applications.get_setup_wizard_pending_apps()`
+- `frappe.desk.page.setup_wizard.setup_wizard.setup_complete(args)`
 
-- `lenscloud_branding.bootstrap.status`
-- `lenscloud_branding.bootstrap.complete_setup`
-- `lenscloud_branding.oauth.status`
-- `lenscloud_branding.oauth.configure`
-- `lenscloud_branding.access.ensure_user`
-- `lenscloud_branding.access.disable_user`
-- `lenscloud_branding.access.set_roles`
+Platform integrates only the setup-wizard slice first:
+
+- `site_setup.status`
+- `site_setup.complete`
+
+OAuth, social login, user sync, role sync, and Site access status remain separate runner-gated slices. Prefer standard Frappe APIs for those commands first; add a branding/helper app only where standard APIs prove insufficient and the gap is documented.
 
 ## Platform Data Model
 
@@ -57,7 +58,7 @@ Missing required setup inputs block bootstrap with a customer-safe message and a
 7. Platform creates first `Site Access Grant` for the Customer Owner/Admin as `Pending`.
 8. Platform triggers `site_setup.status` through the Kubernetes API Bench Execute contract.
 9. If setup is incomplete, Platform triggers `site_setup.complete` with typed setup inputs.
-10. Runner executes in the target Bench/Site context and calls the LensCloud branding app method to complete setup wizard.
+10. Runner executes in the target Bench/Site context and calls native Frappe setup wizard APIs to complete setup wizard.
 11. Runner returns sanitized status: setup complete/incomplete, safe warnings, no secrets.
 12. Platform records an Orchestration Action Log and marks setup status.
 13. Platform triggers `oauth.status`.
@@ -88,6 +89,13 @@ Minimum positive path for Infra contract:
 - `site_access.status`
 
 Commands must be idempotent where possible and include a stable correlation ID. Unsupported families must return `COMMAND_UNSUPPORTED` until implemented.
+
+Current implementation status:
+
+- INF-021 provides `site_setup.status` and `site_setup.complete`.
+- `oauth.*`, `user.*`, and `site_access.status` remain unsupported until Infra publishes their runner contracts and Platform consumes them.
+- Platform commit `c520b5a` removed the setup-runner live-verification block; the setup-wizard slice may run in the controlled Free Plan live E2E. Keep OAuth/user/site-access commands Unsupported until their own live-verified handoffs exist.
+
 
 ## Security Boundaries
 

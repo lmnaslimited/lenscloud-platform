@@ -66,6 +66,11 @@ Approved direction: implement Site setup wizard completion, OAuth/Social Login c
 
 Resume order: Infra implements/verifies the runner contract and returns sanitized evidence plus a Platform prompt. Platform then adds Site Bootstrap State, Site Access Grant, OAuth/client settings, backend runner calls, customer Subscription/Open Site UI, member access sync, tests, SOP evidence, and E2E acceptance.
 
+
+## 2026-07-06 CUA Setup Wizard Runner Slice
+
+Platform commit `c520b5a` removed the CUA setup runner live-verification block. `docs/handoffs/infra/cua-site-bootstrap-sso-runner-20260703.md` records `site_setup.status` and `site_setup.complete` as implemented and live-verified. Platform has wired these commands through the existing Python Kubernetes API Bench Command path with non-secret args and sanitized summaries. Next step: controlled Free Plan live E2E with a fresh Customer/Site, running `site_setup.status`, `site_setup.complete`, and final `site_setup.status`. OAuth/user/site access commands remain Unsupported until INF-022/INF-023 handoffs arrive.
+
 ## Runtime Truth
 
 - cluster: `lenscloud-eu-dev`

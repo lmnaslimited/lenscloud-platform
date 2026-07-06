@@ -95,6 +95,9 @@ const provisioningSteps = computed(() => {
 		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value ? 'failed' : resultPaused.value ? 'paused' : resultStarted.value && !ready ? 'active' : ready ? 'done' : 'pending', helper: resultFailed.value ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : resultStarted.value && !ready ? 'LensCloud is preparing your workspace.' : ready ? 'Workspace preparation is complete.' : 'Waiting to start.' },
 		{ label: 'Connecting HTTPS', state: ready ? 'done' : resultStarted.value ? 'pending' : 'pending', helper: ready ? 'Secure access is ready.' : 'This starts after workspace preparation.' },
+		{ label: 'Checking setup status', state: ready ? 'active' : 'pending', helper: ready ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after secure access is ready.' },
+		{ label: 'Setting site defaults', state: 'pending', helper: 'Company, Region, timezone, currency, and other safe defaults will be applied by Platform.' },
+		{ label: 'Platform access', state: 'pending', helper: 'Single sign-on and member access will be completed in a later CUA runner step.' },
 		{ label: 'Ready to open', state: ready ? 'active' : 'pending', helper: ready ? 'Your Site is ready.' : 'We will show the Open Site action here.' },
 	]
 })

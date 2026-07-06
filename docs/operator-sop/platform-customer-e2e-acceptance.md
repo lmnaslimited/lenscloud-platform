@@ -160,12 +160,12 @@ Provisioning retry checks:
 
 ## CUA Site Bootstrap And SSO Segment
 
-Run this segment after Infra publishes the CUA Site bootstrap/SSO runner contract and Platform implements the integration. Shared sequence: `docs/architecture/cua-site-bootstrap-sso-sequence.md`.
+Run this segment in slices as Infra publishes CUA runner gates. Shared sequence: `docs/architecture/cua-site-bootstrap-sso-sequence.md`.
 
 Platform preflight:
 
-1. Confirm the LensPure Release includes the LensCloud branding/bootstrap app.
-2. Confirm Infra runner supports `site_setup.status`, `site_setup.complete`, `oauth.status`, `oauth.configure`, `user.ensure`, `user.disable`, `user.roles.set`, and `site_access.status`, or marks unsupported commands truthfully.
+1. Confirm Platform commit `c520b5a` or newer is present and `docs/handoffs/infra/cua-site-bootstrap-sso-runner-20260703.md` records `site_setup.status` and `site_setup.complete` as live-verified.
+2. Confirm Infra runner supports `site_setup.status` and `site_setup.complete` before running setup automation. Confirm `oauth.status`, `oauth.configure`, `user.ensure`, `user.disable`, `user.roles.set`, and `site_access.status` remain Unsupported unless their later runner gates are complete.
 3. Confirm Platform Settings has OAuth issuer/client defaults and root domain.
 4. Confirm no Administrator password, OAuth client secret, bootstrap token, kubeconfig, Secret value, pod log, or raw `site_config.json` appears in Platform API responses or action logs.
 5. Confirm Site Bootstrap State and Site Access Grant records exist or migrations are ready.
@@ -176,7 +176,7 @@ Positive customer path:
 2. Wait for Site Ready.
 3. Trigger setup status and setup completion through Platform.
 4. Verify setup wizard is complete.
-5. Trigger OAuth status and OAuth configure through Platform.
+5. Trigger OAuth status and OAuth configure through Platform only after the OAuth runner gate is complete; until then, verify the UI/action returns Unsupported.
 6. Verify target Site trusts LensCloud Platform as OAuth/Social Login provider.
 7. Ensure the Customer Owner/Admin user on the target Site through Platform.
 8. Verify Site Access Grant is Active.

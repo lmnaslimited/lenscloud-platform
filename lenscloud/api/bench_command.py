@@ -25,7 +25,7 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:eebfa0199c328207b14a949fa6232954a203a3937b1eed4930e9c3ec95b654d6"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:b209598b8252e6eb0f5d65a4783e597cb565ef575e24632374f18b34473f398a"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -40,6 +40,8 @@ RUNNER_SUPPORTED_COMMANDS = {
 	"cors.allowlist.update",
 	"cors.allowlist.get",
 	"backup.status",
+	"site_setup.status",
+	"site_setup.complete",
 }
 SUPPORTED_COMMANDS = VERIFICATION_COMMANDS | RUNNER_SUPPORTED_COMMANDS
 RUNNER_PENDING_COMMANDS = {
@@ -52,6 +54,8 @@ RUNNER_PENDING_COMMANDS = {
 	"latp.status",
 }
 APPROVED_SITE_CONFIG_KEYS = {"maintenance_mode", "developer_mode", "allow_cors", "server_script_enabled", "client_script_enabled"}
+APPROVED_SITE_SETUP_KEYS = {"language", "email", "full_name", "country", "timezone", "currency", "company_name", "company_abbr", "industry", "chart_of_accounts", "fiscal_year_start_date", "fiscal_year_end_date"}
+SENSITIVE_ARG_KEY_PATTERN = re.compile(r"(password|passwd|secret|token|private|credential|db_|oauth|client_secret|api_key|keyfile)", re.I)
 CONTRACTED_COMMANDS = {
 	"backup.create",
 	"backup.status",
@@ -73,6 +77,8 @@ CONTRACTED_COMMANDS = {
 	"bench_test.status",
 	"latp.trigger",
 	"latp.status",
+	"site_setup.status",
+	"site_setup.complete",
 }
 COMMAND_FAMILIES = {command.split(".", 1)[0] for command in CONTRACTED_COMMANDS}
 SAFE_ID_PATTERN = re.compile(r"[^a-z0-9-]+")
@@ -127,6 +133,26 @@ def command_args(command, args):
 		return {}
 	if command == "backup.status":
 		return {}
+	if command == "site_setup.status":
+		return {}
+	if command == "site_setup.complete":
+		clean = {}
+		for key, value in args.items():
+			key = str(key or "").strip()
+			if not key:
+				continue
+			if SENSITIVE_ARG_KEY_PATTERN.search(key):
+				frappe.throw(_("Setup arg {0} is not allowed because it looks sensitive.").format(key))
+			if key not in APPROVED_SITE_SETUP_KEYS:
+				frappe.throw(_("Setup arg {0} is not approved for Site setup completion.").format(key))
+			if isinstance(value, (dict, list)):
+				frappe.throw(_("Setup arg {0} must be scalar.").format(key))
+			if value not in (None, ""):
+				clean[key] = sanitize_error(value)
+		for required in ("language", "email", "full_name", "country", "timezone", "currency"):
+			if not clean.get(required):
+				frappe.throw(_("site_setup.complete requires {0}.").format(required))
+		return clean
 	return args
 
 
@@ -195,6 +221,8 @@ def validate_command_policy(command, site_doc, subscription, policy, args):
 		frappe.throw(_("Command {0} requires a Subscription and Environment policy on the Site.").format(command))
 	family = command_family(command)
 	controls = policy.get("site_controls") or {}
+	if family == "site_setup":
+		return True
 	if family == "bench_test" and not policy.get("gates", {}).get("bench_test"):
 		frappe.throw(_("Bench Test commands are not allowed by the active Site Control Profile."))
 	if family == "latp" and not policy.get("gates", {}).get("latp"):
@@ -302,7 +330,8 @@ def verification_job_container(labels, command):
 	}
 
 
-def runner_job_container():
+def runner_job_container(command=None):
+	read_only_sites = command == "site_setup.status"
 	return {
 		"name": "bench-command",
 		"image": RUNNER_IMAGE,
@@ -314,7 +343,7 @@ def runner_job_container():
 		"command": ["/usr/local/bin/lenscloud-bench-command-runner"],
 		"volumeMounts": [
 			{"name": "request", "mountPath": "/lenscloud/request", "readOnly": True},
-			{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites"},
+			{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": read_only_sites},
 		],
 	}
 
@@ -326,7 +355,7 @@ def job_manifest(name, namespace, labels, annotations, request_name, command, be
 		if not bench:
 			frappe.throw(_("Bench is required for runner-backed Bench Commands."))
 		volumes.append({"name": "sites", "persistentVolumeClaim": {"claimName": bench_sites_pvc_name(bench)}})
-		container = runner_job_container()
+		container = runner_job_container(command)
 	return {
 		"apiVersion": "batch/v1",
 		"kind": "Job",

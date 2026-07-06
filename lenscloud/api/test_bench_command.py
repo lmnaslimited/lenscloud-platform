@@ -96,8 +96,16 @@ class BenchCommandContractTest(unittest.TestCase):
 		container = spec["containers"][0]
 		self.assertEqual(container["image"], bench_command.RUNNER_IMAGE)
 		self.assertIn({"name": "BENCH_COMMAND_REQUEST", "value": "/lenscloud/request/request.json"}, container["env"])
-		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites"}, container["volumeMounts"])
+		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": False}, container["volumeMounts"])
 		self.assertIn({"name": "sites", "persistentVolumeClaim": {"claimName": "runtime-bench-sites"}}, spec["volumes"])
+
+	def test_site_setup_status_mounts_sites_pvc_read_only(self):
+		labels = {PLATFORM_MANAGER_LABEL: "platform", RESOURCE_KIND_LABEL: "bench-command", "lenscloud.io/resource-id": "bcmd-test"}
+		annotations = bench_command.metadata_annotations("site_setup.status", "bcmd-test-request")
+		bench = SimpleNamespace(name="bench-doc", operator_resource_name="runtime-bench")
+		job = bench_command.job_manifest("bcmd-test-job", "lenscloud-runtime-eu", labels, annotations, "bcmd-test-request", "site_setup.status", bench=bench)
+		container = job["spec"]["template"]["spec"]["containers"][0]
+		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": True}, container["volumeMounts"])
 
 	def test_runner_pending_commands_remain_unsupported(self):
 		self.assertIn("maintenance_mode.enable", bench_command.SUPPORTED_COMMANDS)
@@ -105,6 +113,8 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertIn("cors.allowlist.update", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("backup.status", bench_command.CONTRACTED_COMMANDS)
 		self.assertIn("backup.status", bench_command.SUPPORTED_COMMANDS)
+		self.assertIn("site_setup.status", bench_command.SUPPORTED_COMMANDS)
+		self.assertIn("site_setup.complete", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("backup.create", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("restore.execute", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("bench_test.trigger", bench_command.SUPPORTED_COMMANDS)
@@ -122,6 +132,28 @@ class BenchCommandContractTest(unittest.TestCase):
 
 	def test_backup_status_args_are_empty(self):
 		self.assertEqual(bench_command.command_args("backup.status", {"ignored": "value"}), {})
+
+	def test_site_setup_status_args_are_empty(self):
+		self.assertEqual(bench_command.command_args("site_setup.status", {"ignored": "value"}), {})
+
+	def test_site_setup_complete_args_are_non_secret_and_typed(self):
+		args = bench_command.command_args("site_setup.complete", {
+			"language": "English",
+			"email": "first.user@example.com",
+			"full_name": "First User",
+			"country": "United States",
+			"timezone": "America/New_York",
+			"currency": "USD",
+			"company_name": "Example Inc",
+		})
+		self.assertEqual(args["language"], "English")
+		self.assertEqual(args["company_name"], "Example Inc")
+		with self.assertRaises(frappe.ValidationError):
+			bench_command.command_args("site_setup.complete", {"language": "English", "password": "secret"})
+		with self.assertRaises(frappe.ValidationError):
+			bench_command.command_args("site_setup.complete", {"language": "English", "raw_setup_doc": "{}"})
+		with self.assertRaises(frappe.ValidationError):
+			bench_command.command_args("site_setup.complete", {"language": "English"})
 
 
 	def test_safe_display_uses_top_level_safe_display_only(self):
@@ -168,6 +200,7 @@ class BenchCommandContractTest(unittest.TestCase):
 			("site_config.get", {"label": "Server script", "value": "On", "kind": "boolean", "safe": True}, "Server script: On"),
 			("cors.allowlist.get", {"label": "CORS allowlist", "value": ["https://app.example.com"], "kind": "origin-list", "safe": True}, "CORS allowlist: https://app.example.com"),
 			("backup.status", {"label": "Backups", "value": "0 available", "kind": "backup-status", "safe": True}, "Backups: 0 available"),
+			("site_setup.status", {"label": "Setup wizard", "value": "Pending", "kind": "setup-status", "safe": True}, "Setup wizard: Pending"),
 		]
 		for _command, display_data, text in examples:
 			with self.subTest(command=_command):

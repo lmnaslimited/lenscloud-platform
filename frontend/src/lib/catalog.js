@@ -699,7 +699,7 @@ export const platformResources = [
 				method: 'lenscloud.api.bench_command.run_site_control_command',
 				paramsFromRecord: { site: 'name' },
 				fields: [
-					{ key: 'command', label: 'Command', type: 'select', default: 'bench_test.status', options: ['bench_test.status', 'maintenance_mode.status', 'maintenance_mode.enable', 'maintenance_mode.disable', 'developer_mode.status', 'developer_mode.enable', 'developer_mode.disable', 'site_config.get', 'site_config.set', 'site_config.unset', 'cors.allowlist.get', 'cors.allowlist.update', 'backup.status', 'backup.create', 'restore.preview', 'restore.execute', 'restore.status', 'bench_test.trigger', 'latp.status', 'latp.trigger'] },
+					{ key: 'command', label: 'Command', type: 'select', default: 'bench_test.status', options: ['bench_test.status', 'maintenance_mode.status', 'maintenance_mode.enable', 'maintenance_mode.disable', 'developer_mode.status', 'developer_mode.enable', 'developer_mode.disable', 'site_config.get', 'site_config.set', 'site_config.unset', 'cors.allowlist.get', 'cors.allowlist.update', 'backup.status', 'site_setup.status', 'site_setup.complete', 'backup.create', 'restore.preview', 'restore.execute', 'restore.status', 'bench_test.trigger', 'latp.status', 'latp.trigger'] },
 					{ key: 'args', label: 'Args JSON', type: 'textarea', default: '{"mode":"status"}', placeholder: '{"mode":"status"}' },
 					{ key: 'timeout_seconds', label: 'Timeout seconds', type: 'number', default: 60 },
 					{ key: 'reason', label: 'Reason', type: 'textarea', placeholder: 'Why is this Site Control command being run?' },

@@ -91,7 +91,7 @@ CUA moves from account membership into provisioned Site access through `docs/arc
 
 Platform must automate these Site access responsibilities after a Site is Ready:
 
-- complete the target Site setup wizard using Customer, Subscription, Plan, Landscape, Environment, and Site Control defaults;
+- complete the target Site setup wizard using the INF-021 Bench Command runner commands `site_setup.status` and `site_setup.complete`, with Customer, Subscription, Plan, Landscape, Environment, and Site Control defaults as non-secret typed args;
 - configure the target Site to trust LensCloud Platform as OAuth/OIDC/Social Login authority;
 - create or sync the first Customer Owner/Admin user on the Site without exposing a password;
 - create, sync, revoke, and audit Site Access Grants for Customer Members;
@@ -100,6 +100,9 @@ Platform must automate these Site access responsibilities after a Site is Ready:
 - revoke target Site access when membership or Site Access Grant is disabled.
 
 Administrator password may exist only as an Infra/operator-side bootstrap implementation detail if absolutely required by the runner. It must never be accepted from the browser, returned by Platform APIs, or written into action logs/evidence.
+
+The setup-wizard slice is implemented before full SSO. Provisioning progress should therefore show `Checking setup status` and `Setting site defaults` as active states, while OAuth/social login and member Site access remain clearly marked as future/unsupported until Infra publishes and verifies those runner contracts.
+
 
 ## Future CUA Work
 
