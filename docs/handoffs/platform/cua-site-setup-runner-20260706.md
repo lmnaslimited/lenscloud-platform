@@ -27,9 +27,15 @@ Infra has implemented runner source for:
 - `site_setup.status`
 - `site_setup.complete`
 
+Infra has published and source-pinned the runner image:
+
+```text
+ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:b209598b8252e6eb0f5d65a4783e597cb565ef575e24632374f18b34473f398a
+```
+
 Platform must not enable these commands for customer-facing workflows until
-Infra publishes the new runner image, pins the digest in admission, and returns
-live verification evidence from a real Platform-managed Bench/Site.
+Infra returns live verification evidence from a real Platform-managed
+Bench/Site.
 
 ## Contract Summary
 
