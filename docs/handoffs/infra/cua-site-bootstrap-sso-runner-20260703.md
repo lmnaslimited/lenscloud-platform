@@ -2,6 +2,31 @@
 
 Work inside `lenscloud-infra`. Treat this Platform document as the product/runtime contract to implement and hand back with evidence.
 
+## Current Status - 2026-07-06
+
+Infra has completed the first setup-wizard gate from this handoff:
+
+- `site_setup.status`: implemented and live-verified.
+- `site_setup.complete`: implemented and live-verified.
+- Live-verified runner image:
+  `ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:2905fb71dfb449258214a7b76016a67d9b98bd66ea378394f98d791ab293dad5`
+- Infra evidence:
+  `lenscloud-infra/docs/evidence/cua/site-setup-runner-evidence-20260706.md`
+- Infra handoff back to Platform:
+  `lenscloud-infra/docs/handoffs/platform/cua-site-setup-runner-handoff-20260706.md`
+- Platform-facing handoff:
+  `apps/lenscloud/docs/handoffs/platform/cua-site-setup-runner-20260706.md`
+
+Platform may now integrate `site_setup.status` and `site_setup.complete`
+through the existing Bench Command Python Kubernetes API path. The previous
+live-verification block for setup wizard automation is removed.
+
+OAuth, user sync, role sync, and `site_access.status` remain unsupported until
+Infra implements and live-verifies the next gates:
+
+- `INF-022` CUA OAuth runner gate.
+- `INF-023` CUA user/access runner gate.
+
 Platform reference docs:
 
 - `apps/lenscloud/docs/platform-workitems.md` -> `CUA Site bootstrap and SSO automation`
@@ -23,22 +48,35 @@ Infra/operator owns the runner implementation. Platform will create labelled req
 
 ## Required Command Families
 
-Implement and live-verify these command families, in order:
+Implement and live-verify these command families, in order. Current status:
 
-1. `site_setup.status`
-2. `site_setup.complete`
-3. `oauth.status`
-4. `oauth.configure`
-5. `user.ensure`
-6. `user.disable`
-7. `user.roles.set`
-8. `site_access.status`
+1. `site_setup.status` - Complete / live-verified by Infra.
+2. `site_setup.complete` - Complete / live-verified by Infra.
+3. `oauth.status` - Unsupported / pending `INF-022`.
+4. `oauth.configure` - Unsupported / pending `INF-022`.
+5. `user.ensure` - Unsupported / pending `INF-023`.
+6. `user.disable` - Unsupported / pending `INF-023`.
+7. `user.roles.set` - Unsupported / pending `INF-023`.
+8. `site_access.status` - Unsupported / pending `INF-023`.
 
 Unsupported commands must return `COMMAND_UNSUPPORTED` until implemented.
 
 ## Target Site App Assumption
 
-The LensPure image will include a LensCloud branding/bootstrap app that exposes safe bench-executable methods, for example:
+The setup wizard portion no longer requires a LensCloud branding/bootstrap app.
+Infra confirmed that native Frappe v16 APIs cover the setup gate:
+
+- `frappe.is_setup_complete()`
+- `frappe.client_cache.get_doc("Installed Applications")`
+- `frappe.desk.page.setup_wizard.setup_wizard.setup_complete(args)`
+
+For OAuth and user/access work, Infra should continue to prefer standard
+Frappe APIs or bench-executed standard Frappe methods first. Add a
+LensCloud branding/bootstrap app only if standard APIs are insufficient and the
+gap is documented.
+
+If a branding/bootstrap app is required for later gates, it may expose safe
+bench-executable methods, for example:
 
 - `lenscloud_branding.bootstrap.status`
 - `lenscloud_branding.bootstrap.complete_setup`
@@ -107,22 +145,33 @@ Prefer bench-executed app methods that do not require HTTP Administrator login.
 
 ## Live Verification Required
 
-Infra should verify on a real Platform-managed test Bench/Site:
+Infra live verification status:
 
-1. `site_setup.status` reports setup state.
-2. `site_setup.complete` completes setup wizard idempotently.
-3. `oauth.status` reports missing/configured state.
-4. `oauth.configure` configures LensCloud Platform as provider.
-5. `user.ensure` creates or updates a target Site user without a password response.
-6. `user.disable` prevents access for a disabled/revoked member.
-7. `site_access.status` reports user/access state.
-8. Cleanup removes terminal Jobs/ConfigMaps/pods as per existing command cleanup contract.
+1. `site_setup.status` reports setup state - Complete.
+2. `site_setup.complete` completes setup wizard idempotently - Complete.
+3. `oauth.status` reports missing/configured state - Pending `INF-022`.
+4. `oauth.configure` configures LensCloud Platform as provider - Pending `INF-022`.
+5. `user.ensure` creates or updates a target Site user without a password response - Pending `INF-023`.
+6. `user.disable` prevents access for a disabled/revoked member - Pending `INF-023`.
+7. `site_access.status` reports user/access state - Pending `INF-023`.
+8. Cleanup removes terminal Jobs/ConfigMaps/pods as per existing command cleanup contract - Complete for `site_setup`.
 
 Negative proof must show rejected unsafe requests and no credential leakage.
 
+Setup runner live verification used:
+
+```text
+Namespace: lenscloud-runtime-eu
+Bench: run-20260702-free-prod-bench
+Site: run-20260702-free-site.cloud.lmnaslens.com
+Sites PVC: run-20260702-free-prod-bench-sites
+Temporary prefix: run-20260706-cua-existing
+Cleanup proof: no resources found with that prefix
+```
+
 ## Handover Back To Platform
 
-Return a Platform handoff document with:
+For future gates, return a Platform handoff document with:
 
 - Infra commit revision;
 - exact runner image/digest if changed;
