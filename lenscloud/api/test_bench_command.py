@@ -189,9 +189,10 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertIn("code: COMMAND_UNSUPPORTED", bench_command.sanitized_status_summary({"phase": "Unsupported", "code": "COMMAND_UNSUPPORTED", "summary": "No runner"}))
 
 	def test_remaining_families_stay_unsupported(self):
-		for command in ("backup.create", "restore.preview", "restore.execute", "restore.status", "bench_test.trigger", "latp.trigger", "latp.status"):
+		for command in ("backup.create", "restore.preview", "restore.execute", "restore.status", "bench_test.trigger", "latp.trigger", "latp.status", "oauth.status", "oauth.configure", "user.ensure", "user.disable", "user.roles.set", "site_access.status"):
 			with self.subTest(command=command):
 				self.assertIn(command, bench_command.CONTRACTED_COMMANDS)
+				self.assertIn(command, bench_command.RUNNER_PENDING_COMMANDS)
 				self.assertNotIn(command, bench_command.SUPPORTED_COMMANDS)
 
 	def test_display_contract_examples(self):

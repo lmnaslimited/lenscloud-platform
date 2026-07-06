@@ -30,7 +30,7 @@ Reconciled against Platform commit `c520b5a` and Infra handoff copy on 2026-07-0
 Published runner image from the active Infra handoff:
 
 ```text
-ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:b209598b8252e6eb0f5d65a4783e597cb565ef575e24632374f18b34473f398a
+ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:2905fb71dfb449258214a7b76016a67d9b98bd66ea378394f98d791ab293dad5
 ```
 
 Platform may now run these setup commands through the existing Bench Command Python Kubernetes API path during the controlled Free Plan live E2E. Customer-facing automation should still keep OAuth, user sync, and Site access commands Unsupported until INF-022/INF-023 are live-verified.

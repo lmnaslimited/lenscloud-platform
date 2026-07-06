@@ -71,6 +71,15 @@ Resume order: Infra implements/verifies the runner contract and returns sanitize
 
 Platform commit `c520b5a` removed the CUA setup runner live-verification block. `docs/handoffs/infra/cua-site-bootstrap-sso-runner-20260703.md` records `site_setup.status` and `site_setup.complete` as implemented and live-verified. Platform has wired these commands through the existing Python Kubernetes API Bench Command path with non-secret args and sanitized summaries. Next step: controlled Free Plan live E2E with a fresh Customer/Site, running `site_setup.status`, `site_setup.complete`, and final `site_setup.status`. OAuth/user/site access commands remain Unsupported until INF-022/INF-023 handoffs arrive.
 
+
+## 2026-07-06 CUA Setup Wizard Live E2E
+
+CUA setup wizard runner integration passed controlled live E2E. Fresh customer `CUST004`, member `CM-00004`, subscription `SUB-00002`, and Site `run-20260706-cua-134515.cloud.lmnaslens.com` were created. The Site reached Ready and HTTPS/static asset checks passed (`ORCH-2026-00217`). The Site is intentionally kept for the OAuth/social-login follow-on pass.
+
+Setup runner evidence: `site_setup.complete` succeeded with `Setup wizard: Complete` (`ORCH-2026-00220`), final `site_setup.status` succeeded (`ORCH-2026-00221`), and repeated final status succeeded (`ORCH-2026-00223`). Cleanup responses removed each command Job, request ConfigMap, and terminal Pod. Apply was disabled after provisioning. OAuth/user/site-access commands remain Unsupported until INF-022/INF-023.
+
+Incidents closed during this pass: `LC-E2E-20260706-001` fixed future CUA commands to return `COMMAND_UNSUPPORTED`; `LC-E2E-20260706-002` updated the Platform runner digest to INF-021 `sha256:2905fb71dfb449258214a7b76016a67d9b98bd66ea378394f98d791ab293dad5`; `LC-E2E-20260706-003` documents the first setup-status container mount anomaly, with successful final/repeated status retests. Evidence: `docs/evidence/customer-launch/cua-site-setup-runner-20260706.md`.
+
 ## Runtime Truth
 
 - cluster: `lenscloud-eu-dev`

@@ -25,7 +25,7 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:b209598b8252e6eb0f5d65a4783e597cb565ef575e24632374f18b34473f398a"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:2905fb71dfb449258214a7b76016a67d9b98bd66ea378394f98d791ab293dad5"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -52,6 +52,12 @@ RUNNER_PENDING_COMMANDS = {
 	"bench_test.trigger",
 	"latp.trigger",
 	"latp.status",
+	"oauth.status",
+	"oauth.configure",
+	"user.ensure",
+	"user.disable",
+	"user.roles.set",
+	"site_access.status",
 }
 APPROVED_SITE_CONFIG_KEYS = {"maintenance_mode", "developer_mode", "allow_cors", "server_script_enabled", "client_script_enabled"}
 APPROVED_SITE_SETUP_KEYS = {"language", "email", "full_name", "country", "timezone", "currency", "company_name", "company_abbr", "industry", "chart_of_accounts", "fiscal_year_start_date", "fiscal_year_end_date"}
@@ -79,6 +85,12 @@ CONTRACTED_COMMANDS = {
 	"latp.status",
 	"site_setup.status",
 	"site_setup.complete",
+	"oauth.status",
+	"oauth.configure",
+	"user.ensure",
+	"user.disable",
+	"user.roles.set",
+	"site_access.status",
 }
 COMMAND_FAMILIES = {command.split(".", 1)[0] for command in CONTRACTED_COMMANDS}
 SAFE_ID_PATTERN = re.compile(r"[^a-z0-9-]+")

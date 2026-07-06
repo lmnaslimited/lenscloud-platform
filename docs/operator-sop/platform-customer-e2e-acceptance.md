@@ -193,6 +193,10 @@ Negative/security path:
 - unlabelled/wrong-namespace runner requests are rejected by Infra admission/RBAC;
 - Platform never asks a customer or operator to paste a Site Administrator password into the browser.
 
+
+
+Current setup-runner proof: 2026-07-06 live E2E completed setup wizard on kept Site `run-20260706-cua-134515.cloud.lmnaslens.com`. Use that Site for the next OAuth/social-login runner pass instead of deleting it.
+
 Evidence required:
 
 - Subscription, Site, Customer Member, and Site Access Grant IDs;
