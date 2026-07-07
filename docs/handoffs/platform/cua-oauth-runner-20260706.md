@@ -22,15 +22,14 @@ INF-022 CUA OAuth runner gate
 
 ## Status
 
-Ready for Infra live verification, not yet Platform-enabled.
+Complete. Platform may adapt OAuth.
 
 Infra has implemented and locally verified:
 
 - `oauth.status`
 - `oauth.configure`
 
-Platform must not enable OAuth commands in customer workflows until Infra
-applies the admission update and records live verification with:
+Infra applied the admission update and recorded live verification with:
 
 ```text
 lenscloud-infra/scripts/65-verify-cua-oauth-runner.sh
@@ -39,8 +38,8 @@ lenscloud-infra/scripts/65-verify-cua-oauth-runner.sh
 Published runner image:
 
 ```text
-ghcr.io/lmnaslimited/lenscloud-bench-command-runner:v0.1.9
-ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:31973edd01e9c6ea75f2a3b4ef323d5ff643fcec97b2d49b6da9d9d10b7f7580
+ghcr.io/lmnaslimited/lenscloud-bench-command-runner:v0.1.10
+ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741
 ```
 
 ## Ownership Boundary
@@ -71,6 +70,11 @@ The request ConfigMap must set:
 
 The request ConfigMap must never include `client_secret`.
 
+The target Site must have a valid Frappe Fernet-compatible `encryption_key` in
+`site_config.json`. `oauth.configure` writes `Social Login Key.client_secret`,
+which is a Password field. If the Site encryption key is invalid, Frappe rejects
+the write.
+
 ## Request Args For `oauth.configure`
 
 ```json
@@ -95,14 +99,37 @@ The request ConfigMap must never include `client_secret`.
 }
 ```
 
+## Live Evidence
+
+Live proof passed on 2026-07-07:
+
+```text
+CUA OAuth runner verification passed.
+Runtime namespace: lenscloud-runtime-eu
+Bench: run-20260702-free-prod-bench
+Site: run-20260702-free-site.cloud.lmnaslens.com
+Sites PVC: run-20260702-free-prod-bench-sites
+Positive commands: oauth.status, oauth.configure
+Negative checks: direct client_secret arg rejected; non-oauth Secret volume denied
+Temporary resource prefix: run-20260707-cua-oauth
+```
+
+Cleanup proof:
+
+- no Jobs, ConfigMaps, Secrets, or Pods remained for
+  `run-20260707-cua-oauth`;
+- diagnostic prefixes `run-20260707-cua-oauth-debug` and
+  `run-20260707-cua-oauth-rootcause` were clean;
+- the verifier-created target Site `Social Login Key`
+  `lenscloud_oauth_smoke` was removed after evidence capture;
+- target Bench, Site, and sites PVC remained Ready/Bound;
+- restricted Platform RBAC verification passed after the OAuth run.
+
 ## Platform Next Step
 
-Do not enable OAuth as a live customer workflow yet.
+Platform may now implement OAuth through this Bench Command path.
 
-Platform may prepare code behind a feature gate, but runtime calls must stay
-disabled until Infra marks `INF-022` Complete with live evidence.
-
-When Infra completes live verification, Platform should:
+Platform should:
 
 1. create or select the Platform OAuth Client;
 2. create a short-lived Kubernetes Secret for the target Social Login Key
@@ -116,7 +143,5 @@ When Infra completes live verification, Platform should:
 
 ## Remaining Gaps
 
-- live admission apply;
-- live verifier run;
 - `INF-023` user/access runner gate;
 - `INF-024` full CUA E2E handoff.

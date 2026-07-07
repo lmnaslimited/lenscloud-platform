@@ -36,14 +36,14 @@ ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:2905fb71dfb449258214a
 Current runner for new Platform work is published at:
 
 ```text
-ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:31973edd01e9c6ea75f2a3b4ef323d5ff643fcec97b2d49b6da9d9d10b7f7580
+ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741
 ```
 
 Platform may now run these setup commands through the existing Bench Command
 Python Kubernetes API path during the controlled Free Plan live E2E.
-Customer-facing automation should keep OAuth disabled until INF-022 live
-verification is published. User sync and Site access commands remain
-Unsupported until INF-023 is implemented and live-verified.
+Customer-facing automation may use OAuth after consuming the dedicated INF-022
+handoff. User sync and Site access commands remain Unsupported until INF-023 is
+implemented and live-verified.
 
 ## Contract Summary
 
@@ -57,10 +57,9 @@ frappe.desk.page.setup_wizard.setup_wizard.setup_complete(args)
 
 No LensCloud branding/bootstrap app is required for setup wizard completion.
 
-OAuth runner source/local verification is complete under `INF-022`, and the
-runner image is published/repo-pinned, but Platform must keep OAuth commands
-disabled until Infra applies admission and records live verification. User and
-site access commands remain `Unsupported` until `INF-023`.
+OAuth runner live verification is complete under `INF-022`; Platform may adapt
+OAuth through the Bench Command path. User and site access commands remain
+`Unsupported` until `INF-023`.
 
 ## Platform Follow-Up
 
@@ -73,7 +72,7 @@ Platform should:
 5. Wire `site_setup.status` and `site_setup.complete` through the existing
    Bench Command Python Kubernetes API path.
 6. Keep request args non-secret.
-7. Keep OAuth disabled until `INF-022` live evidence is published; keep
+7. Use the dedicated `INF-022` OAuth handoff for OAuth integration; keep
    user/site access commands disabled or shown as unsupported.
 8. Parse only sanitized termination summaries.
 9. Update Platform workitems, action logs, UI states, and evidence.
