@@ -166,7 +166,7 @@ Platform preflight:
 
 1. Confirm Platform commit `c520b5a` or newer is present and `docs/handoffs/infra/cua-site-bootstrap-sso-runner-20260703.md` records `site_setup.status` and `site_setup.complete` as live-verified.
 2. Confirm Infra runner supports `site_setup.status`, `site_setup.complete`, `oauth.status`, and `oauth.configure` before running setup/OAuth automation. Confirm `user.ensure`, `user.disable`, `user.roles.set`, and `site_access.status` remain Unsupported until INF-023 is complete.
-3. Confirm Platform Settings has CUA OAuth defaults: `oauth_provider`, `oauth_provider_name`, and public `oauth_base_url` such as `https://nectar.lmnas.com`. Platform creates or reuses the Frappe `OAuth Client` per Site. The OAuth client secret must never be entered in UI/API args and is supplied only through a short-lived Kubernetes Secret during `oauth.configure`.
+3. Confirm Platform Settings has CUA OAuth defaults: `oauth_provider=lenscloud`, `oauth_provider_name=LensCloud`, and public `oauth_base_url` for the current LensCloud Platform URL, such as `http://dev.localhost:8000` in local/dev. Platform creates or reuses a Frappe `OAuth Client` per target Site. The redirect URI must be `<site.access_url>/api/method/frappe.integrations.oauth2_logins.custom/lenscloud`. The OAuth client secret must never be entered in UI/API args and is supplied only through a short-lived Kubernetes Secret during `oauth.configure`.
 4. Confirm no Administrator password, OAuth client secret, bootstrap token, kubeconfig, Secret value, pod log, or raw `site_config.json` appears in Platform API responses or action logs.
 5. Confirm Site Bootstrap State and Site Access Grant records exist or migrations are ready.
 
@@ -182,9 +182,10 @@ Positive customer path:
 8. Verify cleanup removed the command Job, request ConfigMap, terminal command Pod, and short-lived OAuth Secret.
 7. Ensure the Customer Owner/Admin user on the target Site through Platform.
 8. Verify Site Access Grant is Active.
-9. Click `Open Site` from the customer Subscription page.
-10. Verify the customer reaches the target Site without a Site password dialog.
-11. Add or approve a second Customer Member, grant Site access, and verify that member can open the Site through Platform SSO.
+9. Click `Open Site` from the customer Subscription page. The link must open the target Site URL, not the OAuth callback URL.
+10. If the target Site still shows username/password login because Infra has not disabled password login yet, click `Login with LensCloud` and continue through Platform OAuth.
+11. Verify the customer reaches the target Site desk without entering a Site-local password.
+12. Add or approve a second Customer Member, grant Site access, and verify that member can open the Site through Platform SSO.
 12. Revoke or disable the member and verify target Site access is denied.
 
 Negative/security path:

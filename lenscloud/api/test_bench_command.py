@@ -1,3 +1,4 @@
+import base64
 import json
 import unittest
 from unittest.mock import patch
@@ -6,6 +7,7 @@ from types import SimpleNamespace
 import frappe
 
 from lenscloud.api import bench_command
+from lenscloud.api.orchestration import generate_site_encryption_key
 from lenscloud.api.orchestration import PLATFORM_MANAGER_LABEL, RESOURCE_KIND_LABEL
 
 
@@ -40,6 +42,11 @@ def pod(name, phase, labels=True):
 
 
 class BenchCommandContractTest(unittest.TestCase):
+	def test_generated_site_encryption_key_is_fernet_compatible(self):
+		key = generate_site_encryption_key()
+		self.assertEqual(len(key), 44)
+		self.assertEqual(len(base64.urlsafe_b64decode(key.encode("ascii"))), 32)
+
 	def test_bench_test_status_args_default_to_status_mode(self):
 		self.assertEqual(bench_command.command_args("bench_test.status", None), {"mode": "status"})
 		self.assertEqual(bench_command.command_args("bench_test.status", '{"mode":"status"}'), {"mode": "status"})
@@ -158,19 +165,23 @@ class BenchCommandContractTest(unittest.TestCase):
 	def test_site_setup_status_args_are_empty(self):
 		self.assertEqual(bench_command.command_args("site_setup.status", {"ignored": "value"}), {})
 
+	def test_oauth_client_app_name_uses_site_prefix_and_environment(self):
+		site = SimpleNamespace(name="run-20260707-cua-oauth.cloud.lmnaslens.com", subdomain="run-20260707-cua-oauth", environment="Prod")
+		self.assertEqual(bench_command.site_oauth_client_app_name(site), "run-20260707-cua-oauth-Prod")
+
 	def test_oauth_args_are_secret_safe_and_typed(self):
-		self.assertEqual(bench_command.command_args("oauth.status", {"provider": "nectar"}), {"provider": "nectar"})
+		self.assertEqual(bench_command.command_args("oauth.status", {"provider": "lenscloud"}), {"provider": "lenscloud"})
 		args = bench_command.command_args("oauth.configure", {
-			"provider": "nectar",
-			"provider_name": "Nectar",
+			"provider": "lenscloud",
+			"provider_name": "LensCloud",
 			"social_login_provider": "Custom",
 			"enable_social_login": True,
 			"client_id": "oauth-client",
 			"client_secret_source": "mounted_file",
-			"base_url": "https://nectar.lmnas.com",
+			"base_url": "http://dev.localhost:8000",
 			"authorize_url": "/api/method/frappe.integrations.oauth2.authorize",
 			"access_token_url": "/api/method/frappe.integrations.oauth2.get_token",
-			"redirect_url": "https://site.example.com/api/method/frappe.integrations.oauth2_logins.custom/nectar",
+			"redirect_url": "https://site.example.com/api/method/frappe.integrations.oauth2_logins.custom/lenscloud",
 			"api_endpoint": "/api/method/frappe.integrations.oauth2.openid_profile",
 			"custom_base_url": True,
 			"auth_url_data": {"response_type": "code", "scope": "openid"},

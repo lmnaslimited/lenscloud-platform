@@ -1,6 +1,8 @@
+import base64
 import hashlib
 import json
 import re
+import os
 import secrets
 from urllib.parse import quote, urljoin, urlparse
 
@@ -481,6 +483,10 @@ def reconcile_manifest(cluster, manifest):
 		return client.apply_custom_resource(manifest)
 
 
+def generate_site_encryption_key():
+	return base64.urlsafe_b64encode(os.urandom(32)).decode("ascii")
+
+
 def ensure_site_admin_secret(cluster, site, namespace):
 	name = site.admin_password_secret_reference or f"{site.operator_resource_name}-admin-password"
 	with get_cluster_client(cluster) as client:
@@ -496,7 +502,7 @@ def ensure_site_admin_secret(cluster, site, namespace):
 		except KubernetesClientError as exc:
 			if " 404:" not in str(exc):
 				raise
-			client.create_secret(namespace, encryption_name, {"encryption_key": secrets.token_urlsafe(36)}, labels=platform_owner_labels("site", site))
+			client.create_secret(namespace, encryption_name, {"encryption_key": generate_site_encryption_key()}, labels=platform_owner_labels("site", site))
 	return name
 
 

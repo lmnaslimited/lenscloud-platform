@@ -539,3 +539,11 @@ Live status:
 - Incident: `LC-E2E-20260707-001`.
 - Resume prompt: `docs/handoffs/platform/e2e-incident-followup-cua-oauth-api-reachability-20260707.md`.
 - Keep Site `run-20260706-cua-134515.cloud.lmnaslens.com` for OAuth and INF-023; do not delete it unless explicitly approved.
+
+## 2026-07-07 CUA OAuth Contract Self-Heal Status
+
+The corrected CUA contract is documented in `docs/architecture/cua-site-bootstrap-sso-sequence.md` and `docs/handoffs/platform/cua-oauth-contract-self-heal-20260707.md`. Platform is the OAuth/CUA issuer; `nectar` was only an example shape reference. Target Social Login Key is `lenscloud` / `LensCloud`, redirect URI is derived from target Site access URL, and customer `Open Site` must open `site.access_url`.
+
+Platform self-heal validation passed backend tests, frontend build, and migration. Live `oauth.status` on fresh Site `run-20260707-cua-oauth.cloud.lmnaslens.com` succeeded as `ORCH-2026-00238`, but still showed the previous base URL. Corrected `oauth.configure` with `oauth_base_url=http://dev.localhost:8000` failed as `ORCH-2026-00239` because the runner rejects non-HTTPS base URLs, even for local/dev localhost. Cleanup removed Job, ConfigMap, terminal Pod, and short-lived OAuth Secret.
+
+Active blocker: `LC-E2E-20260707-003`. Infra handoff: `docs/handoffs/infra/cua-oauth-local-dev-base-url-runner-20260707.md`. Do not use `nectar` as a workaround. Resume after Infra either allows localhost HTTP issuer for local/dev or provides a true HTTPS URL for this dev Platform/CUA instance.

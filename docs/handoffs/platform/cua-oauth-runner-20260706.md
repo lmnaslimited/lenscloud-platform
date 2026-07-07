@@ -79,16 +79,16 @@ the write.
 
 ```json
 {
-  "provider": "nectar",
-  "provider_name": "Nectar",
+  "provider": "lenscloud",
+  "provider_name": "LensCloud",
   "social_login_provider": "Custom",
   "enable_social_login": true,
   "client_id": "platform-oauth-client-id",
   "client_secret_source": "mounted_file",
-  "base_url": "https://nectar.lmnas.com",
+  "base_url": "http://dev.localhost:8000",
   "authorize_url": "/api/method/frappe.integrations.oauth2.authorize",
   "access_token_url": "/api/method/frappe.integrations.oauth2.get_token",
-  "redirect_url": "https://customer.cloud.lmnaslens.com/api/method/frappe.integrations.oauth2_logins.custom/nectar",
+  "redirect_url": "https://customer.cloud.lmnaslens.com/api/method/frappe.integrations.oauth2_logins.custom/lenscloud",
   "api_endpoint": "/api/method/frappe.integrations.oauth2.openid_profile",
   "custom_base_url": true,
   "auth_url_data": {

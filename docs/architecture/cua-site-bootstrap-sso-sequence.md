@@ -35,6 +35,50 @@ Platform adds or extends records for:
 
 Platform remains responsible for resolving setup inputs from Customer, Subscription, Plan, Landscape, Environment, Site Control Profile, and Customer Member records.
 
+## OAuth Contract
+
+LensCloud Platform is the OAuth provider and Central User Access authority.
+Example names from earlier proofs, such as `nectar`, were only references for
+the Frappe OAuth Client and Social Login Key shape; they are not the production
+provider identity.
+
+For each target Site, Platform must create or reuse a Platform-side
+`OAuth Client` with:
+
+- app name derived from target Site prefix and Environment, for example
+  `<site-prefix>-<environment>`;
+- redirect URI derived from the target Site access URL:
+  `<site.access_url>/api/method/frappe.integrations.oauth2_logins.custom/lenscloud`;
+- scopes required for the target Site login, currently `openid` plus Frappe
+  defaults as needed;
+- client ID and client secret kept server-side.
+
+Platform then configures the target Site Social Login Key through
+`oauth.configure` with:
+
+- provider key: `lenscloud`;
+- provider name: `LensCloud`;
+- base URL: the LensCloud Platform URL for the current environment, such as
+  `http://dev.localhost:8000` in local/dev;
+- authorize URL: `/api/method/frappe.integrations.oauth2.authorize`;
+- token URL: `/api/method/frappe.integrations.oauth2.get_token`;
+- API endpoint: `/api/method/frappe.integrations.oauth2.openid_profile`;
+- redirect URL:
+  `<site.access_url>/api/method/frappe.integrations.oauth2_logins.custom/lenscloud`;
+- client secret supplied only through the short-lived mounted Secret contract.
+
+Customer `Open Site` must open the target Site URL (`site.access_url`). It must
+not open the OAuth callback/login method directly. The target Site, once
+configured, owns redirecting unauthenticated users to the LensCloud Platform
+OAuth provider. Until target Site username/password login is disabled, the
+customer may see the Site login screen and choose `Login with LensCloud`; this
+is acceptable for the interim SSO proof as long as no Site-local password is
+entered.
+
+Disabling username/password login on the target Site is a later Site
+Control/System Settings automation and must be handled as an explicit
+runner-backed command or documented target Site setting.
+
 ## Setup Input Sources
 
 Platform should build a typed setup payload from server-side data only:

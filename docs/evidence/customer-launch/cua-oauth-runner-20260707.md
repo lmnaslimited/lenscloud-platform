@@ -129,3 +129,60 @@ Cleanup removed:
 
 Incident `LC-E2E-20260707-001` is closed for API reachability after `oauth.status` passed. New incident `LC-E2E-20260707-002` tracks the `oauth.configure` runner failure.
 
+## Corrected CUA Contract Self-Heal Attempt
+
+Date: 2026-07-07
+
+Platform corrected the CUA OAuth contract documentation and implementation direction:
+
+- Social Login provider key: `lenscloud`;
+- provider name: `LensCloud`;
+- redirect URI derived from target Site access URL;
+- customer `Open Site` opens `site.access_url`, not the OAuth callback/login method;
+- local/dev Platform issuer: `http://dev.localhost:8000`.
+
+Validation before live retest:
+
+```text
+bench --site dev.localhost run-tests --module lenscloud.api.test_bench_command
+Result: 28 tests passed.
+
+npm --prefix frontend run build
+Result: passed.
+
+bench --site dev.localhost migrate
+Result: passed.
+```
+
+Live pre-status still showed the earlier target Site config was enabled but pointed at the previous base URL:
+
+```text
+Command: oauth.status
+Action log: ORCH-2026-00238
+Result: Succeeded
+Display: Social login: Enabled
+Observed base_url: https://nectar.lmnas.com
+Cleanup: Job, ConfigMap, and terminal Pod removed.
+```
+
+Corrected configure attempt used the local/dev Platform issuer and failed at runner validation:
+
+```text
+Command: oauth.configure
+Action log: ORCH-2026-00239
+Result: Failed
+Code: INVALID_ARGUMENTS
+Sanitized summary: oauth.configure base_url must be an https URL
+Cleanup removed: Job, ConfigMap, terminal Pod, and short-lived OAuth Secret.
+Incident: LC-E2E-20260707-003
+Infra handoff: docs/handoffs/infra/cua-oauth-local-dev-base-url-runner-20260707.md
+```
+
+No OAuth client secret, Kubernetes Secret value, kubeconfig, token, private key, password, pod log, or full environment dump was exposed. Do not fall back to `nectar` to make the run pass; the Platform issuer must be the actual LensCloud Platform/CUA instance.
+
+## Operator Manual Target Site Check
+
+The operator manually logged in to target Site `run-20260707-cua-oauth` as Administrator after the earlier successful configure. The target Site has Social Login configured, but the base URL remains the old example `nectar` URL and the client ID did not match the expected corresponding Platform OAuth Client for the corrected CUA contract.
+
+This supports `LC-E2E-20260707-003`: do not use the old HTTPS example issuer. Infra should allow local/dev localhost HTTP issuer while preserving HTTPS-only validation for productive URLs, or provide a true HTTPS endpoint for the same dev Platform/CUA instance.
+

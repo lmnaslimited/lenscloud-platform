@@ -155,7 +155,7 @@ def clean_oauth_provider(value):
 
 
 def oauth_status_args(args):
-	provider = clean_oauth_provider(args.get("provider") or "nectar")
+	provider = clean_oauth_provider(args.get("provider") or "lenscloud")
 	return {"provider": provider}
 
 
@@ -742,8 +742,8 @@ def site_access_url(site_doc):
 
 def platform_oauth_settings():
 	settings = frappe.get_single("Platform Settings")
-	provider = clean_oauth_provider(getattr(settings, "oauth_provider", None) or "nectar")
-	provider_name = clean_scalar_arg("oauth", "provider_name", getattr(settings, "oauth_provider_name", None) or provider.title(), max_length=120)
+	provider = clean_oauth_provider(getattr(settings, "oauth_provider", None) or "lenscloud")
+	provider_name = clean_scalar_arg("oauth", "provider_name", getattr(settings, "oauth_provider_name", None) or "LensCloud", max_length=120)
 	base_url = clean_scalar_arg("oauth", "base_url", getattr(settings, "oauth_base_url", None) or get_url(), max_length=300).rstrip("/")
 	if not base_url.startswith("https://") and "localhost" not in base_url:
 		frappe.throw(_("Platform OAuth base URL must be HTTPS outside local development."))
@@ -754,8 +754,14 @@ def oauth_redirect_url(site_doc, provider):
 	return f"{site_access_url(site_doc)}/api/method/frappe.integrations.oauth2_logins.custom/{provider}"
 
 
+def site_oauth_client_app_name(site_doc):
+	prefix = getattr(site_doc, "subdomain", None) or str(site_doc.name).split(".")[0]
+	environment = getattr(site_doc, "environment", None) or "Prod"
+	return f"{prefix}-{environment}"[:140]
+
+
 def ensure_platform_oauth_client(site_doc, provider, redirect_url):
-	app_name = f"LensCloud {provider} {site_doc.name}"[:140]
+	app_name = site_oauth_client_app_name(site_doc)
 	existing = frappe.get_all("OAuth Client", filters={"app_name": app_name}, pluck="name", limit=1)
 	doc = frappe.get_doc("OAuth Client", existing[0]) if existing else frappe.new_doc("OAuth Client")
 	doc.app_name = app_name
