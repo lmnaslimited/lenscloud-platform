@@ -80,6 +80,11 @@ Setup runner evidence: `site_setup.complete` succeeded with `Setup wizard: Compl
 
 Incidents closed during this pass: `LC-E2E-20260706-001` fixed future CUA commands to return `COMMAND_UNSUPPORTED`; `LC-E2E-20260706-002` updated the Platform runner digest to INF-021 `sha256:2905fb71dfb449258214a7b76016a67d9b98bd66ea378394f98d791ab293dad5`; `LC-E2E-20260706-003` documents the first setup-status container mount anomaly, with successful final/repeated status retests. Evidence: `docs/evidence/customer-launch/cua-site-setup-runner-20260706.md`.
 
+
+## 2026-07-07 CUA OAuth Runner Slice
+
+Platform is at `f5a47b4`; Infra handoff for INF-022 is `docs/handoffs/platform/cua-oauth-runner-20260706.md` and says Platform may adapt OAuth via Bench Command. The runner image is `ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741`. Platform owns the OAuth Client and must pass only non-secret Social Login Key fields in the request ConfigMap. `oauth.configure` requires a short-lived Kubernetes Secret mounted read-only at `/lenscloud/secrets/client_secret` and must clean that Secret, the Job, ConfigMap, and terminal Pod after sanitized evidence capture. User/site-access commands remain Unsupported until INF-023.
+
 ## Runtime Truth
 
 - cluster: `lenscloud-eu-dev`
@@ -506,3 +511,31 @@ Validation passed: Python compile for `orchestration.py`, production frontend bu
 ## July 3 Customer Account Widget Correction Complete
 
 Closed incident `LC-E2E-20260703-003`. Account actions no longer sit in the Account page header. The shell account chip now opens a floating widget with Profile, Change Password, and Sign Out. Change Password routes to `/customer/account?changePassword=1` and opens a compact in-page dialog that calls Frappe's native password update method without leaving LensCloud. Sign Out remains in the widget and returns the user to `/login`. Validation passed: `npm --prefix frontend run build`, authenticated desktop Playwright, authenticated mobile Playwright, and forced all-caps Vue scan returned no matches.
+## 2026-07-07 CUA OAuth Runner Implementation Status
+
+Platform commit baseline: `f5a47b4` or newer. Infra INF-022 handoff: `docs/handoffs/platform/cua-oauth-runner-20260706.md`; Infra revision `0d08899`.
+
+Implemented in Platform:
+
+- runner digest updated to `ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741`;
+- `oauth.status` and `oauth.configure` are runner-supported;
+- `oauth.configure` is exposed through dedicated `configure_site_oauth` so the OAuth client secret remains server-side;
+- Platform creates/reuses a Frappe `OAuth Client` per target Site;
+- request ConfigMap contains only non-secret Social Login Key fields;
+- OAuth client secret is mounted through a short-lived Kubernetes Secret at `/lenscloud/secrets/client_secret`;
+- cleanup removes Job, ConfigMap, terminal command Pod, and short-lived Secret.
+
+Focused test result:
+
+```text
+bench --site dev.localhost run-tests --module lenscloud.api.test_bench_command
+Result: 26 tests passed.
+```
+
+Live status:
+
+- `oauth.status` attempt failed before ConfigMap creation due Kubernetes API connection timeout.
+- Action log: `ORCH-2026-00224`.
+- Incident: `LC-E2E-20260707-001`.
+- Resume prompt: `docs/handoffs/platform/e2e-incident-followup-cua-oauth-api-reachability-20260707.md`.
+- Keep Site `run-20260706-cua-134515.cloud.lmnaslens.com` for OAuth and INF-023; do not delete it unless explicitly approved.

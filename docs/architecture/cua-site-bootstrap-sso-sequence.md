@@ -93,8 +93,10 @@ Commands must be idempotent where possible and include a stable correlation ID. 
 Current implementation status:
 
 - INF-021 provides `site_setup.status` and `site_setup.complete`.
-- `oauth.*`, `user.*`, and `site_access.status` remain unsupported until Infra publishes their runner contracts and Platform consumes them.
-- Platform commit `c520b5a` removed the setup-runner live-verification block; the setup-wizard slice may run in the controlled Free Plan live E2E. Keep OAuth/user/site-access commands Unsupported until their own live-verified handoffs exist.
+- INF-022 provides `oauth.status` and `oauth.configure`; Platform owns the Platform-side OAuth Client and the runner configures only the target Site Social Login Key.
+- `oauth.configure` may pass only non-secret Social Login Key fields in the request ConfigMap. The OAuth client secret must be created as a short-lived Kubernetes Secret, mounted read-only at `/lenscloud/secrets/client_secret`, then deleted after sanitized evidence capture.
+- `user.*` and `site_access.status` remain unsupported until INF-023 publishes and verifies those runner contracts.
+- Platform commit `c520b5a` removed the setup-runner live-verification block; the setup-wizard slice may run in the controlled Free Plan live E2E.
 
 
 ## Security Boundaries

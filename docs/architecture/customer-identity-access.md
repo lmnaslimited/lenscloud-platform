@@ -101,7 +101,7 @@ Platform must automate these Site access responsibilities after a Site is Ready:
 
 Administrator password may exist only as an Infra/operator-side bootstrap implementation detail if absolutely required by the runner. It must never be accepted from the browser, returned by Platform APIs, or written into action logs/evidence.
 
-The setup-wizard slice is implemented before full SSO. Provisioning progress should therefore show `Checking setup status` and `Setting site defaults` as active states, while OAuth/social login and member Site access remain clearly marked as future/unsupported until Infra publishes and verifies those runner contracts.
+The setup-wizard slice is complete. INF-022 enables OAuth/social-login configuration through Bench Command runner commands `oauth.status` and `oauth.configure`. Platform owns the OAuth Client and secret lifecycle; target Sites receive only a configured Social Login Key. Member creation, Site Access Grants, role sync, revocation, and passwordless Open Site remain clearly marked as future/unsupported until INF-023 publishes and verifies those runner contracts.
 
 
 ## Future CUA Work

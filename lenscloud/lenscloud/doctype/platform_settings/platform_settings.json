@@ -8,6 +8,10 @@
   "cluster_section",
   "default_signup_region",
   "default_plan",
+  "cua_oauth_section",
+  "oauth_provider",
+  "oauth_provider_name",
+  "oauth_base_url",
   "column_break_odvf",
   "default_storage_class",
   "active_cluster_context",
@@ -279,6 +283,29 @@
   {
    "fieldname": "column_break_ntkb",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "cua_oauth_section",
+   "fieldtype": "Section Break",
+   "label": "Central User Access OAuth"
+  },
+  {
+   "default": "nectar",
+   "fieldname": "oauth_provider",
+   "fieldtype": "Data",
+   "label": "OAuth Provider Key"
+  },
+  {
+   "default": "Nectar",
+   "fieldname": "oauth_provider_name",
+   "fieldtype": "Data",
+   "label": "OAuth Provider Name"
+  },
+  {
+   "fieldname": "oauth_base_url",
+   "fieldtype": "Data",
+   "label": "OAuth Base URL",
+   "description": "Public LensCloud Platform URL used by provisioned Sites for OAuth. Example: https://nectar.lmnas.com"
   }
  ],
  "grid_page_length": 50,

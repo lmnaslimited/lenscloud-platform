@@ -4,7 +4,7 @@ import time
 
 import frappe
 from frappe import _
-from frappe.utils import now_datetime
+from frappe.utils import get_url, now_datetime
 
 from lenscloud.api.kubernetes_client import KubernetesClientError, sanitize_error
 from lenscloud.api.orchestration import (
@@ -25,7 +25,7 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:2905fb71dfb449258214a7b76016a67d9b98bd66ea378394f98d791ab293dad5"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -42,6 +42,8 @@ RUNNER_SUPPORTED_COMMANDS = {
 	"backup.status",
 	"site_setup.status",
 	"site_setup.complete",
+	"oauth.status",
+	"oauth.configure",
 }
 SUPPORTED_COMMANDS = VERIFICATION_COMMANDS | RUNNER_SUPPORTED_COMMANDS
 RUNNER_PENDING_COMMANDS = {
@@ -52,8 +54,6 @@ RUNNER_PENDING_COMMANDS = {
 	"bench_test.trigger",
 	"latp.trigger",
 	"latp.status",
-	"oauth.status",
-	"oauth.configure",
 	"user.ensure",
 	"user.disable",
 	"user.roles.set",
@@ -61,6 +61,39 @@ RUNNER_PENDING_COMMANDS = {
 }
 APPROVED_SITE_CONFIG_KEYS = {"maintenance_mode", "developer_mode", "allow_cors", "server_script_enabled", "client_script_enabled"}
 APPROVED_SITE_SETUP_KEYS = {"language", "email", "full_name", "country", "timezone", "currency", "company_name", "company_abbr", "industry", "chart_of_accounts", "fiscal_year_start_date", "fiscal_year_end_date"}
+APPROVED_OAUTH_CONFIGURE_KEYS = {
+	"provider",
+	"provider_name",
+	"social_login_provider",
+	"enable_social_login",
+	"client_id",
+	"client_secret_source",
+	"base_url",
+	"authorize_url",
+	"access_token_url",
+	"redirect_url",
+	"api_endpoint",
+	"custom_base_url",
+	"auth_url_data",
+	"sign_ups",
+}
+REQUIRED_OAUTH_CONFIGURE_KEYS = {
+	"provider",
+	"provider_name",
+	"social_login_provider",
+	"enable_social_login",
+	"client_id",
+	"client_secret_source",
+	"base_url",
+	"authorize_url",
+	"access_token_url",
+	"redirect_url",
+	"api_endpoint",
+	"custom_base_url",
+}
+OAUTH_SECRET_VOLUME_NAME = "oauth-client-secret"
+OAUTH_SECRET_MOUNT_PATH = "/lenscloud/secrets"
+OAUTH_CLIENT_SECRET_FILE = f"{OAUTH_SECRET_MOUNT_PATH}/client_secret"
 SENSITIVE_ARG_KEY_PATTERN = re.compile(r"(password|passwd|secret|token|private|credential|db_|oauth|client_secret|api_key|keyfile)", re.I)
 CONTRACTED_COMMANDS = {
 	"backup.create",
@@ -94,6 +127,7 @@ CONTRACTED_COMMANDS = {
 }
 COMMAND_FAMILIES = {command.split(".", 1)[0] for command in CONTRACTED_COMMANDS}
 SAFE_ID_PATTERN = re.compile(r"[^a-z0-9-]+")
+SAFE_PROVIDER_PATTERN = re.compile(r"^[a-z0-9][a-z0-9_-]{0,63}$")
 
 
 def safe_name(value):
@@ -103,6 +137,54 @@ def safe_name(value):
 
 def command_family(command):
 	return (command or "").split(".", 1)[0]
+
+
+def clean_scalar_arg(command, key, value, max_length=500):
+	if isinstance(value, (dict, list)):
+		frappe.throw(_("{0} arg {1} must be scalar.").format(command, key))
+	if value is None:
+		return ""
+	return sanitize_error(str(value).strip())[:max_length]
+
+
+def clean_oauth_provider(value):
+	provider = clean_scalar_arg("oauth", "provider", value, max_length=64).lower()
+	if not provider or not SAFE_PROVIDER_PATTERN.match(provider):
+		frappe.throw(_("OAuth provider must be a lowercase identifier using letters, numbers, dash, or underscore."))
+	return provider
+
+
+def oauth_status_args(args):
+	provider = clean_oauth_provider(args.get("provider") or "nectar")
+	return {"provider": provider}
+
+
+def oauth_configure_args(args):
+	if "client_secret" in args:
+		frappe.throw(_("oauth.configure must not include client_secret in request args; use the mounted Secret contract."))
+	unknown = sorted(set(args) - APPROVED_OAUTH_CONFIGURE_KEYS)
+	if unknown:
+		frappe.throw(_("OAuth configure arg {0} is not approved.").format(", ".join(unknown)))
+	missing = sorted(key for key in REQUIRED_OAUTH_CONFIGURE_KEYS if args.get(key) in (None, ""))
+	if missing:
+		frappe.throw(_("oauth.configure requires {0}.").format(", ".join(missing)))
+	if args.get("client_secret_source") != "mounted_file":
+		frappe.throw(_("oauth.configure client_secret_source must be mounted_file."))
+	provider = clean_oauth_provider(args.get("provider"))
+	clean = {"provider": provider, "client_secret_source": "mounted_file"}
+	for key in ("provider_name", "social_login_provider", "client_id", "base_url", "authorize_url", "access_token_url", "redirect_url", "api_endpoint", "sign_ups"):
+		if key in args:
+			clean[key] = clean_scalar_arg("oauth.configure", key, args.get(key), max_length=1000)
+	clean["enable_social_login"] = bool(args.get("enable_social_login"))
+	clean["custom_base_url"] = bool(args.get("custom_base_url"))
+	auth_url_data = args.get("auth_url_data") or {}
+	if not isinstance(auth_url_data, dict):
+		frappe.throw(_("oauth.configure auth_url_data must be an object."))
+	clean["auth_url_data"] = {
+		clean_scalar_arg("oauth.configure", key, key, max_length=60): clean_scalar_arg("oauth.configure", key, value, max_length=500)
+		for key, value in auth_url_data.items()
+	}
+	return clean
 
 
 def command_args(command, args):
@@ -145,6 +227,10 @@ def command_args(command, args):
 		return {}
 	if command == "backup.status":
 		return {}
+	if command == "oauth.status":
+		return oauth_status_args(args)
+	if command == "oauth.configure":
+		return oauth_configure_args(args)
 	if command == "site_setup.status":
 		return {}
 	if command == "site_setup.complete":
@@ -233,7 +319,7 @@ def validate_command_policy(command, site_doc, subscription, policy, args):
 		frappe.throw(_("Command {0} requires a Subscription and Environment policy on the Site.").format(command))
 	family = command_family(command)
 	controls = policy.get("site_controls") or {}
-	if family == "site_setup":
+	if family in {"site_setup", "oauth"}:
 		return True
 	if family == "bench_test" and not policy.get("gates", {}).get("bench_test"):
 		frappe.throw(_("Bench Test commands are not allowed by the active Site Control Profile."))
@@ -321,6 +407,18 @@ def configmap_manifest(name, namespace, labels, annotations, request):
 	}
 
 
+def secret_manifest(name, namespace, labels, annotations, client_secret):
+	if not client_secret:
+		frappe.throw(_("OAuth client secret is required for oauth.configure."))
+	return {
+		"apiVersion": "v1",
+		"kind": "Secret",
+		"metadata": {"name": name, "namespace": namespace, "labels": labels, "annotations": annotations},
+		"type": "Opaque",
+		"stringData": {"client_secret": client_secret},
+	}
+
+
 def bench_sites_pvc_name(bench):
 	return f"{bench.operator_resource_name or bench.name}-sites"
 
@@ -342,32 +440,49 @@ def verification_job_container(labels, command):
 	}
 
 
-def runner_job_container(command=None):
-	read_only_sites = command == "site_setup.status"
+def runner_job_container(command=None, oauth_secret_name=None):
+	read_only_sites = command in {"site_setup.status", "oauth.status"}
+	env = [
+		{"name": "BENCH_PATH", "value": "/home/frappe/frappe-bench"},
+		{"name": "BENCH_COMMAND_REQUEST", "value": "/lenscloud/request/request.json"},
+	]
+	volume_mounts = [
+		{"name": "request", "mountPath": "/lenscloud/request", "readOnly": True},
+		{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": read_only_sites},
+	]
+	if command == "oauth.configure":
+		if not oauth_secret_name:
+			frappe.throw(_("oauth.configure requires a short-lived OAuth client Secret mount."))
+		env.append({"name": "LENS_COMMAND_OAUTH_CLIENT_SECRET_PATH", "value": OAUTH_CLIENT_SECRET_FILE})
+		volume_mounts.append({"name": OAUTH_SECRET_VOLUME_NAME, "mountPath": OAUTH_SECRET_MOUNT_PATH, "readOnly": True})
 	return {
 		"name": "bench-command",
 		"image": RUNNER_IMAGE,
 		"imagePullPolicy": "IfNotPresent",
-		"env": [
-			{"name": "BENCH_PATH", "value": "/home/frappe/frappe-bench"},
-			{"name": "BENCH_COMMAND_REQUEST", "value": "/lenscloud/request/request.json"},
-		],
+		"env": env,
 		"command": ["/usr/local/bin/lenscloud-bench-command-runner"],
-		"volumeMounts": [
-			{"name": "request", "mountPath": "/lenscloud/request", "readOnly": True},
-			{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": read_only_sites},
-		],
+		"volumeMounts": volume_mounts,
 	}
 
 
-def job_manifest(name, namespace, labels, annotations, request_name, command, bench=None):
+def job_manifest(name, namespace, labels, annotations, request_name, command, bench=None, oauth_secret_name=None):
 	volumes = [{"name": "request", "configMap": {"name": request_name}}]
 	container = verification_job_container(labels, command)
 	if command in RUNNER_SUPPORTED_COMMANDS:
 		if not bench:
 			frappe.throw(_("Bench is required for runner-backed Bench Commands."))
 		volumes.append({"name": "sites", "persistentVolumeClaim": {"claimName": bench_sites_pvc_name(bench)}})
-		container = runner_job_container(command)
+		if command == "oauth.configure":
+			if not oauth_secret_name:
+				frappe.throw(_("oauth.configure requires a short-lived OAuth client Secret mount."))
+			volumes.append({
+				"name": OAUTH_SECRET_VOLUME_NAME,
+				"secret": {
+					"secretName": oauth_secret_name,
+					"items": [{"key": "client_secret", "path": "client_secret"}],
+				},
+			})
+		container = runner_job_container(command, oauth_secret_name=oauth_secret_name)
 	return {
 		"apiVersion": "batch/v1",
 		"kind": "Job",
@@ -496,7 +611,7 @@ def cleanup_terminal_bench_command_pods(cluster, namespace):
 	return deleted
 
 
-def cleanup_command_resources(cluster, namespace, job_name, request_name, pod_wait_seconds=20):
+def cleanup_command_resources(cluster, namespace, job_name, request_name, pod_wait_seconds=20, secret_name=None):
 	deleted = []
 	with get_cluster_client(cluster) as client:
 		for resource, name, group in (("jobs", job_name, "batch"), ("configmaps", request_name, "")):
@@ -509,6 +624,13 @@ def cleanup_command_resources(cluster, namespace, job_name, request_name, pod_wa
 				if "Kubernetes API 404:" not in str(exc):
 					raise
 		deleted.extend(cleanup_command_pods(client, namespace, job_name, wait_seconds=pod_wait_seconds))
+		if secret_name:
+			try:
+				client.delete_namespaced("secrets", namespace, secret_name)
+				deleted.append(f"secrets/{namespace}/{secret_name}")
+			except KubernetesClientError as exc:
+				if "Kubernetes API 404:" not in str(exc):
+					raise
 	return deleted
 
 
@@ -610,6 +732,75 @@ def unsupported_response(command, log, site_doc, reason="Production runner is no
 	}
 
 
+def site_access_url(site_doc):
+	if site_doc.access_url:
+		return str(site_doc.access_url).rstrip("/")
+	if site_doc.subdomain and site_doc.domain:
+		return f"https://{str(site_doc.subdomain).strip().lower()}.{str(site_doc.domain).strip().lower().strip('.')}"
+	frappe.throw(_("Site {0} requires an access URL or subdomain/domain before OAuth configuration.").format(site_doc.name))
+
+
+def platform_oauth_settings():
+	settings = frappe.get_single("Platform Settings")
+	provider = clean_oauth_provider(getattr(settings, "oauth_provider", None) or "nectar")
+	provider_name = clean_scalar_arg("oauth", "provider_name", getattr(settings, "oauth_provider_name", None) or provider.title(), max_length=120)
+	base_url = clean_scalar_arg("oauth", "base_url", getattr(settings, "oauth_base_url", None) or get_url(), max_length=300).rstrip("/")
+	if not base_url.startswith("https://") and "localhost" not in base_url:
+		frappe.throw(_("Platform OAuth base URL must be HTTPS outside local development."))
+	return {"provider": provider, "provider_name": provider_name, "base_url": base_url}
+
+
+def oauth_redirect_url(site_doc, provider):
+	return f"{site_access_url(site_doc)}/api/method/frappe.integrations.oauth2_logins.custom/{provider}"
+
+
+def ensure_platform_oauth_client(site_doc, provider, redirect_url):
+	app_name = f"LensCloud {provider} {site_doc.name}"[:140]
+	existing = frappe.get_all("OAuth Client", filters={"app_name": app_name}, pluck="name", limit=1)
+	doc = frappe.get_doc("OAuth Client", existing[0]) if existing else frappe.new_doc("OAuth Client")
+	doc.app_name = app_name
+	doc.default_redirect_uri = redirect_url
+	redirects = [item.strip() for item in (doc.redirect_uris or "").splitlines() if item.strip()]
+	if redirect_url not in redirects:
+		redirects.append(redirect_url)
+	doc.redirect_uris = "\n".join(redirects)
+	doc.scopes = doc.scopes or "all openid"
+	doc.grant_type = "Authorization Code"
+	doc.response_type = "Code"
+	doc.skip_authorization = 1
+	if doc.is_new():
+		doc.insert(ignore_permissions=True)
+	else:
+		doc.save(ignore_permissions=True)
+	client_secret = doc.get("client_secret")
+	if not doc.client_id or not client_secret:
+		frappe.throw(_("Platform OAuth Client could not produce a client ID and secret."))
+	return {"name": doc.name, "client_id": doc.client_id, "client_secret": client_secret, "redirect_url": redirect_url}
+
+
+def oauth_configure_request_args(site_doc, oauth_client=None):
+	settings = platform_oauth_settings()
+	provider = settings["provider"]
+	redirect_url = oauth_redirect_url(site_doc, provider)
+	client = oauth_client or ensure_platform_oauth_client(site_doc, provider, redirect_url)
+	return oauth_configure_args({
+		"provider": provider,
+		"provider_name": settings["provider_name"],
+		"social_login_provider": "Custom",
+		"enable_social_login": True,
+		"client_id": client["client_id"],
+		"client_secret_source": "mounted_file",
+		"base_url": settings["base_url"],
+		"authorize_url": "/api/method/frappe.integrations.oauth2.authorize",
+		"access_token_url": "/api/method/frappe.integrations.oauth2.get_token",
+		"redirect_url": redirect_url,
+		"api_endpoint": "/api/method/frappe.integrations.oauth2.openid_profile",
+		"custom_base_url": True,
+		"auth_url_data": {"response_type": "code", "scope": "openid"},
+		"sign_ups": "",
+	}) | {"_oauth_client_secret": client["client_secret"], "_oauth_client": client["name"]}
+
+
 def failure_next_action(exc):
 	safe_error = sanitize_error(exc)
 	text = safe_error.lower()
@@ -638,8 +829,7 @@ def failure_next_action(exc):
 	return "Open the action log, correct the reported target, namespace, or argument issue, then retry."
 
 
-@frappe.whitelist()
-def run_site_control_command(site, command="bench_test.status", args=None, timeout_seconds=60, reason=None, cleanup=True):
+def _run_site_control_command(site, command="bench_test.status", args=None, timeout_seconds=60, reason=None, cleanup=True, oauth_client_secret=None, oauth_client_name=None):
 	frappe.only_for("System Manager")
 	site_doc, bench, cluster, namespace, subscription, policy = validate_site_target(site)
 	args = command_args(command, args)
@@ -660,29 +850,42 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 	)
 	request_name = None
 	job_name = None
+	secret_name = None
 	try:
 		if command not in SUPPORTED_COMMANDS:
 			return unsupported_response(command, log, site_doc)
 		validate_command_policy(command, site_doc, subscription, policy, args)
 		command_id_value = command_id(log.name)
 		request_name, job_name = command_resource_names(log.name)
+		if command == "oauth.configure":
+			if not oauth_client_secret:
+				frappe.throw(_("oauth.configure requires a server-side OAuth client secret."))
+			secret_name = f"{safe_name(command_id_value)}-oauth-secret"
 		labels = metadata_labels(command_id_value, site_doc)
 		annotations = metadata_annotations(command, request_name)
 		request = request_document(command_id_value, command, site_doc, bench, cluster, namespace, args, timeout, reason)
 		configmap = configmap_manifest(request_name, namespace, labels, annotations, request)
-		job = job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench)
+		secret = secret_manifest(secret_name, namespace, labels, annotations, oauth_client_secret) if secret_name else None
+		job = job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench, oauth_secret_name=secret_name)
 		attach_message = {
 			"request": request,
 			"configMap": {"name": request_name, "namespace": namespace, "labels": labels, "annotations": annotations},
 			"job": {"name": job_name, "namespace": namespace, "labels": labels, "annotations": annotations},
 		}
-		log.manifest = manifest_yaml({"configMap": configmap, "job": job})
+		manifest_items = {"configMap": configmap, "job": job}
+		if secret_name:
+			attach_message["secret"] = {"name": secret_name, "namespace": namespace, "labels": labels, "annotations": annotations}
+			attach_message["oauthClient"] = {"name": oauth_client_name, "client_id": args.get("client_id"), "secret": "mounted_file"}
+			manifest_items["secret"] = {"apiVersion": "v1", "kind": "Secret", "metadata": secret["metadata"], "type": "Opaque", "stringData": {"client_secret": "[REDACTED]"}}
+		log.manifest = manifest_yaml(manifest_items)
 		log.message = sanitize_error(json.dumps(attach_message, sort_keys=True, default=str))
 		log.status = "Queued"
 		log.save(ignore_permissions=True)
 		frappe.db.commit()
 		with get_cluster_client(cluster) as client:
 			client.create_namespaced("configmaps", namespace, configmap)
+			if secret:
+				client.create_namespaced("secrets", namespace, secret)
 			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
 		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, timeout)
 		summary = sanitized_termination_summary(pods)
@@ -692,7 +895,7 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 			status = "Failed"
 			summary = {"phase": "Timed Out", "code": "TIMEOUT", "summary": "Bench Command Job exceeded Platform timeout.", "redacted": True}
 		if cleanup:
-			deleted = cleanup_command_resources(cluster, namespace, job_name, request_name)
+			deleted = cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
 		display = safe_command_display(summary)
 		display_text = command_display_text(display)
 		status_text = sanitized_status_summary(summary)
@@ -726,7 +929,7 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 		cleanup_message = ""
 		if request_name or job_name:
 			try:
-				deleted = cleanup_command_resources(cluster, namespace, job_name, request_name)
+				deleted = cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
 				cleanup_message = f" Cleanup removed {len(deleted)} temporary resource(s)."
 			except Exception as cleanup_exc:
 				cleanup_message = f" Cleanup failed: {sanitize_error(cleanup_exc)}."
@@ -737,3 +940,29 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 		frappe.db.commit()
 		safe_error = sanitize_error(exc)
 		frappe.throw(_("{0} Action log: {1}. Next action: {2}").format(safe_error, log.name, failure_next_action(exc)))
+
+
+@frappe.whitelist()
+def run_site_control_command(site, command="bench_test.status", args=None, timeout_seconds=60, reason=None, cleanup=True):
+	if command == "oauth.configure":
+		frappe.throw(_("Use Configure OAuth so the client secret stays server-side and is passed only through a short-lived Kubernetes Secret."))
+	return _run_site_control_command(site, command=command, args=args, timeout_seconds=timeout_seconds, reason=reason, cleanup=cleanup)
+
+
+@frappe.whitelist()
+def configure_site_oauth(site, timeout_seconds=300, reason=None, cleanup=True):
+	frappe.only_for("System Manager")
+	site_doc = frappe.get_doc("Site", site)
+	args = oauth_configure_request_args(site_doc)
+	oauth_client_secret = args.pop("_oauth_client_secret")
+	oauth_client_name = args.pop("_oauth_client")
+	return _run_site_control_command(
+		site,
+		command="oauth.configure",
+		args=args,
+		timeout_seconds=timeout_seconds,
+		reason=reason or "Configure LensCloud Platform OAuth on the target Site",
+		cleanup=cleanup,
+		oauth_client_secret=oauth_client_secret,
+		oauth_client_name=oauth_client_name,
+	)

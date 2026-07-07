@@ -107,6 +107,26 @@ class BenchCommandContractTest(unittest.TestCase):
 		container = job["spec"]["template"]["spec"]["containers"][0]
 		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": True}, container["volumeMounts"])
 
+	def test_oauth_status_mounts_sites_pvc_read_only(self):
+		labels = {PLATFORM_MANAGER_LABEL: "platform", RESOURCE_KIND_LABEL: "bench-command", "lenscloud.io/resource-id": "bcmd-test"}
+		annotations = bench_command.metadata_annotations("oauth.status", "bcmd-test-request")
+		bench = SimpleNamespace(name="bench-doc", operator_resource_name="runtime-bench")
+		job = bench_command.job_manifest("bcmd-test-job", "lenscloud-runtime-eu", labels, annotations, "bcmd-test-request", "oauth.status", bench=bench)
+		container = job["spec"]["template"]["spec"]["containers"][0]
+		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": True}, container["volumeMounts"])
+		self.assertNotIn("oauth-client-secret", [mount["name"] for mount in container["volumeMounts"]])
+
+	def test_oauth_configure_mounts_only_contract_secret(self):
+		labels = {PLATFORM_MANAGER_LABEL: "platform", RESOURCE_KIND_LABEL: "bench-command", "lenscloud.io/resource-id": "bcmd-test"}
+		annotations = bench_command.metadata_annotations("oauth.configure", "bcmd-test-request")
+		bench = SimpleNamespace(name="bench-doc", operator_resource_name="runtime-bench")
+		job = bench_command.job_manifest("bcmd-test-job", "lenscloud-runtime-eu", labels, annotations, "bcmd-test-request", "oauth.configure", bench=bench, oauth_secret_name="bcmd-test-oauth-secret")
+		spec = job["spec"]["template"]["spec"]
+		container = spec["containers"][0]
+		self.assertIn({"name": "LENS_COMMAND_OAUTH_CLIENT_SECRET_PATH", "value": "/lenscloud/secrets/client_secret"}, container["env"])
+		self.assertIn({"name": "oauth-client-secret", "mountPath": "/lenscloud/secrets", "readOnly": True}, container["volumeMounts"])
+		self.assertIn({"name": "oauth-client-secret", "secret": {"secretName": "bcmd-test-oauth-secret", "items": [{"key": "client_secret", "path": "client_secret"}]}}, spec["volumes"])
+
 	def test_runner_pending_commands_remain_unsupported(self):
 		self.assertIn("maintenance_mode.enable", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("developer_mode.status", bench_command.SUPPORTED_COMMANDS)
@@ -115,6 +135,8 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertIn("backup.status", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("site_setup.status", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("site_setup.complete", bench_command.SUPPORTED_COMMANDS)
+		self.assertIn("oauth.status", bench_command.SUPPORTED_COMMANDS)
+		self.assertIn("oauth.configure", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("backup.create", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("restore.execute", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("bench_test.trigger", bench_command.SUPPORTED_COMMANDS)
@@ -135,6 +157,30 @@ class BenchCommandContractTest(unittest.TestCase):
 
 	def test_site_setup_status_args_are_empty(self):
 		self.assertEqual(bench_command.command_args("site_setup.status", {"ignored": "value"}), {})
+
+	def test_oauth_args_are_secret_safe_and_typed(self):
+		self.assertEqual(bench_command.command_args("oauth.status", {"provider": "nectar"}), {"provider": "nectar"})
+		args = bench_command.command_args("oauth.configure", {
+			"provider": "nectar",
+			"provider_name": "Nectar",
+			"social_login_provider": "Custom",
+			"enable_social_login": True,
+			"client_id": "oauth-client",
+			"client_secret_source": "mounted_file",
+			"base_url": "https://nectar.lmnas.com",
+			"authorize_url": "/api/method/frappe.integrations.oauth2.authorize",
+			"access_token_url": "/api/method/frappe.integrations.oauth2.get_token",
+			"redirect_url": "https://site.example.com/api/method/frappe.integrations.oauth2_logins.custom/nectar",
+			"api_endpoint": "/api/method/frappe.integrations.oauth2.openid_profile",
+			"custom_base_url": True,
+			"auth_url_data": {"response_type": "code", "scope": "openid"},
+		})
+		self.assertEqual(args["client_secret_source"], "mounted_file")
+		self.assertNotIn("client_secret", args)
+		with self.assertRaises(frappe.ValidationError):
+			bench_command.command_args("oauth.configure", {"client_secret": "nope"})
+		with self.assertRaises(frappe.ValidationError):
+			bench_command.command_args("oauth.configure", {"provider": "Nectar Space"})
 
 	def test_site_setup_complete_args_are_non_secret_and_typed(self):
 		args = bench_command.command_args("site_setup.complete", {
@@ -189,7 +235,7 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertIn("code: COMMAND_UNSUPPORTED", bench_command.sanitized_status_summary({"phase": "Unsupported", "code": "COMMAND_UNSUPPORTED", "summary": "No runner"}))
 
 	def test_remaining_families_stay_unsupported(self):
-		for command in ("backup.create", "restore.preview", "restore.execute", "restore.status", "bench_test.trigger", "latp.trigger", "latp.status", "oauth.status", "oauth.configure", "user.ensure", "user.disable", "user.roles.set", "site_access.status"):
+		for command in ("backup.create", "restore.preview", "restore.execute", "restore.status", "bench_test.trigger", "latp.trigger", "latp.status", "user.ensure", "user.disable", "user.roles.set", "site_access.status"):
 			with self.subTest(command=command):
 				self.assertIn(command, bench_command.CONTRACTED_COMMANDS)
 				self.assertIn(command, bench_command.RUNNER_PENDING_COMMANDS)
@@ -202,6 +248,7 @@ class BenchCommandContractTest(unittest.TestCase):
 			("cors.allowlist.get", {"label": "CORS allowlist", "value": ["https://app.example.com"], "kind": "origin-list", "safe": True}, "CORS allowlist: https://app.example.com"),
 			("backup.status", {"label": "Backups", "value": "0 available", "kind": "backup-status", "safe": True}, "Backups: 0 available"),
 			("site_setup.status", {"label": "Setup wizard", "value": "Pending", "kind": "setup-status", "safe": True}, "Setup wizard: Pending"),
+			("oauth.status", {"label": "Social login", "value": "Enabled", "kind": "oauth-status", "safe": True}, "Social login: Enabled"),
 		]
 		for _command, display_data, text in examples:
 			with self.subTest(command=_command):
@@ -220,7 +267,8 @@ class BenchCommandContractTest(unittest.TestCase):
 	def test_cleanup_deletes_terminal_command_pods_and_verifies_absence(self):
 		client = FakeCleanupClient([pod("bcmd-test-job-abc", "Succeeded")])
 		with patch("lenscloud.api.bench_command.get_cluster_client", return_value=client):
-			deleted = bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
+			deleted = bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0, secret_name="bcmd-test-secret")
+		self.assertIn("secrets/lenscloud-runtime-eu/bcmd-test-secret", deleted)
 		self.assertIn("pods/lenscloud-runtime-eu/bcmd-test-job-abc", deleted)
 		self.assertIn("jobs/lenscloud-runtime-eu/bcmd-test-job", deleted)
 		self.assertIn("configmaps/lenscloud-runtime-eu/bcmd-test-request", deleted)

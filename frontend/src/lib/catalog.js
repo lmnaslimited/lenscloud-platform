@@ -691,6 +691,19 @@ export const platformResources = [
 			{ key: 'sync-site', label: 'Sync provisioning and access', icon: RefreshCcw, description: 'Read operator status and verify the HTTPS route.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_site_status', paramsFromRecord: { site: 'name' }, fields: [] },
 			{ key: 'inspect-site', label: 'Inspect runtime', icon: ScrollText, description: 'Show secret-safe FrappeSite CR, finalizer, related workload, PVC, Service, Ingress, Job, and warning Event state.', backendSupported: true, method: 'lenscloud.api.orchestration.inspect_site_runtime', paramsFromRecord: { site: 'name' }, fields: [] },
 			{
+				key: 'configure-oauth',
+				label: 'Configure OAuth',
+				icon: RefreshCcw,
+				description: 'Create or reuse the Platform OAuth Client and configure the target Site Social Login Key through the secret-safe Bench Command runner.',
+				backendSupported: true,
+				method: 'lenscloud.api.bench_command.configure_site_oauth',
+				paramsFromRecord: { site: 'name' },
+				fields: [
+					{ key: 'timeout_seconds', label: 'Timeout seconds', type: 'number', default: 300 },
+					{ key: 'reason', label: 'Reason', type: 'textarea', placeholder: 'Why is OAuth being configured for this Site?' },
+				],
+			},
+			{
 				key: 'site-control-command',
 				label: 'Run Site Control command',
 				icon: ScrollText,
@@ -699,7 +712,7 @@ export const platformResources = [
 				method: 'lenscloud.api.bench_command.run_site_control_command',
 				paramsFromRecord: { site: 'name' },
 				fields: [
-					{ key: 'command', label: 'Command', type: 'select', default: 'bench_test.status', options: ['bench_test.status', 'maintenance_mode.status', 'maintenance_mode.enable', 'maintenance_mode.disable', 'developer_mode.status', 'developer_mode.enable', 'developer_mode.disable', 'site_config.get', 'site_config.set', 'site_config.unset', 'cors.allowlist.get', 'cors.allowlist.update', 'backup.status', 'site_setup.status', 'site_setup.complete', 'backup.create', 'restore.preview', 'restore.execute', 'restore.status', 'bench_test.trigger', 'latp.status', 'latp.trigger'] },
+					{ key: 'command', label: 'Command', type: 'select', default: 'bench_test.status', options: ['bench_test.status', 'maintenance_mode.status', 'maintenance_mode.enable', 'maintenance_mode.disable', 'developer_mode.status', 'developer_mode.enable', 'developer_mode.disable', 'site_config.get', 'site_config.set', 'site_config.unset', 'cors.allowlist.get', 'cors.allowlist.update', 'backup.status', 'site_setup.status', 'site_setup.complete', 'oauth.status', 'backup.create', 'restore.preview', 'restore.execute', 'restore.status', 'bench_test.trigger', 'latp.status', 'latp.trigger'] },
 					{ key: 'args', label: 'Args JSON', type: 'textarea', default: '{"mode":"status"}', placeholder: '{"mode":"status"}' },
 					{ key: 'timeout_seconds', label: 'Timeout seconds', type: 'number', default: 60 },
 					{ key: 'reason', label: 'Reason', type: 'textarea', placeholder: 'Why is this Site Control command being run?' },

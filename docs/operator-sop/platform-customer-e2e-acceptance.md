@@ -165,8 +165,8 @@ Run this segment in slices as Infra publishes CUA runner gates. Shared sequence:
 Platform preflight:
 
 1. Confirm Platform commit `c520b5a` or newer is present and `docs/handoffs/infra/cua-site-bootstrap-sso-runner-20260703.md` records `site_setup.status` and `site_setup.complete` as live-verified.
-2. Confirm Infra runner supports `site_setup.status` and `site_setup.complete` before running setup automation. Confirm `oauth.status`, `oauth.configure`, `user.ensure`, `user.disable`, `user.roles.set`, and `site_access.status` remain Unsupported unless their later runner gates are complete.
-3. Confirm Platform Settings has OAuth issuer/client defaults and root domain.
+2. Confirm Infra runner supports `site_setup.status`, `site_setup.complete`, `oauth.status`, and `oauth.configure` before running setup/OAuth automation. Confirm `user.ensure`, `user.disable`, `user.roles.set`, and `site_access.status` remain Unsupported until INF-023 is complete.
+3. Confirm Platform Settings has CUA OAuth defaults: `oauth_provider`, `oauth_provider_name`, and public `oauth_base_url` such as `https://nectar.lmnas.com`. Platform creates or reuses the Frappe `OAuth Client` per Site. The OAuth client secret must never be entered in UI/API args and is supplied only through a short-lived Kubernetes Secret during `oauth.configure`.
 4. Confirm no Administrator password, OAuth client secret, bootstrap token, kubeconfig, Secret value, pod log, or raw `site_config.json` appears in Platform API responses or action logs.
 5. Confirm Site Bootstrap State and Site Access Grant records exist or migrations are ready.
 
@@ -176,8 +176,10 @@ Positive customer path:
 2. Wait for Site Ready.
 3. Trigger setup status and setup completion through Platform.
 4. Verify setup wizard is complete.
-5. Trigger OAuth status and OAuth configure through Platform only after the OAuth runner gate is complete; until then, verify the UI/action returns Unsupported.
-6. Verify target Site trusts LensCloud Platform as OAuth/Social Login provider.
+5. Trigger OAuth status through Platform. If `LC-E2E-20260707-001` is still Open, stop here and restore Kubernetes API reachability before continuing.
+6. Trigger Configure OAuth through the dedicated Site action or `lenscloud.api.bench_command.configure_site_oauth`; do not use generic args for `oauth.configure`.
+7. Verify target Site trusts LensCloud Platform as OAuth/Social Login provider and the runner returns a sanitized display/result summary.
+8. Verify cleanup removed the command Job, request ConfigMap, terminal command Pod, and short-lived OAuth Secret.
 7. Ensure the Customer Owner/Admin user on the target Site through Platform.
 8. Verify Site Access Grant is Active.
 9. Click `Open Site` from the customer Subscription page.
@@ -195,7 +197,7 @@ Negative/security path:
 
 
 
-Current setup-runner proof: 2026-07-06 live E2E completed setup wizard on kept Site `run-20260706-cua-134515.cloud.lmnaslens.com`. Use that Site for the next OAuth/social-login runner pass instead of deleting it.
+Current setup-runner proof: 2026-07-06 live E2E completed setup wizard on kept Site `run-20260706-cua-134515.cloud.lmnaslens.com`. Use that Site for the OAuth/social-login runner pass instead of deleting it. After OAuth passes, keep the Site for INF-023 user/site-access validation unless cleanup is explicitly approved.
 
 Evidence required:
 

@@ -54,6 +54,7 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Central User Access model | LensCloud Platform is documented as the Central User Access system for customer users, invites, site access, SSO handoff, deactivation, and audit in a later implementation pass | Pending | 2026-06-30 |  |
 | CUA Site bootstrap and SSO automation | Platform becomes the OAuth/CUA authority for provisioned Sites through staged Bench Command runner gates: `site_setup.status` and `site_setup.complete` are being integrated from INF-021; OAuth, user sync, Site Access Grants, passwordless Open Site, and revocation remain runner-gated future slices | In Progress | 2026-07-03 |  |
 | CUA setup wizard runner integration | Platform wires INF-021 `site_setup.status` and `site_setup.complete` through the existing Python Kubernetes API Bench Command path, completed controlled Free Plan live E2E on kept Site `run-20260706-cua-134515.cloud.lmnaslens.com`, records sanitized display/action-log evidence, keeps args non-secret, and leaves OAuth/user/site-access for INF-022/INF-023 | Complete | 2026-07-06 | 2026-07-06 |
+| CUA OAuth runner integration | Platform consumes INF-022 `oauth.status` and `oauth.configure` through the Bench Command Python Kubernetes API path, owns the Platform OAuth Client, passes only non-secret Social Login Key fields in the request ConfigMap, mounts the client secret through a short-lived Kubernetes Secret, and cleans Job/ConfigMap/terminal Pod/Secret; live `oauth.status` passed, but `oauth.configure` is blocked by `LC-E2E-20260707-002` runner-side `RUNNER_FAILED` after successful short-lived Secret cleanup | Blocked | 2026-07-07 |  |
 | Customer dashboard and plan browsing UX | Customer portal is a guided launch home with Plan cards, friendly usage summaries, provisioning progress, and no runtime internals; implementation follows non-legacy Stitch artifacts under `docs/design/stitch_lenscloud_designs` | Complete | 2026-06-30 | 2026-06-30 |
 | Stitch customer portal UI rehaul | Free-first customer portal implements non-legacy Stitch flow: dashboard, Plan selection, Free checkout, provisioning states, ready/open Site, Sites, Account, desktop/mobile validation | Complete | 2026-06-30 | 2026-06-30 |
 | Customer guided activity correction | Replaced stacked Plan/setup/checkout sections with a true one-screen-at-a-time guided activity from Plan choice through Free checkout, provisioning, and Open Site | Complete | 2026-06-30 | 2026-06-30 |
@@ -88,18 +89,19 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Customer portal design track | Stitch brief and Frappe UI implementation contract cover responsive launch, failure, retry, and approval states | In Progress | 2026-06-25 |  |
 | Agent context and skill hygiene | `.agents` inventory is documented, Frappe UI skill is explicitly required only for UI work, stale MCP/skill claims are absent, and governance is linked from `AGENTS.md` | Complete | 2026-06-29 | 2026-06-29 |
 | Platform documentation structure | Docs are organized by purpose with root backlog, architecture, handoffs, evidence, SOPs, design, agents, decisions, archive, and compatibility stubs for legacy high-traffic paths | Complete | 2026-06-29 | 2026-06-29 |
+| Operator SOP sequencing discipline | `docs/operator-sop/README.md` is the canonical launch sequence map: cluster handoff, reset/baseline, Free-first E2E, Bench Command spot checks, lifecycle deep-dive, and legacy topology matrix; stale SOPs are labelled supporting references | Complete | 2026-07-07 | 2026-07-07 |
 
-## Execution Order
+## Current Execution Order
 
-1. Infra publishes the namespace-scoped lifecycle RBAC and protected-resource contract with host-side evidence.
-2. Platform adds ownership metadata to generated runtime manifests.
-3. Platform adds secret-safe runtime inventory and related-resource APIs.
-4. Platform implements asynchronous Site, Bench, and Database Server deletion with dependency checks, audit, and retry.
-5. Platform exposes inspect/delete/progress/retry actions in the platform workspace.
-6. Run migrations, backend tests, frontend build, authenticated Playwright, and positive/negative Python Kubernetes API permission preflight.
-7. Complete create, inspect, and delete acceptance without manager intervention.
-8. Resume sequential Private Shared and Private live acceptance and cleanup through Platform.
-9. Disable apply and update evidence, tracker, and handoff.
+The operator-facing sequence is canonical in `docs/operator-sop/README.md`. Current launch order:
+
+1. Platform test cluster handoff.
+2. Launch reset and baseline capture.
+3. Free-first Platform and Customer E2E acceptance.
+4. CUA slices inside the E2E SOP: `site_setup.status`, `site_setup.complete`, `oauth.status`, `oauth.configure`, then INF-023 user/site-access.
+5. Bench Command spot checks only when runner contracts change.
+6. Lifecycle deep-dive only when runtime lifecycle behavior changes.
+7. Multi-tier topology matrix after Free-first launch gates pass.
 
 ## Deferred
 
