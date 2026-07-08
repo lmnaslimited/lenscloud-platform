@@ -72,10 +72,15 @@ The Platform operator verifies the service can safely provision and observe the 
    - Bench.
 7. Confirm customer-facing flows cannot select Bench, Database Server, Runtime Namespace, Secret, or CR names.
 8. Confirm existing Customer, Subscription, Site, and Orchestration Action Log pages are visible to Platform users.
-9. Confirm protected resource rules still hold:
+9. Confirm metadata-driven administration regressions:
+   - Platform Settings opens directly as a singleton detail editor, with no list/new chrome, and respects DocType tabs, sections, and columns;
+   - Platform Privacy opens from Product and Delivery and allows authorized list/create/edit;
+   - Database Server and Bench create/edit label runtime placement as `Privacy`;
+   - choosing a Region in Database Server creation auto-populates the read-only Cluster from the DocType `fetch_from` rule.
+10. Confirm protected resource rules still hold:
    - `default/frappe-mariadb` is protected/read-only;
    - unlabelled, cross-namespace, cluster-scoped, and protected-resource operations are rejected.
-10. Record the Platform evidence:
+11. Record the Platform evidence:
    - Platform user;
    - timestamp;
    - Plan;

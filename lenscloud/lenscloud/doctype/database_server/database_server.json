@@ -88,6 +88,7 @@
    "reqd": 1
   },
   {
+   "fetch_from": "region.cluster",
    "fieldname": "cluster",
    "fieldtype": "Link",
    "in_list_view": 1,
@@ -100,7 +101,7 @@
    "fieldtype": "Link",
    "in_list_view": 1,
    "label": "Privacy",
-   "options": "Privacy Profile",
+   "options": "Privacy",
    "reqd": 1
   },
   {
@@ -316,7 +317,7 @@
    "link_fieldname": "database_server"
   }
  ],
- "modified": "2026-06-25 12:03:42.767462",
+ "modified": "2026-07-07 19:42:43.544647",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Database Server",

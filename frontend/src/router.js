@@ -5,7 +5,6 @@ import ShellLayout from '@/components/ShellLayout.vue'
 import AccessGatePage from '@/pages/AccessGatePage.vue'
 import DashboardPage from '@/pages/DashboardPage.vue'
 import ResourcePage from '@/pages/ResourcePage.vue'
-import PlatformSettingsPage from '@/pages/PlatformSettingsPage.vue'
 import CustomerAccountPage from '@/pages/CustomerAccountPage.vue'
 import CustomerCreateSitePage from '@/pages/CustomerCreateSitePage.vue'
 import CustomerPlansPage from '@/pages/CustomerPlansPage.vue'
@@ -63,13 +62,15 @@ const routes = [
 			{ path: 'landscapes/:name', name: 'platform-landscape-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'landscapes', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'site-control-profiles', name: 'platform-site-control-profiles', component: ResourcePage, props: { scope: 'platform', resourceKey: 'site-control-profiles', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'site-control-profiles/:name', name: 'platform-site-control-profile-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'site-control-profiles', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'privacy', name: 'platform-privacy', component: ResourcePage, props: { scope: 'platform', resourceKey: 'privacy', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'privacy/:name', name: 'platform-privacy-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'privacy', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'privacy-profiles', name: 'platform-privacy-profiles', component: ResourcePage, props: { scope: 'platform', resourceKey: 'privacy-profiles', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'privacy-profiles/:name', name: 'platform-privacy-profile-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'privacy-profiles', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'environment-test-runs', name: 'platform-environment-test-runs', component: ResourcePage, props: { scope: 'platform', resourceKey: 'environment-test-runs', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'environment-test-runs/:name', name: 'platform-environment-test-run-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'environment-test-runs', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'orchestration-logs', name: 'platform-orchestration-logs', component: ResourcePage, props: { scope: 'platform', resourceKey: 'orchestration-logs', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'orchestration-logs/:name', name: 'platform-orchestration-log-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'orchestration-logs', mode: 'detail' }, meta: { scope: 'platform' } },
-			{ path: 'settings', name: 'platform-settings', component: PlatformSettingsPage, meta: { scope: 'platform' } },
+			{ path: 'settings', name: 'platform-settings', component: ResourcePage, props: { scope: 'platform', resourceKey: 'settings', mode: 'detail' }, meta: { scope: 'platform' } },
 		],
 	},
 	{

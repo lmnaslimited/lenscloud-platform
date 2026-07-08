@@ -107,6 +107,7 @@ def _editor_field(df):
         "default": df.default,
         "description": df.description,
         "collapsible": bool(df.collapsible),
+        "fetch_from": df.fetch_from,
     }
     if df.fieldtype in {"Table", "Table MultiSelect"} and df.options:
         child = frappe.get_meta(df.options)
@@ -138,6 +139,10 @@ def get_doctype_editor_schema(doctype):
         "can_read": bool(frappe.has_permission(doctype, "read")),
         "can_create": bool(frappe.has_permission(doctype, "create")),
         "can_write": bool(frappe.has_permission(doctype, "write")),
+        "can_submit": bool(frappe.has_permission(doctype, "submit")),
+        "can_cancel": bool(frappe.has_permission(doctype, "cancel")),
+        "can_amend": bool(frappe.has_permission(doctype, "amend")),
+        "can_delete": bool(frappe.has_permission(doctype, "delete")),
         "links": [
             {
                 "group": link.group or "Related",
@@ -161,6 +166,19 @@ def _connection_preview_fields(meta):
         if df.in_list_view and df.fieldtype not in _LAYOUT_FIELDTYPES | {"Table", "Table MultiSelect"}:
             fields.append(df.fieldname)
     return list(dict.fromkeys(fields))
+
+
+@frappe.whitelist()
+def get_link_field_value(doctype, name, fieldname):
+    require_platform()
+    meta = frappe.get_meta(doctype)
+    if meta.module != "Lenscloud":
+        frappe.throw(_("Only LensCloud documents are available."), frappe.PermissionError)
+    if not meta.has_field(fieldname) and fieldname != "name":
+        frappe.throw(_("Field {0} is not available on {1}.").format(fieldname, doctype))
+    doc = frappe.get_doc(doctype, name)
+    doc.check_permission("read")
+    return {"value": doc.name if fieldname == "name" else doc.get(fieldname)}
 
 
 @frappe.whitelist()

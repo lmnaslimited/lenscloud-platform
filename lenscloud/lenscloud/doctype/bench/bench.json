@@ -95,7 +95,7 @@
    "fieldname": "privacy",
    "fieldtype": "Link",
    "label": "Privacy",
-   "options": "Privacy Profile"
+   "options": "Privacy"
   },
   {
    "fieldname": "cluster_runtime_target",

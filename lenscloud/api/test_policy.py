@@ -146,6 +146,12 @@ class TestTopologyPolicy(FrappeTestCase):
         cluster_tabs = [field["label"] for field in get_doctype_editor_schema("Cluster")["fields"] if field["fieldtype"] == "Tab Break"]
         self.assertEqual(cluster_tabs, ["Access and Operations", "Operator Defaults", "Health"])
 
+        self.assertTrue(plan["is_submittable"])
+        self.assertIn("can_submit", plan)
+        self.assertIn("can_cancel", plan)
+        self.assertIn("can_amend", plan)
+        self.assertIn("can_delete", plan)
+
         customer_types = [field["fieldtype"] for field in get_doctype_editor_schema("Customer")["fields"]]
         settings_types = [field["fieldtype"] for field in get_doctype_editor_schema("Platform Settings")["fields"]]
         self.assertIn("Column Break", customer_types)

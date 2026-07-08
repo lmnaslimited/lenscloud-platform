@@ -1010,8 +1010,12 @@ export const platformSettings = {
 	label: 'Platform Settings',
 	doctype: 'Platform Settings',
 	route: '/platform/settings',
+	detailRoute: () => '/platform/settings',
 	icon: Settings2,
 	editable: true,
+	singleton: true,
+	singletonName: 'Platform Settings',
+	listHelp: 'Global LensCloud settings rendered from the Platform Settings DocType metadata.',
 	summaryFields: [
 		{ key: 'default_plan', label: 'Default plan', ...linkField('Plan', ['title', 'plan_code']) },
 		{ key: 'operator_namespace', label: 'Operator namespace' },
@@ -1192,11 +1196,11 @@ export const customerNav = [
 ]
 
 export function getResourceByKey(key) {
-	return [...platformResources, ...customerResources].find((resource) => resource.key === key) || null
+	return [...platformResources, platformSettings, ...customerResources].find((resource) => resource.key === key) || null
 }
 
 export function getResourceByDoctype(doctype) {
-	return [...platformResources, ...customerResources].find((resource) => resource.doctype === doctype) || null
+	return [...platformResources, platformSettings, ...customerResources].find((resource) => resource.doctype === doctype) || null
 }
 
 export function getRoutesForScope(scope) {

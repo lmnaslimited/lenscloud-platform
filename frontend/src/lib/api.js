@@ -116,6 +116,11 @@ export async function getDoc(doctype, name) {
 	return response.data || response.message || response
 }
 
+export async function getLinkFieldValue(doctype, name, fieldname) {
+	const response = await callMethod('lenscloud.api.launch.get_link_field_value', { doctype, name, fieldname })
+	return response.message || response.data || response
+}
+
 export async function saveDoc(doctype, name, payload) {
 	const response = await request(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`, {
 		method: 'PUT',
@@ -141,6 +146,11 @@ export async function submitDoc(doc) {
 
 export async function cancelDoc(doctype, name) {
 	const response = await callMethod('frappe.client.cancel', { doctype, name }, 'POST')
+	return response.message || response.data || response
+}
+
+export async function deleteDoc(doctype, name) {
+	const response = await callMethod('frappe.client.delete', { doctype, name }, 'POST')
 	return response.message || response.data || response
 }
 

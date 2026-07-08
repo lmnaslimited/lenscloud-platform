@@ -11,6 +11,7 @@ Plans describe the customer offer. A Subscription freezes the selected Plan's La
 - **Landscape**: a versioned ordered set of Environment and Site Control Profile rows.
 - **Privacy**: first-class privacy family master data, such as Public, Private Shared, or Private.
 - **Privacy Profile**: submitted policy document linked to Privacy with independent Bench and Database boundaries per Environment.
+- **Runtime Privacy**: Bench and Database Server runtime records store the resolved `Privacy` family (`Public`, `Private Shared`, or `Private`), not the `Privacy Profile` document. The profile is consumed during Plan/Subscription policy resolution and snapshotting; runtime placement and namespace filtering use the family value.
 - **Plan**: Release Group, Landscape, allowed/default Privacy Profile, availability, and limits.
 - **Subscription**: Customer, Plan, Region, approval state, immutable policy JSON, and policy hash.
 - **Site**: belongs to one Subscription and Environment. Only one non-deleted Site is permitted per pair.

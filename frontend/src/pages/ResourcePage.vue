@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { Alert, Autocomplete, Badge, Button, Dropdown, FormControl, ListHeader, ListHeaderItem, ListRows, ListView, Popover, Tabs, TextInput } from 'frappe-ui'
-import { listDocs, getDoc, saveDoc, createDoc, submitDoc, cancelDoc, callMethod, formatFieldValue } from '@/lib/api'
+import { listDocs, getDoc, saveDoc, createDoc, submitDoc, cancelDoc, deleteDoc, callMethod, getLinkFieldValue, formatFieldValue } from '@/lib/api'
 import { getResourceByDoctype, getResourceByKey, platformSettings } from '@/lib/catalog'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -55,6 +55,7 @@ const actionFailure = ref(null)
 
 const selectedName = computed(() => route.params.name || record.value?.name || '')
 const isTreeResource = computed(() => Boolean(resource.value?.tree))
+const isSingletonResource = computed(() => Boolean(resource.value?.singleton))
 
 const listColumns = computed(() => {
 	if (!resource.value) return []
@@ -70,8 +71,11 @@ const listColumns = computed(() => {
 
 const allResourceFields = computed(() => {
 	if (!resource.value) return []
+	const nameField = resource.value.singleton
+		? { key: 'name', label: 'Name', type: 'text' }
+		: { key: 'name', label: 'Name', type: 'link', options: resource.value.doctype }
 	const fields = [
-		{ key: 'name', label: 'Name', type: 'link', options: resource.value.doctype },
+		nameField,
 		...(resource.value.summaryFields || []),
 		...(resource.value.detailFields || []),
 		...(resource.value.lifecycleFields || []),
@@ -394,6 +398,7 @@ function schemaFieldToUi(field, override = {}) {
 		required: Boolean(field.required), readOnly: Boolean(field.read_only), default: field.default,
 		description: field.description || '', collapsible: Boolean(field.collapsible),
 		targetIsSubmittable: Boolean(field.target_is_submittable),
+		fetchFrom: field.fetch_from || '',
 	}
 	if (type === 'select') value.options = String(field.options || '').split('\n').filter(Boolean)
 	else if (type === 'link') value.options = field.options
@@ -413,13 +418,14 @@ const editorLayoutFields = computed(() => {
 const existingEditorLayoutFields = computed(() => editorLayoutFields.value.filter((field) => field.key !== namingField.value))
 const documentLifecycleFields = computed(() => editorLayoutFields.value.filter((field) => !['section_break', 'column_break', 'tab_break'].includes(field.type)))
 const lifecycleFieldMap = computed(() => new Map(documentLifecycleFields.value.map((field) => [field.key, field])))
-const canCreateDocument = computed(() => props.scope === 'platform' && Boolean(resource.value?.creatable ?? editorMeta.value.can_create))
+const canCreateDocument = computed(() => props.scope === 'platform' && !isSingletonResource.value && Boolean(resource.value?.creatable ?? editorMeta.value.can_create))
 const isSubmittableDocument = computed(() => Boolean(resource.value?.submittable ?? editorMeta.value.is_submittable))
 const canOpenDocumentEditor = computed(() => Boolean(record.value && (editorMeta.value.can_read || editorMeta.value.can_write || resource.value?.editable)))
 const canEditDocument = computed(() => Boolean(resource.value?.editable ?? editorMeta.value.can_write) && (!isSubmittableDocument.value || Number(record.value?.docstatus || 0) === 0))
-const canSubmitDocument = computed(() => Boolean(isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 0))
-const canCancelDocument = computed(() => Boolean(isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 1))
-const canAmendDocument = computed(() => Boolean(isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 2))
+const canSubmitDocument = computed(() => Boolean(editorMeta.value.can_submit && isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 0))
+const canCancelDocument = computed(() => Boolean(editorMeta.value.can_cancel && isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 1))
+const canAmendDocument = computed(() => Boolean(editorMeta.value.can_amend && canCreateDocument.value && isSubmittableDocument.value && record.value && Number(record.value.docstatus || 0) === 2))
+const canDeleteDocument = computed(() => Boolean(editorMeta.value.can_delete && record.value && !resource.value?.singleton && (!isSubmittableDocument.value || Number(record.value.docstatus || 0) !== 1)))
 const documentStatusLabel = computed(() => {
 	if (!isSubmittableDocument.value) return record.value ? 'Saved' : 'No document'
 	const status = Number(record.value?.docstatus || 0)
@@ -706,6 +712,11 @@ async function loadSettingsContext() {
 async function loadList() {
 	if (!resource.value) return
 
+	if (resource.value.singleton) {
+		records.value = [{ name: resource.value.singletonName || resource.value.doctype }]
+		return
+	}
+
 	const filters = []
 	if (resource.value.customerScoped) {
 		const customer = await loadCustomerContext()
@@ -756,6 +767,11 @@ async function loadDetail(name) {
 		throw new Error('This site is not linked to your customer record.')
 	}
 
+	if (resource.value.singleton) {
+		related.value = []
+		return
+	}
+
 	const response = await callMethod('lenscloud.api.launch.get_document_connections', { doctype: resource.value.doctype, name: record.value.name })
 	related.value = (response.message || response || []).map((relation) => ({
 		...relation,
@@ -781,9 +797,9 @@ async function load() {
 		await loadEditorSchema()
 		await Promise.all([loadList(), loadSettingsContext(), loadFieldOptions()])
 		applyRouteFilter()
-		const previewName = route.params.name || ''
+		const previewName = resource.value?.singleton ? (resource.value.singletonName || resource.value.doctype) : (route.params.name || '')
 		await loadDetail(previewName)
-		if (!previewName) record.value = null
+		if (!previewName && !resource.value?.singleton) record.value = null
 	} catch (err) {
 		error.value = err?.message || 'Unable to load records.'
 	} finally {
@@ -1127,14 +1143,47 @@ function canClearField(model, field) {
 
 function clearModelField(model, field) {
 	model[field.key] = ''
+	applyFetchFromForField(model, field.key)
+}
+
+function fetchTargetsForSource(sourceKey) {
+	return documentLifecycleFields.value.filter((field) => {
+		const [linkField, linkedField] = String(field.fetchFrom || '').split('.')
+		return linkField === sourceKey && linkedField
+	})
+}
+
+async function applyFetchFromForField(model, sourceKey) {
+	const sourceField = lifecycleFieldMap.value.get(sourceKey)
+	if (!sourceField?.options) return
+	const sourceValue = model[sourceKey]
+	for (const targetField of fetchTargetsForSource(sourceKey)) {
+		const linkedField = String(targetField.fetchFrom || '').split('.')[1]
+		if (!sourceValue) {
+			model[targetField.key] = ''
+			continue
+		}
+		try {
+			const result = await getLinkFieldValue(sourceField.options, sourceValue, linkedField)
+			model[targetField.key] = result?.value ?? ''
+		} catch {
+			model[targetField.key] = ''
+		}
+	}
 }
 
 function updateModelField(model, field, value) {
 	if (field.type === 'link') {
 		model[field.key] = value || ''
-		return
+	} else {
+		model[field.key] = value
 	}
-	model[field.key] = value
+	applyFetchFromForField(model, field.key)
+}
+
+function handleDocumentFieldUpdate(model, event) {
+	if (!event?.field) return
+	applyFetchFromForField(model, event.field)
 }
 
 function cloneFieldValue(value) {
@@ -1217,8 +1266,30 @@ async function cancelCurrentRecord() {
 }
 
 function amendCurrentRecord() {
-	if (!record.value || !resource.value) return
+	if (!record.value || !resource.value || !canAmendDocument.value) return
 	startCreate({ ...record.value, amended_from: record.value.name })
+}
+
+async function deleteCurrentRecord() {
+	if (!record.value || !resource.value || !canDeleteDocument.value) return
+	const documentName = record.value.name
+	if (!window.confirm(`Delete ${resource.value.doctype} ${documentName}? This uses Frappe document delete permissions and cannot be undone.`)) return
+
+	lifecycleState.value = 'deleting'
+	error.value = null
+	try {
+		await deleteDoc(resource.value.doctype, documentName)
+		record.value = null
+		related.value = []
+		lifecycleState.value = 'deleted'
+		await loadList()
+		if (route.params.name) {
+			await router.push(resource.value.detailRoute('').replace(/\/$/, ''))
+		}
+	} catch (err) {
+		lifecycleState.value = 'error'
+		error.value = err?.message || 'Unable to delete document.'
+	}
 }
 
 async function saveCurrentRecord() {
@@ -1269,6 +1340,7 @@ async function discardCurrentEdits() {
 }
 
 async function closeCenterEditor() {
+	if (isSingletonResource.value) return
 	if (!confirmRecordSwitch()) return
 	editorExpanded.value = false
 	record.value = null
@@ -1314,8 +1386,8 @@ function resizeEditorByKeyboard(event) {
 	>
 		<template #actions>
 			<Button v-if="canCreateDocument" variant="subtle" @click="startCreate()">New {{ resource.label.replace(/s$/, '') }}</Button>
-			<Badge class="bg-surface-gray-2 text-ink-gray-6">{{ displayMode === 'tree' && isTreeResource ? 'Tree view' : (mode === 'detail' ? 'Detail view' : 'List view') }}</Badge>
-			<Button variant="subtle" @click="load">Refresh</Button>
+			<Badge v-if="!isSingletonResource" class="bg-surface-gray-2 text-ink-gray-6">{{ displayMode === 'tree' && isTreeResource ? 'Tree view' : (mode === 'detail' ? 'Detail view' : 'List view') }}</Badge>
+			<Button v-if="!isSingletonResource" variant="subtle" @click="load">Refresh</Button>
 		</template>
 
 		<template #main>
@@ -1331,7 +1403,7 @@ function resizeEditorByKeyboard(event) {
 						<Badge v-if="createForm.amended_from" class="bg-amber-50 text-amber-700">Amending {{ createForm.amended_from }}</Badge>
 					</div>
 
-					<div class="mt-4"><DocumentLayoutEditor :fields="editorLayoutFields" :model="createForm" :control-props="fieldControlProps" /></div>
+					<div class="mt-4"><DocumentLayoutEditor :fields="editorLayoutFields" :model="createForm" :control-props="fieldControlProps" @update:field="(event) => handleDocumentFieldUpdate(createForm, event)" /></div>
 
 					<div class="mt-4 flex flex-wrap items-center gap-2 border-t border-outline-gray-2 pt-3">
 						<Button :disabled="lifecycleState === 'creating'" @click="createCurrentRecord">{{ lifecycleState === 'creating' ? 'Creating...' : 'Create document' }}</Button>
@@ -1342,7 +1414,7 @@ function resizeEditorByKeyboard(event) {
 				</div>
 
 				<div v-else class="relative flex min-h-0 flex-1 flex-col overflow-hidden rounded border border-outline-gray-2 bg-surface-white" data-resource-split>
-				<div class="shrink-0 border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
+				<div v-if="!isSingletonResource" class="shrink-0 border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2">
 					<div class="flex flex-wrap items-center justify-between gap-2">
 						<div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
 							<TextInput v-model="searchQuery" class="max-w-xs" variant="subtle" :placeholder="displayMode === 'tree' ? 'Search tree' : 'Search list'">
@@ -1404,9 +1476,9 @@ function resizeEditorByKeyboard(event) {
 					</div>
 				</div>
 
-				<div v-if="loading" class="px-4 py-3 text-sm text-ink-gray-5">Loading records...</div>
+				<div v-if="loading && !isSingletonResource" class="px-4 py-3 text-sm text-ink-gray-5">Loading records...</div>
 
-				<div v-else-if="displayMode === 'tree' && isTreeResource" class="min-h-0 flex-1 overflow-auto">
+				<div v-else-if="!isSingletonResource && displayMode === 'tree' && isTreeResource" class="min-h-0 flex-1 overflow-auto">
 					<div v-if="!treeRows.length" class="flex h-full flex-col items-center justify-center px-4 text-center">
 						<div class="grid size-9 place-items-center rounded bg-surface-gray-2 text-ink-gray-5">
 							<FolderTree class="size-4" />
@@ -1446,7 +1518,7 @@ function resizeEditorByKeyboard(event) {
 				</div>
 
 				<ListView
-					v-else
+					v-else-if="!isSingletonResource"
 					class="min-h-0 flex-1"
 					:columns="listColumns"
 					:rows="visibleRecords"
@@ -1502,11 +1574,11 @@ function resizeEditorByKeyboard(event) {
 					v-if="record && canOpenDocumentEditor"
 					data-testid="center-document-editor"
 					class="shrink-0 overflow-hidden border-t border-outline-gray-2 bg-surface-white max-lg:absolute max-lg:inset-0 max-lg:z-40 max-lg:!h-full max-lg:border-t-0"
-					:class="editorExpanded ? 'absolute inset-0 z-40 h-full border-t-0' : ''"
-					:style="editorExpanded ? {} : { height: `${editorHeight}%` }"
+					:class="(editorExpanded || isSingletonResource) ? 'absolute inset-0 z-40 h-full border-t-0' : ''"
+					:style="(editorExpanded || isSingletonResource) ? {} : { height: `${editorHeight}%` }"
 				>
 					<div
-						v-if="!editorExpanded"
+						v-if="!editorExpanded && !isSingletonResource"
 						role="separator"
 						tabindex="0"
 						aria-label="Resize document editor"
@@ -1516,14 +1588,14 @@ function resizeEditorByKeyboard(event) {
 						@keydown="resizeEditorByKeyboard"
 					><span class="h-0.5 w-10 rounded bg-ink-gray-3 group-hover:bg-blue-500"></span></div>
 
-					<header class="flex h-14 items-center justify-between gap-3 border-b border-outline-gray-2 px-4">
+					<header class="flex min-h-14 flex-wrap items-center justify-between gap-3 border-b border-outline-gray-2 px-4 py-2">
 						<div class="min-w-0"><div class="flex items-center gap-2"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ canEditDocument ? 'Editing' : 'Viewing' }} {{ resource.doctype }}: {{ record.title || record.first_name || record.name }}</p><Badge v-if="hasUnsavedChanges" class="shrink-0 bg-amber-50 text-amber-700">Unsaved</Badge><Badge v-else class="shrink-0 bg-surface-gray-1 text-ink-gray-6">{{ documentStatusLabel }}</Badge></div><p class="mt-0.5 truncate text-xs text-ink-gray-5">{{ canEditDocument ? 'Parent fields and child tables save together as one Frappe document.' : 'Submitted and cancelled documents are shown read-only. Use Amend to create the next editable document.' }}</p></div>
-						<div class="flex shrink-0 items-center gap-2"><Button v-if="canRenameDocument" size="sm" variant="subtle" :disabled="hasUnsavedChanges" @click="startRenameDocument">Rename</Button><Button size="sm" variant="subtle" :disabled="!hasUnsavedChanges || saveState === 'saving'" @click="discardCurrentEdits">Discard</Button><Button size="sm" :disabled="!canEditDocument || saveState === 'saving'" @click="saveCurrentRecord">{{ saveState === 'saving' ? 'Saving...' : 'Save' }}</Button><button type="button" :aria-label="editorExpanded ? 'Restore split editor' : 'Expand editor'" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="editorExpanded = !editorExpanded"><component :is="editorExpanded ? Minimize2 : Maximize2" class="size-4" /></button><button type="button" aria-label="Close editor" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="closeCenterEditor"><X class="size-4" /></button></div>
+						<div class="flex shrink-0 flex-wrap items-center justify-end gap-2"><Button v-if="canRenameDocument" size="sm" variant="subtle" :disabled="hasUnsavedChanges" @click="startRenameDocument">Rename</Button><Button v-if="canSubmitDocument" size="sm" variant="subtle" :disabled="hasUnsavedChanges || lifecycleState === 'submitting'" @click="submitCurrentRecord">{{ lifecycleState === 'submitting' ? 'Submitting...' : 'Submit' }}</Button><Button v-if="canCancelDocument" size="sm" variant="subtle" :disabled="lifecycleState === 'cancelling'" @click="cancelCurrentRecord">{{ lifecycleState === 'cancelling' ? 'Cancelling...' : 'Cancel' }}</Button><Button v-if="canAmendDocument" size="sm" variant="subtle" @click="amendCurrentRecord">Amend</Button><Button v-if="canDeleteDocument" size="sm" variant="subtle" theme="red" :disabled="lifecycleState === 'deleting'" @click="deleteCurrentRecord">{{ lifecycleState === 'deleting' ? 'Deleting...' : 'Delete' }}</Button><Button size="sm" variant="subtle" :disabled="!hasUnsavedChanges || saveState === 'saving'" @click="discardCurrentEdits">Discard</Button><Button size="sm" :disabled="!canEditDocument || saveState === 'saving'" @click="saveCurrentRecord">{{ saveState === 'saving' ? 'Saving...' : 'Save' }}</Button><button type="button" :aria-label="editorExpanded ? 'Restore split editor' : 'Expand editor'" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="editorExpanded = !editorExpanded"><component :is="editorExpanded ? Minimize2 : Maximize2" class="size-4" /></button><button v-if="!isSingletonResource" type="button" aria-label="Close editor" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1 focus:outline-none focus:ring-2 focus:ring-blue-500" @click="closeCenterEditor"><X class="size-4" /></button></div>
 					</header>
 
 					<div v-if="renameMode" class="flex flex-wrap items-end gap-2 border-b border-blue-200 bg-blue-50 px-4 py-3"><TextInput v-model="renameValue" class="min-w-72" label="New document name" placeholder="New document name" /><Button size="sm" :disabled="renameState === 'renaming' || !renameValue.trim()" @click="renameCurrentDocument">{{ renameState === 'renaming' ? 'Renaming...' : 'Confirm rename' }}</Button><Button size="sm" variant="ghost" @click="renameMode = false">Cancel</Button><p class="w-full text-xs text-blue-700">Frappe updates links and the field-based document title through its rename workflow.</p></div>
 					<div class="h-[calc(100%-3.5rem)] overflow-y-auto p-4">
-						<DocumentLayoutEditor :fields="existingEditorLayoutFields" :model="formState" :control-props="fieldControlProps" :disabled="!canEditDocument" />
+						<DocumentLayoutEditor :fields="existingEditorLayoutFields" :model="formState" :control-props="fieldControlProps" :disabled="!canEditDocument" @update:field="(event) => handleDocumentFieldUpdate(formState, event)" />
 					</div>
 				</section>
 				</div>
@@ -1603,10 +1675,12 @@ function resizeEditorByKeyboard(event) {
 								<Button size="sm" variant="subtle" :disabled="!canSubmitDocument || lifecycleState === 'submitting'" @click="submitCurrentRecord">Submit</Button>
 								<Button size="sm" variant="subtle" :disabled="!canCancelDocument || lifecycleState === 'cancelling'" @click="cancelCurrentRecord">Cancel</Button>
 								<Button size="sm" variant="subtle" :disabled="!canAmendDocument" @click="amendCurrentRecord">Amend</Button>
+								<Button size="sm" variant="subtle" theme="red" :disabled="!canDeleteDocument || lifecycleState === 'deleting'" @click="deleteCurrentRecord">Delete</Button>
 							</div>
 							<div class="mt-3 flex flex-wrap gap-2 border-t border-outline-gray-2 pt-3">
 								<Badge v-if="lifecycleState === 'submitted'" class="bg-emerald-50 text-emerald-700">Submitted</Badge>
 								<Badge v-else-if="lifecycleState === 'cancelled'" class="bg-amber-50 text-amber-700">Cancelled</Badge>
+								<Badge v-else-if="lifecycleState === 'deleted'" class="bg-surface-gray-2 text-ink-gray-6">Deleted</Badge>
 								<Badge v-else-if="lifecycleState === 'error'" class="bg-red-50 text-red-700">Lifecycle failed</Badge>
 								<Badge v-else class="bg-surface-gray-2 text-ink-gray-6">{{ lifecycleState }}</Badge>
 							</div>

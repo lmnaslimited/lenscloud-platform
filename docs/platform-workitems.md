@@ -38,6 +38,8 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Launch tenant and runtime reset | Test tenants and exactly owned runtime resources are retired while Cluster handoff data and protected infrastructure remain intact | In Progress | 2026-06-25 |  |
 | Metadata-driven permissions and connections | Create/edit rights and related-document summaries come from DocType permissions/links; counts open filtered lists | Complete | 2026-06-25 | 2026-06-25 |
 | Metadata-driven document editor | Center editing follows DocType tabs, sections, columns, Table, and Table MultiSelect metadata with compact Frappe-style controls | Complete | 2026-06-25 | 2026-06-25 |
+| Platform metadata admin incident fixes | Platform Settings uses the shared metadata editor, Privacy has a first-class Platform route, Database Server runtime privacy stays first-class Privacy, and generic DocField `fetch_from` is honored in the SPA editor | Complete | 2026-07-07 | 2026-07-07 |
+| Runtime privacy family metadata correction | Bench and Database Server runtime `privacy` fields link to first-class Privacy family records while Plans and Subscriptions continue to use submitted Privacy Profiles for policy snapshots | Complete | 2026-07-07 | 2026-07-07 |
 | Center document and child-table editor | Selected documents edit below the list or expanded in the center; child grids use fixed columns and horizontal scrolling | Complete | 2026-06-25 | 2026-06-25 |
 | Platform topology child-table editing | Operators can configure Plan privacy choices, Landscape environments, Privacy rules, and Site settings with typed value help and safe row operations | Complete | 2026-06-25 | 2026-06-25 |
 | Configurable environment and landscape model | Dev, QA, Pre-Prod, and Prod compose versioned Single through Four Tier landscapes with safe Site controls | In Progress | 2026-06-25 |  |
@@ -89,6 +91,7 @@ All Platform product, UI, and operator-workflow scope starts in this file first.
 | Customer portal design track | Stitch brief and Frappe UI implementation contract cover responsive launch, failure, retry, and approval states | In Progress | 2026-06-25 |  |
 | Agent context and skill hygiene | `.agents` inventory is documented, Frappe UI skill is explicitly required only for UI work, stale MCP/skill claims are absent, and governance is linked from `AGENTS.md` | Complete | 2026-06-29 | 2026-06-29 |
 | Platform documentation structure | Docs are organized by purpose with root backlog, architecture, handoffs, evidence, SOPs, design, agents, decisions, archive, and compatibility stubs for legacy high-traffic paths | Complete | 2026-06-29 | 2026-06-29 |
+| Native document lifecycle actions | Shared Platform document editor exposes Frappe-native submit, cancel, amend, and delete actions using DocPerm and framework APIs for submittable/config documents | Complete | 2026-07-07 | 2026-07-08 |
 | Operator SOP sequencing discipline | `docs/operator-sop/README.md` is the canonical launch sequence map: cluster handoff, reset/baseline, Free-first E2E, Bench Command spot checks, lifecycle deep-dive, and legacy topology matrix; stale SOPs are labelled supporting references | Complete | 2026-07-07 | 2026-07-07 |
 
 ## Current Execution Order
