@@ -326,7 +326,7 @@ class TestRuntimeLifecycle(FrappeTestCase):
 	@patch("lenscloud.api.orchestration.frappe.get_doc", return_value=SimpleNamespace(name="eu", default_runtime_namespace="lenscloud-runtime-eu", kubeconfig_reference="file:/run/secrets/lenscloud-eu.kubeconfig"))
 	def test_permission_preflight_uses_python_client_contract(self, _get_doc, get_cluster_client):
 		client = get_cluster_client.return_value.__enter__.return_value
-		client.can_i.side_effect = lambda verb, group, resource, namespace=None: (False, "denied") if (verb, resource) in {("list", "secrets"), ("delete", "namespaces"), ("delete", "customresourcedefinitions")} or namespace == "default" and verb in {"patch", "delete"} else (True, "allowed")
+		client.can_i.side_effect = lambda verb, group, resource, namespace=None: (False, "denied") if (verb, resource) in {("list", "secrets"), ("delete", "namespaces"), ("delete", "customresourcedefinitions"), ("get", "pods")} or namespace == "default" and verb in {"patch", "delete"} else (True, "allowed")
 		result = check_cluster_permissions("eu")
 		self.assertTrue(result["all_required_allowed"])
 		self.assertTrue(result["all_denied_blocked"])

@@ -63,6 +63,8 @@ When an incident is opened, the tester must update these artifacts before moving
 3. `docs/platform-workitems.md` row if the failure changes launch scope or status.
 4. Follow-up prompt file, named with the incident ID and short topic, for example `docs/handoffs/platform/e2e-resume-LC-E2E-YYYYMMDD-NNN-<topic>.md`.
 
+If the failure originates from a misaligned Platform validation check against an Infra handoff contract, the incident remains Platform-owned. The follow-up prompt must cite the Infra evidence or handoff contract, the exact mismatched gate expectation, and the next fix/retest steps for the Platform team.
+
 The follow-up prompt must include:
 
 - incident ID, owner, severity, scenario ID, and status;

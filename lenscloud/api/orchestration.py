@@ -1308,11 +1308,19 @@ def check_cluster_permissions(cluster):
 	denied_checks = []
 	with get_cluster_client(doc) as client:
 		for kind, (group, _version, plural) in RESOURCE_PATHS.items():
-			for verb in ("get", "list", "patch", "delete"):
+			for verb in ("get", "list", "create", "patch", "delete"):
 				allowed, reason = client.can_i(verb, group, plural, runtime_namespace)
 				checks.append({"kind": kind, "verb": verb, "group": group, "resource": plural, "namespace": runtime_namespace, "allowed": allowed, "reason": reason})
-		for resource, group in (("pods", ""), ("services", ""), ("persistentvolumeclaims", ""), ("events", ""), ("jobs", "batch"), ("ingresses", "networking.k8s.io")):
-			for verb in ("get", "list"):
+		for resource, group, verbs in (
+			("pods", "", ("list", "delete")),
+			("services", "", ("get", "list")),
+			("persistentvolumeclaims", "", ("get", "list", "delete")),
+			("events", "", ("get", "list")),
+			("jobs", "batch", ("create", "get", "list", "delete")),
+			("ingresses", "networking.k8s.io", ("get", "list")),
+			("configmaps", "", ("create", "list", "delete")),
+		):
+			for verb in verbs:
 				allowed, reason = client.can_i(verb, group, resource, runtime_namespace)
 				checks.append({"kind": resource, "verb": verb, "group": group, "resource": resource, "namespace": runtime_namespace, "allowed": allowed, "reason": reason})
 		for verb in ("get", "create", "delete"):
