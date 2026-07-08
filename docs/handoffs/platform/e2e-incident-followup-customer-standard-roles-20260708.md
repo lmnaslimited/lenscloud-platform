@@ -26,3 +26,8 @@ Without these records, Platform Settings cannot select default customer role pro
 - Run `bench --site dev.localhost run-tests --module lenscloud.api.test_customer_identity`.
 - Confirm the Role and Role Profile records exist after seeding.
 - Close this incident only after evidence is recorded.
+
+
+## 2026-07-08 Reopen
+
+A fresh Platform migrate failed in `after_migrate` while inserting `Role Profile`. Frappe `RoleProfile.on_update` queues `update_all_users`; during migrate this can raise `DocumentLockedError`. The fix must seed these standard setup records without triggering Role Profile controller queue locks, then rerun both customer identity tests and a real migrate.

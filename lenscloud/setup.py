@@ -158,18 +158,32 @@ def _ensure_role(role_name):
     return role_name
 
 
+def _insert_setup_doc(doc):
+    # Setup seeds must not trigger Role Profile queue_action locks during migrate.
+    doc.flags.ignore_permissions = True
+    doc.db_insert()
+    return doc
+
+
 def _ensure_role_profile(profile_name, role_name):
     _ensure_role(role_name)
-    if frappe.db.exists("Role Profile", profile_name):
-        doc = frappe.get_doc("Role Profile", profile_name)
-    else:
-        doc = frappe.get_doc({"doctype": "Role Profile", "role_profile": profile_name})
-        doc.insert(ignore_permissions=True)
-    existing_roles = [row.role for row in (doc.get("roles") or [])]
-    if role_name not in existing_roles:
-        doc.append("roles", {"role": role_name})
-        doc.save(ignore_permissions=True)
-    return doc.name
+    if not frappe.db.exists("Role Profile", profile_name):
+        _insert_setup_doc(frappe.get_doc({
+            "doctype": "Role Profile",
+            "name": profile_name,
+            "role_profile": profile_name,
+        }))
+    if not frappe.db.exists("Has Role", {"parenttype": "Role Profile", "parent": profile_name, "role": role_name}):
+        _insert_setup_doc(frappe.get_doc({
+            "doctype": "Has Role",
+            "parenttype": "Role Profile",
+            "parent": profile_name,
+            "parentfield": "roles",
+            "idx": 1,
+            "role": role_name,
+        }))
+    frappe.clear_cache(doctype="Role Profile")
+    return profile_name
 
 
 def seed_customer_role_profiles():
