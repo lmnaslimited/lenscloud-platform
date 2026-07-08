@@ -122,6 +122,10 @@ def seed_free_plan():
     doc.save(ignore_permissions=True)
 
 
+DEFAULT_CUSTOMER_ADMIN_ROLE_PROFILE = "LensCloud Customer Admin"
+DEFAULT_CUSTOMER_MEMBER_ROLE_PROFILE = "LensCloud Customer Member"
+
+
 def seed_sidebar():
     title = "LensCloud Platform"
     doc = frappe.get_doc("Workspace Sidebar", title) if frappe.db.exists("Workspace Sidebar", title) else frappe.new_doc("Workspace Sidebar")
@@ -148,8 +152,34 @@ def seed_sidebar():
         doc.save(ignore_permissions=True)
 
 
+def _ensure_role(role_name):
+    if not frappe.db.exists("Role", role_name):
+        frappe.get_doc({"doctype": "Role", "role_name": role_name}).insert(ignore_permissions=True)
+    return role_name
+
+
+def _ensure_role_profile(profile_name, role_name):
+    _ensure_role(role_name)
+    if frappe.db.exists("Role Profile", profile_name):
+        doc = frappe.get_doc("Role Profile", profile_name)
+    else:
+        doc = frappe.get_doc({"doctype": "Role Profile", "role_profile": profile_name})
+        doc.insert(ignore_permissions=True)
+    existing_roles = [row.role for row in (doc.get("roles") or [])]
+    if role_name not in existing_roles:
+        doc.append("roles", {"role": role_name})
+        doc.save(ignore_permissions=True)
+    return doc.name
+
+
+def seed_customer_role_profiles():
+    _ensure_role_profile(DEFAULT_CUSTOMER_ADMIN_ROLE_PROFILE, DEFAULT_CUSTOMER_ADMIN_ROLE_PROFILE)
+    _ensure_role_profile(DEFAULT_CUSTOMER_MEMBER_ROLE_PROFILE, DEFAULT_CUSTOMER_MEMBER_ROLE_PROFILE)
+
+
 def after_migrate():
     seed_environments()
     seed_privacy_profiles()
     seed_free_plan()
     seed_sidebar()
+    seed_customer_role_profiles()

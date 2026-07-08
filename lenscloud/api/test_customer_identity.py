@@ -12,6 +12,11 @@ from lenscloud.api.customer_identity import (
     require_active_customer_membership,
 )
 from lenscloud.api.orchestration import ensure_customer_for_user
+from lenscloud.setup import (
+    DEFAULT_CUSTOMER_ADMIN_ROLE_PROFILE,
+    DEFAULT_CUSTOMER_MEMBER_ROLE_PROFILE,
+    seed_customer_role_profiles,
+)
 
 
 def unique_email(prefix, domain=None):
@@ -86,6 +91,14 @@ class TestCustomerIdentity(FrappeTestCase):
     def tearDown(self):
         frappe.set_user("Administrator")
         super().tearDown()
+
+    def test_standard_customer_role_profiles_are_seeded(self):
+        seed_customer_role_profiles()
+        for profile_name in (DEFAULT_CUSTOMER_ADMIN_ROLE_PROFILE, DEFAULT_CUSTOMER_MEMBER_ROLE_PROFILE):
+            self.assertTrue(frappe.db.exists("Role", profile_name))
+            self.assertTrue(frappe.db.exists("Role Profile", profile_name))
+            profile = frappe.get_doc("Role Profile", profile_name)
+            self.assertIn(profile_name, [row.role for row in profile.get("roles")])
 
     def test_native_frappe_signup_creates_customer_owner(self):
         email, domain = unique_email("native-signup")
