@@ -12,11 +12,16 @@ LensCloud Platform is the CUA/OAuth provider. For local/dev acceptance the Platf
 http://dev.localhost:8000
 ```
 
-The target Site Social Login Key must be named:
+For the current Platform Settings, the target Site Social Login Key provider
+key is:
 
 ```text
 lenscloud
 ```
+
+This value is not an Infra constant. Platform must pass the provider key from
+`oauth_provider_key`, the display name from `oauth_provider_name`, and the
+issuer from `oauth_base_url`.
 
 The target Site redirect URI is derived from the target Site access URL:
 
@@ -78,7 +83,7 @@ The source of truth for the issuer must be LensCloud **Platform Settings**:
 - The runner must always reject non-localhost plain HTTP even when the flag is true.
 - Productive/non-local URLs must remain HTTPS-only.
 
-When the local/dev flag is accepted, the runner should configure the target Site Social Login Key from the Platform-provided values in the job request: provider `lenscloud`, provider name, client ID, mounted client secret, redirect URL, custom base URL, and `base_url` from Platform Settings. It must not fall back to the old `nectar` example or any hard-coded issuer.
+When the local/dev flag is accepted, the runner should configure the target Site Social Login Key from the Platform-provided values in the job request: provider key, provider name, client ID, mounted client secret, redirect URL, custom base URL, and `base_url` from Platform Settings. It must not fall back to the old `nectar` example or any hard-coded issuer.
 
 Fallback only if Infra explicitly prefers it: provide and document an HTTPS Platform issuer URL for the current dev Platform instance that points to the same LensCloud Platform/CUA site, not an example or unrelated branded host.
 
@@ -151,6 +156,55 @@ After the fix, rerun Infra verification for `oauth.configure` with a local/dev P
 - proof that the target Site Social Login Key is configured from the Platform Settings URL and request payload, not a hard-coded/example issuer;
 - cleanup proof for Job, ConfigMap, Pod, and Secret;
 - Platform follow-up prompt.
+
+## 2026-07-10 Infra Resolution
+
+Infra confirmed the blocker was the live admission policy pin, not the
+`oauth.status` request shape or OAuth Secret mount contract. The manager VM had
+the repository and live `ValidatingAdmissionPolicy` pinned to the previous
+runner digest:
+
+```text
+sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741
+```
+
+Infra applied the updated admission pin for the published `v0.1.11` runner:
+
+```text
+ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:3e7867ff7cb0285395aafd380232496f854c6d014c237b8790cbcbfd1bd577ef
+```
+
+Live verification then passed against the customer Site context that Platform
+provided:
+
+```text
+Site: tara-communo-hub.cloud.lmnaslens.com
+Bench: run-20260702-free-prod-bench
+Sites PVC: run-20260702-free-prod-bench-sites
+OAuth provider: lenscloud
+OAuth provider name: LensCloud
+OAuth client ID: 08riiahaab
+OAuth base URL: http://dev.localhost:8000
+allow_local_oauth_http: true
+Temporary resource prefix: run-20260710-cua-oauth-local-http
+```
+
+Verifier result:
+
+```text
+CUA OAuth runner verification passed.
+Positive commands: oauth.status, oauth.configure with base_url=http://dev.localhost:8000 and allow_local_oauth_http=true
+Negative checks: local HTTP without allow_local_oauth_http rejected; local HTTP with allow_local_oauth_http=false rejected; non-local HTTP with allow_local_oauth_http rejected; direct client_secret arg rejected; non-oauth Secret volume denied
+```
+
+Cleanup proof: no Jobs, ConfigMaps, Pods, or exact short-lived OAuth Secret
+remain for `run-20260710-cua-oauth-local-http`.
+
+Infra handoff back to Platform:
+
+```text
+lenscloud-platform/frappe-bench/apps/lenscloud/docs/handoffs/platform/cua-oauth-local-dev-base-url-runner-20260709.md
+```
 
 ## Platform Resume Point
 
