@@ -66,15 +66,29 @@ This confirms Platform should not continue using the old HTTPS example URL simpl
 
 Please update the OAuth runner validation contract so Platform can complete local/dev CUA acceptance without using a wrong HTTPS issuer.
 
-Requested path: allow `http://*.localhost:<port>` and `http://dev.localhost:<port>` only for local/dev OAuth `base_url` values, while retaining HTTPS-only validation for non-localhost and all productive URLs.
+The source of truth for the issuer must be LensCloud **Platform Settings**:
+
+- `oauth_base_url` provides the Platform OAuth issuer URL that the target Site Social Login Key should use.
+- Platform must add an explicit boolean setting, proposed as `allow_local_oauth_http`, for local/dev only.
+- Platform must pass that setting into the `oauth.configure` Bench Command request, proposed request arg: `allow_local_oauth_http: true`.
+- The runner must accept plain HTTP only when both are true:
+  - `allow_local_oauth_http` is true in the request; and
+  - `base_url` is loopback/local-dev only, for example `http://localhost:<port>`, `http://*.localhost:<port>`, or `http://dev.localhost:<port>`.
+- If the flag is missing or false, the runner must keep rejecting plain HTTP, including localhost HTTP.
+- The runner must always reject non-localhost plain HTTP even when the flag is true.
+- Productive/non-local URLs must remain HTTPS-only.
+
+When the local/dev flag is accepted, the runner should configure the target Site Social Login Key from the Platform-provided values in the job request: provider `lenscloud`, provider name, client ID, mounted client secret, redirect URL, custom base URL, and `base_url` from Platform Settings. It must not fall back to the old `nectar` example or any hard-coded issuer.
 
 Fallback only if Infra explicitly prefers it: provide and document an HTTPS Platform issuer URL for the current dev Platform instance that points to the same LensCloud Platform/CUA site, not an example or unrelated branded host.
 
 After the fix, rerun Infra verification for `oauth.configure` with a local/dev Platform issuer and hand back:
 
 - updated runner contract;
-- positive evidence for `base_url=http://dev.localhost:8000` or the approved HTTPS Platform issuer;
-- negative proof that non-localhost plain HTTP is still rejected;
+- positive evidence for `base_url=http://dev.localhost:8000` with `allow_local_oauth_http=true`, or the approved HTTPS Platform issuer;
+- negative proof that `base_url=http://dev.localhost:8000` is rejected when `allow_local_oauth_http` is false or absent;
+- negative proof that non-localhost plain HTTP is still rejected even when `allow_local_oauth_http=true`;
+- proof that the target Site Social Login Key is configured from the Platform Settings URL and request payload, not a hard-coded/example issuer;
 - cleanup proof for Job, ConfigMap, Pod, and Secret;
 - Platform follow-up prompt.
 
