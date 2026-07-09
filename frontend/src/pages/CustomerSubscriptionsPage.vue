@@ -127,7 +127,7 @@ onMounted(load)
 							</div>
 							<div class="mt-5">
 								<a v-if="readySite && selectedSubscription?.name === subscription.name" :href="readySite.access_url" target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0037b0]">Open Site <ExternalLink class="size-4" /></a>
-								<Button v-else-if="selectedSubscription?.name === subscription.name" :as="RouterLink" :to="selectedProgressSite ? `/customer/plans?site=${encodeURIComponent(selectedProgressSite.site || selectedProgressSite.name)}&subscription=${encodeURIComponent(subscription.name)}` : `/customer/plans?subscription=${encodeURIComponent(subscription.name)}`" variant="subtle" @click.stop>View progress</Button>
+								<RouterLink v-else-if="selectedSubscription?.name === subscription.name" :to="selectedProgressSite ? `/customer/plans?site=${encodeURIComponent(selectedProgressSite.site || selectedProgressSite.name)}&subscription=${encodeURIComponent(subscription.name)}` : `/customer/plans?subscription=${encodeURIComponent(subscription.name)}`" class="inline-flex items-center gap-2 rounded-lg bg-[#f2f4f6] px-4 py-2 text-sm font-semibold text-[#434655] transition hover:bg-[#e8ecf1]" @click.stop>View progress</RouterLink>
 								<span v-else class="text-sm font-medium text-[#1D4ED8]">View details</span>
 							</div>
 						</article>

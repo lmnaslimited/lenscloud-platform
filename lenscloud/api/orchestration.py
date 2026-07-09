@@ -1084,7 +1084,7 @@ def sync_site_status(site, check_route=True):
 			result = check_site_route(doc); doc.route_status = "Ready"; doc.tls_status = "Ready"; doc.last_route_check = now_datetime(); doc.route_error = None
 		else:
 			result = None; doc.route_status = "Pending"
-		doc.save(); finish_action_log(log, "Succeeded", f"FrappeSite runtime phase: {phase}; route: {doc.route_status}.")
+		doc.save(ignore_permissions=True); finish_action_log(log, "Succeeded", f"FrappeSite runtime phase: {phase}; route: {doc.route_status}.")
 		return {"status": doc.site_status, "provisioning_status": doc.provisioning_status, "route_status": doc.route_status, "access_url": doc.access_url, "route": result, "action_log": log.name}
 	except Exception as exc:
 		doc.last_route_check = now_datetime(); doc.route_status = "Failed"; doc.route_error = sanitize_error(exc); doc.save(ignore_permissions=True)
@@ -1625,7 +1625,7 @@ def get_customer_portal_context():
 	]
 	permissions = customer_doctype_permissions(user)
 	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name and permissions.get("Subscription", {}).get("read") else []
-	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "access_url", "plan", "subscription", "environment", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
+	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "access_url", "plan", "subscription", "environment", "region", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
 	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc") if permissions.get("Plan", {}).get("read") else []
 	plans = []
 	for row in plan_rows:
@@ -1873,8 +1873,28 @@ def retry_customer_site_provisioning(site):
 	settings = get_platform_settings()
 	try:
 		if site_doc.provisioning_status in {"Accepted", "Running", "Ready"} or site_doc.site_status in {"Accepted", "Provisioning", "Ready", "Active"}:
+			inventory = inspect_runtime(site_doc, "FrappeSite", "site", "site_status")
+			if not inventory.get("owner_present"):
+				site_doc.reload()
+				site_doc.provisioning_status = "Failed"
+				site_doc.site_status = "Failed"
+				site_doc.route_status = "Failed"
+				site_doc.route_error = _("Runtime resource was not found during progress inspection.")
+				site_doc.save(ignore_permissions=True)
+				return customer_site_progress_payload(site_doc, subscription, plan_doc, message=_("Site setup needs attention. Support can recover from the latest runtime inspection."))
 			sync_site_status(site_doc.name, check_route=True)
 			site_doc.reload()
+			if site_doc.route_status != "Ready" and site_doc.access_url:
+				try:
+					check_site_route(site_doc)
+					site_doc.route_status = "Ready"
+					site_doc.tls_status = "Ready"
+					site_doc.last_route_check = now_datetime()
+					site_doc.route_error = None
+					site_doc.save(ignore_permissions=True)
+				except Exception:
+					if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
+						raise
 			return customer_site_progress_payload(site_doc, subscription, plan_doc, message=_("Site status was refreshed."))
 		reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
 		site_doc.reload()

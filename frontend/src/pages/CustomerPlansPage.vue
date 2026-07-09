@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
@@ -26,12 +26,14 @@ const router = useRouter()
 
 const loading = ref(true)
 const submitting = ref(false)
+const polling = ref(false)
 const error = ref('')
 const context = ref(null)
 const selectedPlan = ref('')
 const result = ref(null)
 const step = ref('choose')
 const placementFilter = ref('all')
+let progressPoller = null
 
 const form = reactive({
 	region: '',
@@ -74,6 +76,8 @@ const resultPaused = computed(() => provisioningMode.value === 'paused' || provi
 const resultFailed = computed(() => provisioningMode.value === 'failed')
 const resultReady = computed(() => provisioningMode.value === 'ready' || Boolean(readySiteUrl.value))
 const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value)))
+const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && resultStarted.value && !resultReady.value && !resultFailed.value))
+const selectedSiteLabel = computed(() => result.value?.hostname || result.value?.access_url?.replace(/^https?:\/\//, '') || resultSite.value?.title || resultSite.value?.name || hostnamePreview.value || '')
 
 const flowSteps = computed(() => [
 	{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
@@ -129,6 +133,7 @@ function progressResultFromSite(site, subscription = null) {
 		hostname: site.title,
 		access_url: site.access_url,
 		plan: site.plan || subscription?.plan,
+		region: site.region || subscription?.region,
 		site_status: site.site_status,
 		provisioning_status: site.provisioning_status,
 		route_status: site.route_status,
@@ -147,6 +152,8 @@ function hydrateProgressFromRoute() {
 	const nextResult = progressResultFromSite(site, subscription)
 	if (nextResult) {
 		result.value = nextResult
+		if (nextResult.plan) selectedPlan.value = nextResult.plan
+		if (nextResult.region) form.region = nextResult.region
 		step.value = 'result'
 	}
 }
@@ -251,6 +258,40 @@ async function load() {
 	}
 }
 
+
+async function refreshProgress({ silent = false } = {}) {
+	if (!result.value?.site || polling.value || submitting.value) return
+	polling.value = true
+	if (!silent) error.value = ''
+	try {
+		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site }, 'POST')
+		result.value = response.message || response
+		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
+		await load()
+		startProgressPolling()
+	} catch (err) {
+		if (!silent) error.value = err?.message || 'Unable to refresh setup progress.'
+	} finally {
+		polling.value = false
+	}
+}
+
+function stopProgressPolling() {
+	if (progressPoller) {
+		clearInterval(progressPoller)
+		progressPoller = null
+	}
+}
+
+function startProgressPolling() {
+	stopProgressPolling()
+	if (!progressActive.value) return
+	progressPoller = setInterval(() => {
+		if (progressActive.value) refreshProgress({ silent: true })
+		else stopProgressPolling()
+	}, 30000)
+}
+
 async function startFreePlan() {
 	if (membershipPending.value || !canCreateSubscription.value || !canStartFree.value) return
 	submitting.value = true
@@ -268,6 +309,7 @@ async function startFreePlan() {
 		step.value = 'result'
 		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
+		startProgressPolling()
 	} catch (err) {
 		error.value = err?.message || 'Unable to start the Free Plan.'
 	} finally {
@@ -285,6 +327,7 @@ async function requestAccess(plan) {
 		step.value = 'result'
 		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
+		startProgressPolling()
 	} catch (err) {
 		error.value = err?.message || 'Unable to request access.'
 	} finally {
@@ -302,6 +345,7 @@ async function retrySetup() {
 		step.value = 'result'
 		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
+		startProgressPolling()
 	} catch (err) {
 		error.value = err?.message || 'Unable to retry setup.'
 	} finally {
@@ -309,7 +353,11 @@ async function retrySetup() {
 	}
 }
 
-onMounted(load)
+onMounted(async () => {
+	await load()
+	startProgressPolling()
+})
+onBeforeUnmount(stopProgressPolling)
 </script>
 
 <template>
@@ -495,6 +543,7 @@ onMounted(load)
 												<Check v-if="item.state === 'done'" class="size-4" />
 												<XCircle v-else-if="item.state === 'failed'" class="size-4" />
 												<AlertTriangle v-else-if="item.state === 'paused'" class="size-4" />
+												<RefreshCcw v-else-if="item.state === 'active'" class="size-4 animate-spin" />
 												<Clock3 v-else class="size-4" />
 											</div>
 											<div class="ml-4">
@@ -504,15 +553,15 @@ onMounted(load)
 										</div>
 									</div>
 
-									<div v-if="resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
+									<div v-if="resultStarted || resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
 										<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
 											<div class="flex items-start gap-3">
 												<AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-700" />
-												<p class="max-w-md text-sm leading-6 text-[#505f76]">{{ resultPaused ? 'Your request is saved. Ask the Platform operator to open the controlled live apply window, then retry setup.' : 'Workspace setup took longer than expected. Our team can inspect the Platform evidence while you retry safely.' }}</p>
+												<p class="max-w-md text-sm leading-6 text-[#505f76]">{{ resultFailed ? 'Workspace setup took longer than expected. Our team can inspect the Platform evidence while you retry safely.' : resultPaused ? 'Your request is saved. Ask the Platform operator to open the controlled live apply window, then retry setup.' : 'LensCloud is checking setup progress automatically. You can refresh status now without leaving this page.' }}</p>
 											</div>
 											<div class="flex shrink-0 flex-wrap gap-3">
 												<a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a>
-												<button v-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting" @click="retrySetup"><RefreshCcw class="size-4" :class="submitting ? 'animate-spin' : ''" />{{ submitting ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
+												<button v-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
 											</div>
 										</div>
 									</div>
@@ -558,7 +607,7 @@ onMounted(load)
 				</div>
 				<div class="rounded-xl border border-outline-gray-2 bg-surface-gray-1 p-3">
 					<p class="text-sm font-medium text-ink-gray-9">Current selection</p>
-					<div class="mt-2 space-y-1 text-sm text-ink-gray-5"><p>Plan: {{ selectedPlanRecord?.title || 'Required' }}</p><p>Region: {{ selectedRegion?.title || selectedRegion?.name || 'Required' }}</p><p class="truncate">Site: {{ hostnamePreview || 'Required' }}</p></div>
+					<div class="mt-2 space-y-1 text-sm text-ink-gray-5"><p>Plan: {{ plans.find((plan) => plan.name === result?.plan)?.title || selectedPlanRecord?.title || result?.plan || 'Required' }}</p><p>Region: {{ result?.region || selectedRegion?.title || selectedRegion?.name || 'Required' }}</p><p class="truncate">Site: {{ selectedSiteLabel || 'Required' }}</p></div>
 				</div>
 			</div>
 		</template>
