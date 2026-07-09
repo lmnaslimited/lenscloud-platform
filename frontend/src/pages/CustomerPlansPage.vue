@@ -72,15 +72,19 @@ const setupComplete = computed(() => Boolean(form.region && form.site_name.trim(
 const canStartFree = computed(() => Boolean(selectedPlanRecord.value?.is_free && !planDisabled(selectedPlanRecord.value) && setupComplete.value))
 const resultSite = computed(() => existingSites.value.find((site) => site.name === result.value?.site || site.subscription === result.value?.subscription) || null)
 const resultRouteReady = computed(() => result.value?.route_status === 'Ready' || resultSite.value?.route_status === 'Ready')
-const hasReadySite = computed(() => resultReady.value || existingSites.value.some((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready' && site.setup_status === 'Complete'))
+const oauthConfiguredStatuses = new Set(['Configured', 'Enabled'])
+const resultOauthStatus = computed(() => result.value?.oauth_status || resultSite.value?.oauth_status || 'Not Checked')
+const resultOauthConfigured = computed(() => oauthConfiguredStatuses.has(resultOauthStatus.value))
+const siteReadyForOpen = (site) => ['Ready', 'Active'].includes(site?.site_status) && site?.route_status === 'Ready' && site?.setup_status === 'Complete' && oauthConfiguredStatuses.has(site?.oauth_status)
+const hasReadySite = computed(() => resultReady.value || existingSites.value.some(siteReadyForOpen))
 const readySiteUrl = computed(() => {
-	if (provisioningMode.value === 'ready') return result.value?.access_url || resultSite.value?.access_url || ''
-	return existingSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready' && site.setup_status === 'Complete' && site.access_url)?.access_url || ''
+	if (provisioningMode.value === 'ready' && resultOauthConfigured.value) return result.value?.access_url || resultSite.value?.access_url || ''
+	return existingSites.value.find((site) => siteReadyForOpen(site) && site.access_url)?.access_url || ''
 })
 const provisioningMode = computed(() => result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
-const resultStarted = computed(() => ['started', 'route_pending', 'setup_checking', 'setup_running', 'setup_required', 'ready'].includes(provisioningMode.value))
+const resultStarted = computed(() => ['started', 'route_pending', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
 const resultPaused = computed(() => provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run')
-const resultFailed = computed(() => provisioningMode.value === 'failed')
+const resultFailed = computed(() => provisioningMode.value === 'failed' || provisioningMode.value === 'oauth_failed')
 const resultSetupRequired = computed(() => provisioningMode.value === 'setup_required')
 const resultReady = computed(() => provisioningMode.value === 'ready')
 const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value)))
@@ -116,9 +120,13 @@ const provisioningSteps = computed(() => {
 	const setupStatus = result.value?.setup_status || resultSite.value?.setup_status || 'Not Checked'
 	const setupDone = setupStatus === 'Complete' || resultReady.value
 	const setupBlocked = setupStatus === 'Blocked' || resultSetupRequired.value
-	const setupFailed = setupStatus === 'Failed' || (resultFailed.value && routeReady)
+	const setupFailed = setupStatus === 'Failed' || (provisioningMode.value === 'failed' && routeReady)
 	const setupRunning = provisioningMode.value === 'setup_running'
 	const setupChecking = provisioningMode.value === 'setup_checking'
+	const oauthStatus = resultOauthStatus.value
+	const oauthDone = resultOauthConfigured.value || resultReady.value
+	const oauthFailed = oauthStatus === 'Failed' || provisioningMode.value === 'oauth_failed'
+	const oauthRunning = ['Running', 'Pending'].includes(oauthStatus) || ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
 	return [
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
 		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
@@ -126,8 +134,8 @@ const provisioningSteps = computed(() => {
 		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
 		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || routeReady ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after secure access is ready.' },
 		{ label: 'Setting site defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Site defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Site needs first-time setup.' },
-		{ label: 'Platform access', state: setupDone ? 'done' : 'pending', helper: setupDone ? 'Platform access bootstrap can continue from the ready Site.' : 'Single sign-on and member access will be completed in a later CUA runner step.' },
-		{ label: 'Ready to open', state: resultReady.value ? 'done' : setupDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Site is ready to open.' : setupDone ? 'LensCloud is publishing the Open Site action.' : 'We will show the Open Site action when access is verified.' },
+		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Site.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Site defaults are applied.' },
+		{ label: 'Ready to open', state: resultReady.value ? 'done' : oauthDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Site is ready to open.' : oauthDone ? 'LensCloud is publishing the Open Site action.' : 'We will show the Open Site action when access is verified.' },
 	]
 })
 
@@ -136,8 +144,10 @@ function progressResultFromSite(site, subscription = null) {
 	if (!site) return null
 	let provisioning = 'started'
 	if (site.provisioning_status === 'Failed' || site.site_status === 'Failed' || site.route_status === 'Failed' || site.setup_status === 'Failed') provisioning = 'failed'
+	else if (site.oauth_status === 'Failed') provisioning = 'oauth_failed'
 	else if (site.setup_status === 'Blocked') provisioning = 'setup_required'
-	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete') provisioning = 'ready'
+	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete' && oauthConfiguredStatuses.has(site.oauth_status)) provisioning = 'ready'
+	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete') provisioning = site.oauth_status === 'Running' ? 'oauth_configuring' : 'oauth_checking'
 	else if (site.route_status === 'Ready' && site.access_url) provisioning = site.setup_status === 'Running' ? 'setup_running' : 'setup_checking'
 	else if (['Ready', 'Active'].includes(site.site_status) || site.provisioning_status === 'Ready') provisioning = 'route_pending'
 	else if (['Pending', 'Not Started'].includes(site.provisioning_status) || ['Requested', 'Draft'].includes(site.site_status)) provisioning = 'paused'
@@ -156,8 +166,10 @@ function progressResultFromSite(site, subscription = null) {
 		tls_status: site.tls_status,
 		setup_status: site.setup_status,
 		setup_error: site.setup_error,
+		oauth_status: site.oauth_status,
+		oauth_error: site.oauth_error,
 		provisioning,
-		retry_available: ['paused', 'failed', 'started', 'route_pending', 'setup_required', 'setup_checking', 'setup_running'].includes(provisioning),
+		retry_available: ['paused', 'failed', 'oauth_failed', 'started', 'route_pending', 'setup_required', 'setup_checking', 'setup_running', 'oauth_checking', 'oauth_configuring'].includes(provisioning),
 	}
 }
 
@@ -257,15 +269,21 @@ async function continueFromPlan() {
 	if (selectedPlanRecord.value.cta_mode === 'request_access') requestAccess(selectedPlanRecord.value)
 }
 
-async function loadSetupSchema(country = form.setup_defaults.country) {
+function applySetupDefaults(defaults, { overwriteDependents = false } = {}) {
+	const dependentFields = new Set(['timezone', 'currency', 'chart_of_accounts', 'fiscal_year_start_date'])
+	for (const [key, value] of Object.entries(defaults || {})) {
+		if (overwriteDependents && dependentFields.has(key)) form.setup_defaults[key] = value || ''
+		else if (!form.setup_defaults[key]) form.setup_defaults[key] = value
+	}
+}
+
+async function loadSetupSchema(country = form.setup_defaults.country, options = {}) {
 	if (!selectedPlanRecord.value?.name) return
 	setupSchemaLoading.value = true
 	try {
 		const response = await callMethod('lenscloud.api.orchestration.get_customer_site_setup_schema', { plan: selectedPlanRecord.value.name, country })
 		setupSchemaState.value = response.message || response
-		for (const [key, value] of Object.entries(setupSchemaState.value?.defaults || {})) {
-			if (!form.setup_defaults[key]) form.setup_defaults[key] = value
-		}
+		applySetupDefaults(setupSchemaState.value?.defaults, options)
 	} catch (err) {
 		error.value = err?.message || 'Unable to load setup defaults.'
 	} finally {
@@ -279,7 +297,7 @@ async function openSetupDialog() {
 }
 
 async function refreshSetupDependents() {
-	await loadSetupSchema(form.setup_defaults.country)
+	await loadSetupSchema(form.setup_defaults.country, { overwriteDependents: true })
 }
 
 async function saveSetupDefaults() {
@@ -639,7 +657,7 @@ onBeforeUnmount(stopProgressPolling)
 								<div class="rounded-xl border border-[#EDEDED] bg-white p-6">
 									<Badge :class="resultFailed ? 'bg-red-50 text-red-700' : resultPaused ? 'bg-amber-50 text-amber-800' : resultStarted ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">{{ resultFailed ? 'Setup needs retry' : resultPaused ? 'Setup paused' : resultReady ? 'Ready' : resultStarted ? 'Provisioning' : 'Approval pending' }}</Badge>
 									<h3 class="mt-3 text-xl font-semibold text-[#191c1e]">{{ resultFailed ? 'Workspace setup needs attention' : resultPaused ? 'Workspace setup is paused' : resultReady ? 'Your Site is ready to open' : resultStarted ? 'Setting up your Site' : 'Subscription request received' }}</h3>
-									<p class="mt-2 text-sm leading-6 text-[#64748B]">{{ resultFailed ? 'Setup did not complete. You can retry after Platform readiness is restored, or contact support and we will continue from the Platform side.' : resultPaused ? 'Your Subscription and Site reservation are saved. Live setup needs the controlled Platform apply window before it can create the actual Site.' : resultReady ? 'Secure access is verified. You can open the Site from here.' : resultStarted ? 'We are preparing your workspace. You can follow progress from here or refresh status without losing this view.' : 'The LensCloud team will review this request before setup starts.' }}</p>
+									<p class="mt-2 text-sm leading-6 text-[#64748B]">{{ resultFailed ? (provisioningMode === 'oauth_failed' ? 'Platform sign-on did not complete. Retry after Platform readiness is restored, or contact support and we will continue from the Platform side.' : 'Setup did not complete. You can retry after Platform readiness is restored, or contact support and we will continue from the Platform side.') : resultPaused ? 'Your Subscription and Site reservation are saved. Live setup needs the controlled Platform apply window before it can create the actual Site.' : resultReady ? 'Secure access and Platform sign-on are verified. You can open the Site from here.' : resultStarted ? 'We are preparing your workspace. You can follow progress from here or refresh status without losing this view.' : 'The LensCloud team will review this request before setup starts.' }}</p>
 
 									<div class="mt-8 space-y-0">
 										<div v-for="(item, index) in provisioningSteps" :key="item.label" class="relative flex items-start pb-7 last:pb-0">

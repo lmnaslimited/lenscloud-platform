@@ -10,7 +10,7 @@ import frappe
 import requests
 import yaml
 from frappe import _
-from frappe.utils import add_months, now_datetime
+from frappe.utils import add_months, getdate, now_datetime, nowdate
 
 from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientError, RESOURCE_PATHS, kubeconfig_path, sanitize_error
 from lenscloud.api.customer_identity import can_create_subscription, can_manage_customer_members, can_read_customer_doctype, customer_doctype_permissions, customer_membership_for_user, ensure_customer_access_for_user, provision_customer_for_user, require_active_customer_membership, require_subscription_create_permission
@@ -1625,7 +1625,7 @@ def get_customer_portal_context():
 	]
 	permissions = customer_doctype_permissions(user)
 	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name and permissions.get("Subscription", {}).get("read") else []
-	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "setup_status", "setup_error", "access_url", "plan", "subscription", "environment", "region", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
+	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "setup_status", "setup_error", "oauth_status", "oauth_error", "access_url", "plan", "subscription", "environment", "region", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
 	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc") if permissions.get("Plan", {}).get("read") else []
 	plans = []
 	for row in plan_rows:
@@ -1737,7 +1737,6 @@ SETUP_APP_FIELDS = (
 	{"name": "industry", "label": "Industry", "fieldtype": "Data", "required": False},
 	{"name": "chart_of_accounts", "label": "Chart of Accounts", "fieldtype": "Select", "required": False, "depends_on": "country"},
 	{"name": "fiscal_year_start_date", "label": "Fiscal Year Start", "fieldtype": "Date", "required": False},
-	{"name": "fiscal_year_end_date", "label": "Fiscal Year End", "fieldtype": "Date", "required": False},
 )
 
 
@@ -1777,10 +1776,12 @@ def country_setup_options(country=None):
 		}
 	all_timezones = info.get("all_timezones") or ["UTC"]
 	selected = country_defaults.get(country) or {}
+	selected_timezones = selected.get("timezones") or []
+	timezones = list(dict.fromkeys([*(selected_timezones or []), *all_timezones])) or ["UTC"]
 	return {
 		"countries": countries,
 		"country_defaults": country_defaults,
-		"timezones": selected.get("timezones") or all_timezones,
+		"timezones": timezones,
 	}
 
 def language_options():
@@ -1806,19 +1807,31 @@ def chart_options_for_country(country=None, apps=None):
 	return [{"label": f"{country_label} standard chart", "value": "Standard"}]
 
 
+def default_fiscal_year_start_date(country=None):
+	# Core Frappe exposes country currency/timezone metadata, but not country fiscal-year rules.
+	# Target app setup remains responsible for deriving fiscal end date and any richer country rules.
+	today = getdate(nowdate())
+	return today.replace(month=1, day=1).isoformat()
+
+
 def default_setup_values(country=None, apps=None):
 	country_options = country_setup_options(country)
 	country_defaults = country_options.get("country_defaults") or {}
 	selected_country = country or (country_options.get("countries") or [{}])[0].get("value")
 	selected = country_defaults.get(selected_country) or {}
 	timezones = selected.get("timezones") or country_options.get("timezones") or []
-	return {
+	defaults = {
 		"language": "English",
 		"country": selected_country,
 		"timezone": timezones[0] if timezones else "UTC",
 		"currency": selected.get("currency") or "USD",
-		"chart_of_accounts": "Standard" if setup_requires_app_fields(apps) else "",
 	}
+	if setup_requires_app_fields(apps):
+		defaults.update({
+			"chart_of_accounts": "Standard",
+			"fiscal_year_start_date": default_fiscal_year_start_date(selected_country),
+		})
+	return defaults
 
 
 def customer_site_setup_schema(plan=None, country=None):
@@ -1897,8 +1910,11 @@ def clean_setup_data(plan, setup_data=None, country=None):
 
 
 def set_site_setup_fields(site_doc, schema, setup_data):
+	stored_setup_data = dict(setup_data or {})
+	if getattr(site_doc, "customer", None):
+		stored_setup_data.update(setup_identity_args(site_doc))
 	site_doc.setup_schema_json = json.dumps(schema, sort_keys=True, indent=2)
-	site_doc.setup_data_json = json.dumps(setup_data, sort_keys=True, indent=2)
+	site_doc.setup_data_json = json.dumps(stored_setup_data, sort_keys=True, indent=2)
 	if not getattr(site_doc, "setup_status", None) or site_doc.setup_status == "Not Checked":
 		site_doc.setup_status = "Pending"
 
@@ -1913,18 +1929,47 @@ def setup_is_complete(result):
 	return value in {"complete", "completed", "1", "true", "yes"}
 
 
+def oauth_display_value(result):
+	display = (result or {}).get("display") or {}
+	return str(display.get("rawValue") or display.get("value") or "").strip().lower()
+
+
+def oauth_is_configured(result):
+	return oauth_display_value(result) in {"enabled", "configured", "complete", "completed", "1", "true", "yes"}
+
+
+def site_oauth_configured(site_doc):
+	return (getattr(site_doc, "oauth_status", None) or "").strip() in {"Configured", "Enabled"}
+
+
+def set_site_oauth_state(site_doc, status, error=None):
+	if site_doc.meta.has_field("oauth_status"):
+		site_doc.oauth_status = status
+	if site_doc.meta.has_field("oauth_error"):
+		site_doc.oauth_error = error
+	site_doc.save(ignore_permissions=True)
+
+
+def setup_identity_user(site_doc):
+	session_user = frappe.session.user if frappe.session.user != "Guest" else None
+	if session_user and frappe.db.exists("Customer Member", {"customer": site_doc.customer, "user": session_user, "status": "Active"}):
+		return session_user
+	for role in ("Owner", "Admin"):
+		member_user = frappe.db.get_value("Customer Member", {"customer": site_doc.customer, "status": "Active", "member_role": role}, "user")
+		if member_user:
+			return member_user
+	return frappe.db.get_value("Customer Member", {"customer": site_doc.customer, "status": "Active"}, "user") or session_user or getattr(site_doc, "owner", None)
+
+
 def setup_identity_args(site_doc):
-	member = frappe.db.get_value(
-		"Customer Member",
-		{"customer": site_doc.customer, "status": "Active", "member_role": ["in", ["Owner", "Admin"]]},
-		["user", "full_name"],
-		as_dict=True,
-	)
-	if not member:
-		member = frappe.db.get_value("Customer Member", {"customer": site_doc.customer, "status": "Active"}, ["user", "full_name"], as_dict=True)
-	user = member.user if member else frappe.session.user
-	full_name = member.full_name if member else frappe.db.get_value("User", user, "full_name")
-	return {"email": user, "full_name": full_name or user}
+	user = setup_identity_user(site_doc)
+	if not user:
+		frappe.throw(_("Site setup requires an active customer user."))
+	profile = frappe.db.get_value("User", user, ["email", "first_name", "last_name", "full_name"], as_dict=True) or {}
+	first_name = (profile.get("first_name") or "").strip()
+	last_name = (profile.get("last_name") or "").strip()
+	full_name = " ".join(part for part in (first_name, last_name) if part).strip() or (profile.get("full_name") or "").strip() or user
+	return {"email": profile.get("email") or user, "full_name": full_name}
 
 
 def site_setup_args(site_doc, schema):
@@ -1945,6 +1990,33 @@ def block_site_setup(site_doc, missing):
 	return message
 
 
+def orchestrate_customer_site_oauth(site_doc):
+	if getattr(site_doc, "setup_status", None) != "Complete":
+		return None
+	from lenscloud.api.bench_command import configure_site_oauth_for_orchestration, run_site_oauth_status_for_orchestration
+	try:
+		status_result = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth status check")
+		if oauth_is_configured(status_result):
+			site_doc.reload()
+			set_site_oauth_state(site_doc, "Configured", None)
+			return status_result
+		site_doc.reload()
+		set_site_oauth_state(site_doc, "Running", None)
+		configure_site_oauth_for_orchestration(site_doc.name, reason="Configure LensCloud Platform OAuth before customer Open Site")
+		final_status = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth completion check")
+		site_doc.reload()
+		set_site_oauth_state(
+			site_doc,
+			"Configured" if oauth_is_configured(final_status) else "Required",
+			None if oauth_is_configured(final_status) else _("Platform access is not configured yet."),
+		)
+		return final_status
+	except Exception as exc:
+		site_doc.reload()
+		set_site_oauth_state(site_doc, "Failed", sanitize_error(exc))
+		return {"status": "Failed", "message": getattr(site_doc, "oauth_error", None)}
+
+
 def orchestrate_customer_site_setup(site_doc):
 	if site_doc.route_status != "Ready" or not site_doc.access_url:
 		return None
@@ -1956,6 +2028,7 @@ def orchestrate_customer_site_setup(site_doc):
 			site_doc.setup_status = "Complete"
 			site_doc.setup_error = None
 			site_doc.save(ignore_permissions=True)
+			orchestrate_customer_site_oauth(site_doc)
 			return status_result
 		schema = parse_setup_data(getattr(site_doc, "setup_schema_json", None)) or customer_site_setup_schema(site_doc.plan)
 		args = site_setup_args(site_doc, schema)
@@ -1974,6 +2047,8 @@ def orchestrate_customer_site_setup(site_doc):
 		site_doc.setup_status = "Complete" if setup_is_complete(final_status) else "Required"
 		site_doc.setup_error = None if site_doc.setup_status == "Complete" else _("Site setup still reports pending after setup completion.")
 		site_doc.save(ignore_permissions=True)
+		if site_doc.setup_status == "Complete":
+			orchestrate_customer_site_oauth(site_doc)
 		return final_status
 	except Exception as exc:
 		site_doc.reload()
@@ -2039,12 +2114,17 @@ def customer_site_progress_state(site_doc):
 	if not site_doc:
 		return "failed"
 	setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
+	oauth_status = getattr(site_doc, "oauth_status", None) or "Not Checked"
 	if site_doc.provisioning_status == "Failed" or site_doc.site_status == "Failed" or site_doc.route_status == "Failed" or setup_status == "Failed":
 		return "failed"
+	if oauth_status == "Failed":
+		return "oauth_failed"
 	if setup_status == "Blocked":
 		return "setup_required"
-	if site_doc.route_status == "Ready" and site_doc.access_url and setup_status == "Complete":
+	if site_doc.route_status == "Ready" and site_doc.access_url and setup_status == "Complete" and oauth_status in {"Configured", "Enabled"}:
 		return "ready"
+	if site_doc.route_status == "Ready" and site_doc.access_url and setup_status == "Complete":
+		return "oauth_configuring" if oauth_status == "Running" else "oauth_checking"
 	if site_doc.route_status == "Ready" and site_doc.access_url:
 		return "setup_running" if setup_status == "Running" else "setup_checking"
 	if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
@@ -2073,11 +2153,13 @@ def customer_site_progress_payload(site_doc, subscription=None, plan_doc=None, r
 		"tls_status": site_doc.tls_status,
 		"setup_status": getattr(site_doc, "setup_status", None),
 		"setup_error": getattr(site_doc, "setup_error", None),
+		"oauth_status": getattr(site_doc, "oauth_status", None),
+		"oauth_error": getattr(site_doc, "oauth_error", None),
 		"setup_schema": parse_setup_data(getattr(site_doc, "setup_schema_json", None)),
 		"reconcile": reconcile,
 		"provisioning": provisioning,
-		"retry_available": provisioning in {"paused", "failed", "started", "route_pending", "setup_required", "setup_checking", "setup_running"},
-		"message": message or getattr(site_doc, "setup_error", None) or (reconcile or {}).get("message"),
+		"retry_available": provisioning in {"paused", "failed", "oauth_failed", "started", "route_pending", "setup_required", "setup_checking", "setup_running", "oauth_checking", "oauth_configuring"},
+		"message": message or getattr(site_doc, "setup_error", None) or getattr(site_doc, "oauth_error", None) or (reconcile or {}).get("message"),
 		"next_actions": (reconcile or {}).get("next_actions") or [],
 	}
 

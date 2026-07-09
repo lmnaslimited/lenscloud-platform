@@ -970,9 +970,19 @@ def run_site_setup_command_for_orchestration(site, command="site_setup.status", 
 	)
 
 
-@frappe.whitelist()
-def configure_site_oauth(site, timeout_seconds=300, reason=None, cleanup=True):
-	frappe.only_for("System Manager")
+def run_site_oauth_status_for_orchestration(site, timeout_seconds=300, reason=None, cleanup=True):
+	return _run_site_control_command(
+		site,
+		command="oauth.status",
+		args={"provider": platform_oauth_settings()["provider"]},
+		timeout_seconds=timeout_seconds,
+		reason=reason or "Check LensCloud Platform OAuth on the target Site",
+		cleanup=cleanup,
+		enforce_permissions=False,
+	)
+
+
+def configure_site_oauth_for_orchestration(site, timeout_seconds=300, reason=None, cleanup=True):
 	site_doc = frappe.get_doc("Site", site)
 	args = oauth_configure_request_args(site_doc)
 	oauth_client_secret = args.pop("_oauth_client_secret")
@@ -986,4 +996,11 @@ def configure_site_oauth(site, timeout_seconds=300, reason=None, cleanup=True):
 		cleanup=cleanup,
 		oauth_client_secret=oauth_client_secret,
 		oauth_client_name=oauth_client_name,
+		enforce_permissions=False,
 	)
+
+
+@frappe.whitelist()
+def configure_site_oauth(site, timeout_seconds=300, reason=None, cleanup=True):
+	frappe.only_for("System Manager")
+	return configure_site_oauth_for_orchestration(site, timeout_seconds=timeout_seconds, reason=reason, cleanup=cleanup)

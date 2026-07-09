@@ -28,6 +28,8 @@
   "setup_schema_json",
   "setup_data_json",
   "setup_error",
+  "oauth_status",
+  "oauth_error",
   "operator_and_dns_tab",
   "operator_resource_name",
   "access_url",
@@ -311,6 +313,20 @@
    "fieldname": "setup_error",
    "fieldtype": "Text",
    "label": "Setup Error",
+   "read_only": 1
+  },
+  {
+   "default": "Not Checked",
+   "fieldname": "oauth_status",
+   "fieldtype": "Select",
+   "label": "Platform Access Status",
+   "options": "Not Checked\nPending\nRunning\nConfigured\nRequired\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "oauth_error",
+   "fieldtype": "Text",
+   "label": "Platform Access Error",
    "read_only": 1
   }
  ],
