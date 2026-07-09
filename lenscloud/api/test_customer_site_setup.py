@@ -1,7 +1,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from lenscloud.api.orchestration import clean_setup_data, customer_site_setup_schema, setup_identity_args
+from lenscloud.api.orchestration import clean_setup_data, customer_site_setup_schema, setup_identity_args, setup_is_complete
 
 
 def ensure_app(name):
@@ -127,6 +127,14 @@ class TestCustomerSiteSetup(FrappeTestCase):
 		schema = customer_site_setup_schema(plan.name, country="United States")
 		self.assertEqual(schema["defaults"]["currency"], "USD")
 		self.assertIn("America/New_York", [option["value"] for option in next(field for field in schema["fields"] if field["name"] == "timezone")["options"]])
+
+
+	def test_setup_status_accepts_safe_display_text_complete(self):
+		self.assertTrue(setup_is_complete({
+			"status": "Succeeded",
+			"display_text": "Setup wizard: Complete",
+			"message": "Bench Command site_setup.status finished with phase Succeeded; cleanup removed 3 resource(s). Result: Setup wizard: Complete.",
+		}))
 
 	def test_setup_identity_uses_logged_in_user_profile(self):
 		user = make_setup_user(f"setup-{frappe.generate_hash(length=8).lower()}@example.com", first_name="Nithu", last_name="Customer")

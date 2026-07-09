@@ -30,6 +30,7 @@ Build a Frappe-based platform application that serves both customer self-service
 
 - The platform must represent Release Group as master data for a release family, not as a deployable version.
 - Release Group must hold stable product/image-family configuration such as registry URL, image repository, included apps, supported Frappe major version, and release policy.
+- Release Group included apps must support per-app install-at-site-creation and install-sequence flags so Platform and Infra can install selected apps during new Site creation in the declared order.
 - The platform must introduce Release as the transactional deployable version for a Release Group.
 - Release must hold image tag, image digest when available, build status, pipeline/build reference, release status, changelog, compatibility notes, and promotion state.
 - Bench must link to a Release Group and deploy a specific current Release of that group.

@@ -1919,23 +1919,43 @@ def set_site_setup_fields(site_doc, schema, setup_data):
 		site_doc.setup_status = "Pending"
 
 
+def command_result_text_values(result):
+	if not isinstance(result, dict):
+		return []
+	display = result.get("display") or {}
+	values = []
+	if isinstance(display, dict):
+		values.extend([display.get("rawValue"), display.get("value")])
+	values.extend([result.get("display_text"), result.get("message"), result.get("fallback_summary")])
+	return [str(value or "").strip().lower() for value in values if value not in (None, "")]
+
+
 def setup_display_value(result):
-	display = (result or {}).get("display") or {}
-	return str(display.get("rawValue") or display.get("value") or "").strip().lower()
+	for value in command_result_text_values(result):
+		if value:
+			return value
+	return ""
 
 
 def setup_is_complete(result):
-	value = setup_display_value(result)
-	return value in {"complete", "completed", "1", "true", "yes"}
+	for value in command_result_text_values(result):
+		if value in {"complete", "completed", "1", "true", "yes"} or "setup wizard: complete" in value:
+			return True
+	return False
 
 
 def oauth_display_value(result):
-	display = (result or {}).get("display") or {}
-	return str(display.get("rawValue") or display.get("value") or "").strip().lower()
+	for value in command_result_text_values(result):
+		if value:
+			return value
+	return ""
 
 
 def oauth_is_configured(result):
-	return oauth_display_value(result) in {"enabled", "configured", "complete", "completed", "1", "true", "yes"}
+	for value in command_result_text_values(result):
+		if value in {"enabled", "configured", "complete", "completed", "1", "true", "yes"} or "social login: enabled" in value:
+			return True
+	return False
 
 
 def site_oauth_configured(site_doc):
@@ -2002,7 +2022,11 @@ def orchestrate_customer_site_oauth(site_doc):
 			return status_result
 		site_doc.reload()
 		set_site_oauth_state(site_doc, "Running", None)
-		configure_site_oauth_for_orchestration(site_doc.name, reason="Configure LensCloud Platform OAuth before customer Open Site")
+		configure_result = configure_site_oauth_for_orchestration(site_doc.name, reason="Configure LensCloud Platform OAuth before customer Open Site")
+		if (configure_result or {}).get("status") != "Succeeded":
+			site_doc.reload()
+			set_site_oauth_state(site_doc, "Failed", (configure_result or {}).get("display_text") or (configure_result or {}).get("fallback_summary") or (configure_result or {}).get("message") or _("Platform access configuration failed."))
+			return configure_result
 		final_status = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth completion check")
 		site_doc.reload()
 		set_site_oauth_state(
