@@ -835,8 +835,9 @@ def failure_next_action(exc):
 	return "Open the action log, correct the reported target, namespace, or argument issue, then retry."
 
 
-def _run_site_control_command(site, command="bench_test.status", args=None, timeout_seconds=60, reason=None, cleanup=True, oauth_client_secret=None, oauth_client_name=None):
-	frappe.only_for("System Manager")
+def _run_site_control_command(site, command="bench_test.status", args=None, timeout_seconds=60, reason=None, cleanup=True, oauth_client_secret=None, oauth_client_name=None, enforce_permissions=True):
+	if enforce_permissions:
+		frappe.only_for("System Manager")
 	site_doc, bench, cluster, namespace, subscription, policy = validate_site_target(site)
 	args = command_args(command, args)
 	timeout = timeout_value(timeout_seconds)
@@ -953,6 +954,20 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 	if command == "oauth.configure":
 		frappe.throw(_("Use Configure OAuth so the client secret stays server-side and is passed only through a short-lived Kubernetes Secret."))
 	return _run_site_control_command(site, command=command, args=args, timeout_seconds=timeout_seconds, reason=reason, cleanup=cleanup)
+
+
+def run_site_setup_command_for_orchestration(site, command="site_setup.status", args=None, timeout_seconds=300, reason=None, cleanup=True):
+	if command not in {"site_setup.status", "site_setup.complete"}:
+		frappe.throw(_("Only Site setup commands can use the orchestration runner."))
+	return _run_site_control_command(
+		site,
+		command=command,
+		args=args,
+		timeout_seconds=timeout_seconds,
+		reason=reason,
+		cleanup=cleanup,
+		enforce_permissions=False,
+	)
 
 
 @frappe.whitelist()

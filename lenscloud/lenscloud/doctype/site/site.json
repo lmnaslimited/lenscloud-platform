@@ -23,6 +23,11 @@
   "domain",
   "site_status",
   "provisioning_status",
+  "setup_defaults_tab",
+  "setup_status",
+  "setup_schema_json",
+  "setup_data_json",
+  "setup_error",
   "operator_and_dns_tab",
   "operator_resource_name",
   "access_url",
@@ -276,6 +281,37 @@
    "fieldname": "lifecycle_state_tab",
    "fieldtype": "Tab Break",
    "label": "Lifecycle State"
+  },
+  {
+   "fieldname": "setup_defaults_tab",
+   "fieldtype": "Tab Break",
+   "label": "Setup Defaults"
+  },
+  {
+   "default": "Not Checked",
+   "fieldname": "setup_status",
+   "fieldtype": "Select",
+   "label": "Setup Status",
+   "options": "Not Checked\nPending\nRequired\nRunning\nComplete\nBlocked\nFailed"
+  },
+  {
+   "fieldname": "setup_schema_json",
+   "fieldtype": "Code",
+   "label": "Setup Schema JSON",
+   "options": "JSON",
+   "read_only": 1
+  },
+  {
+   "fieldname": "setup_data_json",
+   "fieldtype": "Code",
+   "label": "Setup Data JSON",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "setup_error",
+   "fieldtype": "Text",
+   "label": "Setup Error",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
@@ -292,7 +328,7 @@
    "link_fieldname": "site"
   }
  ],
- "modified": "2026-06-23 14:58:45.305213",
+ "modified": "2026-07-09 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Site",

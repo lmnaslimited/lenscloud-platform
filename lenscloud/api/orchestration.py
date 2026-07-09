@@ -1625,7 +1625,7 @@ def get_customer_portal_context():
 	]
 	permissions = customer_doctype_permissions(user)
 	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name and permissions.get("Subscription", {}).get("read") else []
-	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "access_url", "plan", "subscription", "environment", "region", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
+	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "setup_status", "setup_error", "access_url", "plan", "subscription", "environment", "region", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
 	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc") if permissions.get("Plan", {}).get("read") else []
 	plans = []
 	for row in plan_rows:
@@ -1725,8 +1725,266 @@ def create_or_get_customer_subscription(customer, plan, region):
 	return subscription, True
 
 
+SETUP_CORE_FIELDS = (
+	{"name": "language", "label": "Language", "fieldtype": "Select", "required": True},
+	{"name": "country", "label": "Country", "fieldtype": "Select", "required": True},
+	{"name": "timezone", "label": "Timezone", "fieldtype": "Select", "required": True, "depends_on": "country"},
+	{"name": "currency", "label": "Currency", "fieldtype": "Select", "required": True, "depends_on": "country"},
+)
+SETUP_APP_FIELDS = (
+	{"name": "company_name", "label": "Company", "fieldtype": "Data", "required": True},
+	{"name": "company_abbr", "label": "Company Abbreviation", "fieldtype": "Data", "required": False},
+	{"name": "industry", "label": "Industry", "fieldtype": "Data", "required": False},
+	{"name": "chart_of_accounts", "label": "Chart of Accounts", "fieldtype": "Select", "required": False, "depends_on": "country"},
+	{"name": "fiscal_year_start_date", "label": "Fiscal Year Start", "fieldtype": "Date", "required": False},
+	{"name": "fiscal_year_end_date", "label": "Fiscal Year End", "fieldtype": "Date", "required": False},
+)
+
+
+def release_group_app_names(release_group_name):
+	if not release_group_name or not frappe.db.exists("Release Group", release_group_name):
+		return []
+	release_group = frappe.get_doc("Release Group", release_group_name)
+	return [str(row.app).lower() for row in release_group.get("included_apps") or [] if row.app]
+
+
+def plan_setup_apps(plan):
+	if not plan:
+		return []
+	plan_doc = frappe.get_doc("Plan", plan) if isinstance(plan, str) else plan
+	apps = release_group_app_names(plan_doc.release_group)
+	if apps:
+		return apps
+	return []
+
+
+def setup_requires_app_fields(apps):
+	return any(app in {"erpnext"} for app in apps or [])
+
+
+def country_setup_options(country=None):
+	from frappe.geo.country_info import get_country_timezone_info
+
+	info = get_country_timezone_info()
+	country_info = info.get("country_info") or {}
+	countries = []
+	country_defaults = {}
+	for country_name, data in sorted(country_info.items()):
+		countries.append({"label": country_name, "value": country_name})
+		country_defaults[country_name] = {
+			"currency": data.get("currency"),
+			"timezones": data.get("timezones") or [],
+		}
+	all_timezones = info.get("all_timezones") or ["UTC"]
+	selected = country_defaults.get(country) or {}
+	return {
+		"countries": countries,
+		"country_defaults": country_defaults,
+		"timezones": selected.get("timezones") or all_timezones,
+	}
+
+def language_options():
+	if frappe.db.exists("DocType", "Language"):
+		rows = frappe.get_all("Language", fields=["name", "language_name"], order_by="language_name asc")
+		options = [{"label": row.language_name or row.name, "value": row.language_name or row.name} for row in rows]
+		if options:
+			return options
+	return [{"label": "English", "value": "English"}]
+
+
+def currency_options():
+	if frappe.db.exists("DocType", "Currency"):
+		return [{"label": row.currency_name or row.name, "value": row.name} for row in frappe.get_all("Currency", fields=["name", "currency_name"], order_by="name asc")]
+	return []
+
+
+def chart_options_for_country(country=None, apps=None):
+	if not setup_requires_app_fields(apps):
+		return []
+	# ERPNext images derive the final chart from their own setup metadata. Platform offers only safe hints.
+	country_label = country or "Standard"
+	return [{"label": f"{country_label} standard chart", "value": "Standard"}]
+
+
+def default_setup_values(country=None, apps=None):
+	country_options = country_setup_options(country)
+	country_defaults = country_options.get("country_defaults") or {}
+	selected_country = country or (country_options.get("countries") or [{}])[0].get("value")
+	selected = country_defaults.get(selected_country) or {}
+	timezones = selected.get("timezones") or country_options.get("timezones") or []
+	return {
+		"language": "English",
+		"country": selected_country,
+		"timezone": timezones[0] if timezones else "UTC",
+		"currency": selected.get("currency") or "USD",
+		"chart_of_accounts": "Standard" if setup_requires_app_fields(apps) else "",
+	}
+
+
+def customer_site_setup_schema(plan=None, country=None):
+	apps = plan_setup_apps(plan)
+	fields = [dict(field) for field in SETUP_CORE_FIELDS]
+	if setup_requires_app_fields(apps):
+		fields.extend(dict(field) for field in SETUP_APP_FIELDS)
+	country_options = country_setup_options(country)
+	options = {
+		"language": language_options(),
+		"country": country_options["countries"],
+		"timezone": [{"label": item, "value": item} for item in country_options["timezones"]],
+		"currency": currency_options(),
+		"chart_of_accounts": chart_options_for_country(country, apps),
+	}
+	return {
+		"apps": apps,
+		"fields": [{**field, "options": options.get(field["name"], [])} for field in fields],
+		"defaults": default_setup_values(country, apps),
+	}
+
+
 @frappe.whitelist()
-def request_customer_subscription(plan=None, region=None, site_name=None, company_name=None, subdomain=None, notes=None):
+def get_customer_site_setup_schema(plan=None, country=None):
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Authentication is required."), frappe.PermissionError)
+	require_active_customer_membership(frappe.session.user)
+	plan = plan or get_free_plan()
+	return customer_site_setup_schema(plan, country)
+
+
+@frappe.whitelist(methods=["POST"])
+def update_customer_site_setup_defaults(site, setup_data=None):
+	if frappe.session.user == "Guest":
+		frappe.throw(_("Authentication is required."), frappe.PermissionError)
+	membership = require_active_customer_membership(frappe.session.user)
+	site_doc = frappe.get_doc("Site", site)
+	if site_doc.customer != membership.customer:
+		frappe.throw(_("You can update only your own Site setup defaults."), frappe.PermissionError)
+	schema, clean_defaults = clean_setup_data(site_doc.plan, setup_data or {}, country=(setup_data or {}).get("country") if isinstance(setup_data, dict) else None)
+	set_site_setup_fields(site_doc, schema, clean_defaults)
+	site_doc.setup_status = "Pending"
+	site_doc.setup_error = None
+	site_doc.save(ignore_permissions=True)
+	return customer_site_progress_payload(site_doc)
+
+
+def parse_setup_data(value):
+	if not value:
+		return {}
+	if isinstance(value, dict):
+		return value
+	if isinstance(value, str):
+		try:
+			data = json.loads(value or "{}")
+		except ValueError:
+			frappe.throw(_("Setup defaults must be a JSON object."))
+		if not isinstance(data, dict):
+			frappe.throw(_("Setup defaults must be a JSON object."))
+		return data
+	frappe.throw(_("Setup defaults must be a JSON object."))
+
+
+def clean_setup_data(plan, setup_data=None, country=None):
+	schema = customer_site_setup_schema(plan, country or (setup_data or {}).get("country"))
+	data = parse_setup_data(setup_data)
+	allowed = {field["name"] for field in schema["fields"]}
+	clean = {}
+	for key, value in data.items():
+		if key in allowed and value not in (None, ""):
+			clean[key] = sanitize_error(str(value).strip())
+	missing = [field["name"] for field in schema["fields"] if field.get("required") and not clean.get(field["name"])]
+	if missing:
+		frappe.throw(_("Setup defaults require {0}.").format(", ".join(missing)))
+	return schema, clean
+
+
+def set_site_setup_fields(site_doc, schema, setup_data):
+	site_doc.setup_schema_json = json.dumps(schema, sort_keys=True, indent=2)
+	site_doc.setup_data_json = json.dumps(setup_data, sort_keys=True, indent=2)
+	if not getattr(site_doc, "setup_status", None) or site_doc.setup_status == "Not Checked":
+		site_doc.setup_status = "Pending"
+
+
+def setup_display_value(result):
+	display = (result or {}).get("display") or {}
+	return str(display.get("rawValue") or display.get("value") or "").strip().lower()
+
+
+def setup_is_complete(result):
+	value = setup_display_value(result)
+	return value in {"complete", "completed", "1", "true", "yes"}
+
+
+def setup_identity_args(site_doc):
+	member = frappe.db.get_value(
+		"Customer Member",
+		{"customer": site_doc.customer, "status": "Active", "member_role": ["in", ["Owner", "Admin"]]},
+		["user", "full_name"],
+		as_dict=True,
+	)
+	if not member:
+		member = frappe.db.get_value("Customer Member", {"customer": site_doc.customer, "status": "Active"}, ["user", "full_name"], as_dict=True)
+	user = member.user if member else frappe.session.user
+	full_name = member.full_name if member else frappe.db.get_value("User", user, "full_name")
+	return {"email": user, "full_name": full_name or user}
+
+
+def site_setup_args(site_doc, schema):
+	data = parse_setup_data(getattr(site_doc, "setup_data_json", None))
+	allowed = {field["name"] for field in schema.get("fields") or []}
+	args = {key: value for key, value in data.items() if key in allowed and value not in (None, "")}
+	args.update(setup_identity_args(site_doc))
+	return args
+
+
+def block_site_setup(site_doc, missing):
+	message = _("Site setup defaults are missing: {0}.").format(", ".join(missing))
+	log = create_action_log("Site Setup Defaults", "Failed", site=site_doc.name, bench=site_doc.bench, cluster=site_doc.cluster, region=site_doc.region, dry_run=False, resource_kind="site-setup", operation="validate", message=message)
+	finish_action_log(log, "Failed", message=message)
+	site_doc.setup_status = "Blocked"
+	site_doc.setup_error = message
+	site_doc.save(ignore_permissions=True)
+	return message
+
+
+def orchestrate_customer_site_setup(site_doc):
+	if site_doc.route_status != "Ready" or not site_doc.access_url:
+		return None
+	from lenscloud.api.bench_command import run_site_setup_command_for_orchestration
+	try:
+		status_result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup status check")
+		if setup_is_complete(status_result):
+			site_doc.reload()
+			site_doc.setup_status = "Complete"
+			site_doc.setup_error = None
+			site_doc.save(ignore_permissions=True)
+			return status_result
+		schema = parse_setup_data(getattr(site_doc, "setup_schema_json", None)) or customer_site_setup_schema(site_doc.plan)
+		args = site_setup_args(site_doc, schema)
+		missing = [key for key in ("language", "email", "full_name", "country", "timezone", "currency") if not args.get(key)]
+		missing.extend(field["name"] for field in schema.get("fields") or [] if field.get("required") and not args.get(field["name"]))
+		missing = sorted(set(missing))
+		if missing:
+			block_site_setup(site_doc, missing)
+			return {"status": "Blocked", "missing_fields": missing}
+		site_doc.setup_status = "Running"
+		site_doc.setup_error = None
+		site_doc.save(ignore_permissions=True)
+		run_site_setup_command_for_orchestration(site_doc.name, "site_setup.complete", args=args, reason="Complete first-time Site setup from customer-provided defaults")
+		final_status = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup completion check")
+		site_doc.reload()
+		site_doc.setup_status = "Complete" if setup_is_complete(final_status) else "Required"
+		site_doc.setup_error = None if site_doc.setup_status == "Complete" else _("Site setup still reports pending after setup completion.")
+		site_doc.save(ignore_permissions=True)
+		return final_status
+	except Exception as exc:
+		site_doc.reload()
+		site_doc.setup_status = "Failed"
+		site_doc.setup_error = sanitize_error(exc)
+		site_doc.save(ignore_permissions=True)
+		return {"status": "Failed", "message": site_doc.setup_error}
+
+
+@frappe.whitelist()
+def request_customer_subscription(plan=None, region=None, site_name=None, company_name=None, subdomain=None, notes=None, setup_data=None):
 	user = frappe.session.user
 	if not region:
 		frappe.throw(_("Region is required."))
@@ -1763,7 +2021,7 @@ def request_customer_subscription(plan=None, region=None, site_name=None, compan
 		doc = frappe.get_doc({"doctype": "Subscription", "customer": customer, "plan": plan, "region": region, "status": "Pending Approval", "plan_frequency": plan_doc.billing_frequency or "Monthly", "effective_from": effective_from, "next_renewal_date": subscription_next_renewal(effective_from, plan_doc.billing_frequency or "Monthly")})
 		doc.insert(ignore_permissions=True)
 		return {"subscription": doc.name, "status": doc.status, "policy_hash": doc.policy_hash, "provisioning": "pending_approval"}
-	return provision_free_plan_site(customer, plan_doc, region, site_name, company_name, subdomain, notes)
+	return provision_free_plan_site(customer, plan_doc, region, site_name, company_name, subdomain, notes, setup_data)
 
 
 def customer_reconcile_state(reconcile):
@@ -1780,10 +2038,15 @@ def customer_reconcile_state(reconcile):
 def customer_site_progress_state(site_doc):
 	if not site_doc:
 		return "failed"
-	if site_doc.provisioning_status == "Failed" or site_doc.site_status == "Failed" or site_doc.route_status == "Failed":
+	setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
+	if site_doc.provisioning_status == "Failed" or site_doc.site_status == "Failed" or site_doc.route_status == "Failed" or setup_status == "Failed":
 		return "failed"
-	if site_doc.route_status == "Ready" and site_doc.access_url:
+	if setup_status == "Blocked":
+		return "setup_required"
+	if site_doc.route_status == "Ready" and site_doc.access_url and setup_status == "Complete":
 		return "ready"
+	if site_doc.route_status == "Ready" and site_doc.access_url:
+		return "setup_running" if setup_status == "Running" else "setup_checking"
 	if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
 		return "route_pending"
 	if site_doc.provisioning_status in {"Accepted", "Running"} or site_doc.site_status in {"Accepted", "Provisioning"}:
@@ -1808,10 +2071,13 @@ def customer_site_progress_payload(site_doc, subscription=None, plan_doc=None, r
 		"provisioning_status": site_doc.provisioning_status,
 		"route_status": site_doc.route_status,
 		"tls_status": site_doc.tls_status,
+		"setup_status": getattr(site_doc, "setup_status", None),
+		"setup_error": getattr(site_doc, "setup_error", None),
+		"setup_schema": parse_setup_data(getattr(site_doc, "setup_schema_json", None)),
 		"reconcile": reconcile,
 		"provisioning": provisioning,
-		"retry_available": provisioning in {"paused", "failed", "started", "route_pending"},
-		"message": message or (reconcile or {}).get("message"),
+		"retry_available": provisioning in {"paused", "failed", "started", "route_pending", "setup_required", "setup_checking", "setup_running"},
+		"message": message or getattr(site_doc, "setup_error", None) or (reconcile or {}).get("message"),
 		"next_actions": (reconcile or {}).get("next_actions") or [],
 	}
 
@@ -1824,7 +2090,7 @@ def customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, reconc
 	return payload
 
 
-def provision_free_plan_site(customer, plan_doc, region, site_name=None, company_name=None, subdomain=None, notes=None):
+def provision_free_plan_site(customer, plan_doc, region, site_name=None, company_name=None, subdomain=None, notes=None, setup_data=None):
 	settings = get_platform_settings()
 	if not settings.root_domain or settings.domain_strategy != "Wildcard":
 		frappe.throw(_("Platform wildcard root domain must be configured before customer Site creation."))
@@ -1832,8 +2098,9 @@ def provision_free_plan_site(customer, plan_doc, region, site_name=None, company
 	limit = int(plan_doc.site_limit or 0)
 	if limit and frappe.db.count("Site", {"customer": customer, "plan": plan_doc.name, "site_status": ["!=", "Deleted"]}) >= limit:
 		frappe.throw(_("The {0} Plan Site limit has been reached.").format(plan_doc.title))
+	schema, clean_defaults = clean_setup_data(plan_doc, setup_data or {}, country=(setup_data or {}).get("country") if isinstance(setup_data, dict) else None)
 	subscription, created_subscription = create_or_get_customer_subscription(customer, plan_doc.name, region)
-	subdomain = slugify(subdomain or site_name or company_name)
+	subdomain = slugify(subdomain or site_name or company_name or clean_defaults.get("company_name"))
 	if not subdomain:
 		frappe.throw(_("Subdomain could not be derived."))
 	domain = settings.root_domain.strip().lower().strip(".")
@@ -1846,6 +2113,7 @@ def provision_free_plan_site(customer, plan_doc, region, site_name=None, company
 		frappe.throw(_("Hostname {0} is already reserved.").format(title))
 	bench = eligible_customer_bench(region, customer, plan_doc.name)
 	site_doc = frappe.get_doc({"doctype": "Site", "customer": customer, "subscription": subscription.name, "environment": "Prod", "bench": bench.name, "region": region, "cluster": cluster.name, "plan": plan_doc.name, "subdomain": subdomain, "domain": domain, "site_status": "Requested", "provisioning_status": "Pending", "hostname_reservation_status": "Reserved", "route_status": "Pending", "tls_status": "Inherited", "operator_resource_name": subdomain, "access_url": f"https://{title}"})
+	set_site_setup_fields(site_doc, schema, clean_defaults)
 	site_doc.insert(ignore_permissions=True)
 	create_action_log("Site Request", "Succeeded", site=site_doc.name, dry_run=False, bench=bench.name, cluster=cluster.name, region=region, message=notes or "Customer Free Plan subscription approved and Site provisioning started.", resource_kind="Site", operation="request")
 	try:
@@ -1895,6 +2163,10 @@ def retry_customer_site_provisioning(site):
 				except Exception:
 					if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
 						raise
+			site_doc.reload()
+			if site_doc.route_status == "Ready" and site_doc.access_url:
+				orchestrate_customer_site_setup(site_doc)
+				site_doc.reload()
 			return customer_site_progress_payload(site_doc, subscription, plan_doc, message=_("Site status was refreshed."))
 		reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
 		site_doc.reload()

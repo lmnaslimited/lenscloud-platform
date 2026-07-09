@@ -27,6 +27,8 @@ const router = useRouter()
 const loading = ref(true)
 const submitting = ref(false)
 const polling = ref(false)
+const setupSchemaLoading = ref(false)
+const setupDialogOpen = ref(false)
 const error = ref('')
 const context = ref(null)
 const selectedPlan = ref('')
@@ -34,6 +36,7 @@ const result = ref(null)
 const step = ref('choose')
 const placementFilter = ref('all')
 let progressPoller = null
+const setupSchemaState = ref(null)
 
 const form = reactive({
 	region: '',
@@ -41,6 +44,7 @@ const form = reactive({
 	company_name: '',
 	subdomain: '',
 	notes: '',
+	setup_defaults: {},
 })
 
 const plans = computed(() => context.value?.plans || [])
@@ -61,22 +65,26 @@ const selectableRegions = computed(() => regions.value.filter((item) => !item.is
 const normalizedSubdomain = computed(() => form.subdomain.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, ''))
 const domainSuffix = computed(() => settings.value.root_domain ? `.${settings.value.root_domain}` : '.lmnas.cloud')
 const hostnamePreview = computed(() => normalizedSubdomain.value && settings.value.root_domain ? `${normalizedSubdomain.value}.${settings.value.root_domain}` : '')
-const setupComplete = computed(() => Boolean(form.region && form.site_name.trim() && normalizedSubdomain.value && settings.value.root_domain))
+const setupSchema = computed(() => context.value?.setup_schema || setupSchemaState.value || null)
+const setupFields = computed(() => setupSchema.value?.fields || [])
+const setupDefaultsComplete = computed(() => Boolean(setupSchema.value) && setupFields.value.every((field) => !field.required || Boolean(form.setup_defaults[field.name])))
+const setupComplete = computed(() => Boolean(form.region && form.site_name.trim() && normalizedSubdomain.value && settings.value.root_domain && setupDefaultsComplete.value))
 const canStartFree = computed(() => Boolean(selectedPlanRecord.value?.is_free && !planDisabled(selectedPlanRecord.value) && setupComplete.value))
 const resultSite = computed(() => existingSites.value.find((site) => site.name === result.value?.site || site.subscription === result.value?.subscription) || null)
 const resultRouteReady = computed(() => result.value?.route_status === 'Ready' || resultSite.value?.route_status === 'Ready')
-const hasReadySite = computed(() => existingSites.value.some((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready'))
+const hasReadySite = computed(() => resultReady.value || existingSites.value.some((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready' && site.setup_status === 'Complete'))
 const readySiteUrl = computed(() => {
-	if (resultRouteReady.value) return result.value?.access_url || resultSite.value?.access_url || ''
-	return existingSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready' && site.access_url)?.access_url || ''
+	if (provisioningMode.value === 'ready') return result.value?.access_url || resultSite.value?.access_url || ''
+	return existingSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready' && site.setup_status === 'Complete' && site.access_url)?.access_url || ''
 })
 const provisioningMode = computed(() => result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
-const resultStarted = computed(() => ['started', 'route_pending', 'ready'].includes(provisioningMode.value))
+const resultStarted = computed(() => ['started', 'route_pending', 'setup_checking', 'setup_running', 'setup_required', 'ready'].includes(provisioningMode.value))
 const resultPaused = computed(() => provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run')
 const resultFailed = computed(() => provisioningMode.value === 'failed')
-const resultReady = computed(() => provisioningMode.value === 'ready' || Boolean(readySiteUrl.value))
+const resultSetupRequired = computed(() => provisioningMode.value === 'setup_required')
+const resultReady = computed(() => provisioningMode.value === 'ready')
 const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value)))
-const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && resultStarted.value && !resultReady.value && !resultFailed.value))
+const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && resultStarted.value && !resultReady.value && !resultFailed.value && !resultSetupRequired.value))
 const selectedSiteLabel = computed(() => result.value?.hostname || result.value?.access_url?.replace(/^https?:\/\//, '') || resultSite.value?.title || resultSite.value?.name || hostnamePreview.value || '')
 
 const flowSteps = computed(() => [
@@ -105,15 +113,21 @@ const provisioningSteps = computed(() => {
 	const runtimeReady = Boolean(['Ready', 'Active'].includes(result.value?.site_status) || result.value?.provisioning_status === 'Ready' || ['Ready', 'Active'].includes(resultSite.value?.site_status))
 	const routeReady = Boolean(resultRouteReady.value)
 	const routeFailed = Boolean(result.value?.route_status === 'Failed' || resultSite.value?.route_status === 'Failed')
+	const setupStatus = result.value?.setup_status || resultSite.value?.setup_status || 'Not Checked'
+	const setupDone = setupStatus === 'Complete' || resultReady.value
+	const setupBlocked = setupStatus === 'Blocked' || resultSetupRequired.value
+	const setupFailed = setupStatus === 'Failed' || (resultFailed.value && routeReady)
+	const setupRunning = provisioningMode.value === 'setup_running'
+	const setupChecking = provisioningMode.value === 'setup_checking'
 	return [
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
 		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
 		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
-		{ label: 'Checking setup status', state: routeReady ? 'active' : 'pending', helper: routeReady ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after secure access is ready.' },
-		{ label: 'Setting site defaults', state: 'pending', helper: 'Company, Region, timezone, currency, and other safe defaults need typed Platform setup inputs.' },
-		{ label: 'Platform access', state: 'pending', helper: 'Single sign-on and member access will be completed in a later CUA runner step.' },
-		{ label: 'Ready to open', state: routeReady ? 'active' : 'pending', helper: routeReady ? 'Your Site is ready to open.' : 'We will show the Open Site action when access is verified.' },
+		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || routeReady ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after secure access is ready.' },
+		{ label: 'Setting site defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Site defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Site needs first-time setup.' },
+		{ label: 'Platform access', state: setupDone ? 'done' : 'pending', helper: setupDone ? 'Platform access bootstrap can continue from the ready Site.' : 'Single sign-on and member access will be completed in a later CUA runner step.' },
+		{ label: 'Ready to open', state: resultReady.value ? 'done' : setupDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Site is ready to open.' : setupDone ? 'LensCloud is publishing the Open Site action.' : 'We will show the Open Site action when access is verified.' },
 	]
 })
 
@@ -121,8 +135,10 @@ const provisioningSteps = computed(() => {
 function progressResultFromSite(site, subscription = null) {
 	if (!site) return null
 	let provisioning = 'started'
-	if (site.provisioning_status === 'Failed' || site.site_status === 'Failed' || site.route_status === 'Failed') provisioning = 'failed'
-	else if (site.route_status === 'Ready' && site.access_url) provisioning = 'ready'
+	if (site.provisioning_status === 'Failed' || site.site_status === 'Failed' || site.route_status === 'Failed' || site.setup_status === 'Failed') provisioning = 'failed'
+	else if (site.setup_status === 'Blocked') provisioning = 'setup_required'
+	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete') provisioning = 'ready'
+	else if (site.route_status === 'Ready' && site.access_url) provisioning = site.setup_status === 'Running' ? 'setup_running' : 'setup_checking'
 	else if (['Ready', 'Active'].includes(site.site_status) || site.provisioning_status === 'Ready') provisioning = 'route_pending'
 	else if (['Pending', 'Not Started'].includes(site.provisioning_status) || ['Requested', 'Draft'].includes(site.site_status)) provisioning = 'paused'
 	return {
@@ -138,8 +154,10 @@ function progressResultFromSite(site, subscription = null) {
 		provisioning_status: site.provisioning_status,
 		route_status: site.route_status,
 		tls_status: site.tls_status,
+		setup_status: site.setup_status,
+		setup_error: site.setup_error,
 		provisioning,
-		retry_available: ['paused', 'failed', 'started', 'route_pending'].includes(provisioning),
+		retry_available: ['paused', 'failed', 'started', 'route_pending', 'setup_required', 'setup_checking', 'setup_running'].includes(provisioning),
 	}
 }
 
@@ -229,16 +247,66 @@ function selectPlan(plan) {
 	selectedPlan.value = plan.name
 }
 
-function continueFromPlan() {
+async function continueFromPlan() {
 	if (membershipPending.value || !canCreateSubscription.value || !selectedPlanRecord.value || planDisabled(selectedPlanRecord.value)) return
 	if (selectedPlanRecord.value.cta_mode === 'self_service') {
 		step.value = 'setup'
+		await loadSetupSchema()
 		return
 	}
 	if (selectedPlanRecord.value.cta_mode === 'request_access') requestAccess(selectedPlanRecord.value)
 }
 
-function goToCheckout() {
+async function loadSetupSchema(country = form.setup_defaults.country) {
+	if (!selectedPlanRecord.value?.name) return
+	setupSchemaLoading.value = true
+	try {
+		const response = await callMethod('lenscloud.api.orchestration.get_customer_site_setup_schema', { plan: selectedPlanRecord.value.name, country })
+		setupSchemaState.value = response.message || response
+		for (const [key, value] of Object.entries(setupSchemaState.value?.defaults || {})) {
+			if (!form.setup_defaults[key]) form.setup_defaults[key] = value
+		}
+	} catch (err) {
+		error.value = err?.message || 'Unable to load setup defaults.'
+	} finally {
+		setupSchemaLoading.value = false
+	}
+}
+
+async function openSetupDialog() {
+	await loadSetupSchema()
+	setupDialogOpen.value = true
+}
+
+async function refreshSetupDependents() {
+	await loadSetupSchema(form.setup_defaults.country)
+}
+
+async function saveSetupDefaults() {
+	if (!setupDefaultsComplete.value) return
+	if (result.value?.site && resultSetupRequired.value) {
+		submitting.value = true
+		error.value = ''
+		try {
+			const response = await callMethod('lenscloud.api.orchestration.update_customer_site_setup_defaults', { site: result.value.site, setup_data: form.setup_defaults }, 'POST')
+			result.value = response.message || response
+			setupDialogOpen.value = false
+			await refreshProgress()
+		} catch (err) {
+			error.value = err?.message || 'Unable to save setup defaults.'
+		} finally {
+			submitting.value = false
+		}
+		return
+	}
+	setupDialogOpen.value = false
+}
+
+async function goToCheckout() {
+	if (!setupDefaultsComplete.value) {
+		await openSetupDialog()
+		return
+	}
 	if (setupComplete.value) step.value = 'checkout'
 }
 
@@ -301,9 +369,10 @@ async function startFreePlan() {
 			plan: selectedPlanRecord.value.name,
 			region: form.region,
 			site_name: form.site_name,
-			company_name: form.company_name || form.site_name,
+			company_name: form.setup_defaults.company_name || form.company_name || form.site_name,
 			subdomain: normalizedSubdomain.value,
 			notes: form.notes,
+			setup_data: form.setup_defaults,
 		}, 'POST')
 		result.value = response.message || response
 		step.value = 'result'
@@ -371,6 +440,33 @@ onBeforeUnmount(stopProgressPolling)
 		<template #main>
 			<div class="h-full overflow-y-auto bg-[#f7f9fb] p-4 lg:p-6">
 				<Alert v-if="error" theme="red" title="Plan action failed" :description="error" class="mb-4" />
+
+		<div v-if="setupDialogOpen" class="fixed inset-0 z-[1000] grid place-items-center bg-black/30 px-4 py-6" role="presentation" @mousedown.self="setupDialogOpen = false">
+			<form class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl" @submit.prevent="saveSetupDefaults">
+				<div class="flex items-start justify-between gap-4">
+					<div>
+						<h3 class="text-lg font-semibold text-gray-900">Setup defaults</h3>
+						<p class="mt-1 text-sm text-gray-500">Required fields come from the target app setup contract.</p>
+					</div>
+					<button class="rounded-md p-2 text-gray-500 hover:bg-gray-100" type="button" aria-label="Close" @click="setupDialogOpen = false"><XCircle class="size-5" /></button>
+				</div>
+				<div v-if="setupSchemaLoading" class="mt-6 rounded-lg bg-gray-50 p-4 text-sm text-gray-600">Loading setup fields...</div>
+				<div v-else class="mt-6 grid gap-4 sm:grid-cols-2">
+					<label v-for="field in setupFields" :key="field.name" class="block text-sm font-medium text-gray-700">
+						<span>{{ field.label }} <span v-if="field.required" class="text-red-600">*</span></span>
+						<select v-if="field.fieldtype === 'Select'" v-model="form.setup_defaults[field.name]" class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500" :required="field.required" @change="field.name === 'country' && refreshSetupDependents()">
+							<option value="">Select</option>
+							<option v-for="option in field.options || []" :key="option.value || option" :value="option.value || option">{{ option.label || option.value || option }}</option>
+						</select>
+						<input v-else v-model="form.setup_defaults[field.name]" class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" :required="field.required" :type="field.fieldtype === 'Date' ? 'date' : 'text'" />
+					</label>
+				</div>
+				<div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+					<Button variant="subtle" type="button" @click="setupDialogOpen = false">Cancel</Button>
+					<Button variant="solid" type="submit" :disabled="!setupDefaultsComplete || submitting">{{ submitting ? 'Saving...' : 'Save defaults' }}</Button>
+				</div>
+			</form>
+		</div>
 
 				<div v-if="loading" class="grid min-h-[560px] place-items-center rounded-xl border border-outline-gray-2 bg-surface-white p-8 text-center">
 					<div>
@@ -478,6 +574,15 @@ onBeforeUnmount(stopProgressPolling)
 												<input v-model="form.site_name" aria-label="Site Name" class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" type="text" placeholder="My Awesome App" />
 											</div>
 										</section>
+
+										<section data-purpose="setup-defaults">
+											<h4 class="mb-1 text-base font-semibold text-gray-900">4. Setup Defaults</h4>
+											<p class="mb-4 text-sm text-gray-500">Only fields required by the installed apps are requested.</p>
+											<div class="flex flex-wrap items-center gap-3">
+												<button class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" type="button" @click="openSetupDialog">{{ setupDefaultsComplete ? 'Edit setup defaults' : 'Complete setup defaults' }}</button>
+												<span class="rounded-full px-3 py-1 text-sm font-medium" :class="setupDefaultsComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'">{{ setupDefaultsComplete ? 'Ready' : setupSchemaLoading ? 'Loading' : 'Required' }}</span>
+											</div>
+										</section>
 									</div>
 
 									<div class="flex flex-col items-center justify-between gap-4 bg-gray-50 px-8 py-6 sm:flex-row">
@@ -561,7 +666,7 @@ onBeforeUnmount(stopProgressPolling)
 											</div>
 											<div class="flex shrink-0 flex-wrap gap-3">
 												<a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a>
-												<button v-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
+												<button v-if="resultSetupRequired" class="inline-flex items-center justify-center rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="openSetupDialog">Update defaults</button><button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
 											</div>
 										</div>
 									</div>
@@ -611,5 +716,6 @@ onBeforeUnmount(stopProgressPolling)
 				</div>
 			</div>
 		</template>
+
 	</WorkspaceLayout>
 </template>
