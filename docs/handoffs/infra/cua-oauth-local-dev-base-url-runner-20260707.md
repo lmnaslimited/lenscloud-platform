@@ -82,6 +82,66 @@ When the local/dev flag is accepted, the runner should configure the target Site
 
 Fallback only if Infra explicitly prefers it: provide and document an HTTPS Platform issuer URL for the current dev Platform instance that points to the same LensCloud Platform/CUA site, not an example or unrelated branded host.
 
+## 2026-07-09 Manager VM Retest Blocker
+
+Platform reran the live verifier from the manager VM for the customer Site:
+
+```text
+Site: tara-communo-hub.cloud.lmnaslens.com
+Bench: run-20260702-free-prod-bench
+Sites PVC: run-20260702-free-prod-bench-sites
+OAuth provider: lenscloud
+OAuth provider name: LensCloud
+OAuth client ID: 08riiahaab
+OAuth base URL: http://dev.localhost:8000
+allow_local_oauth_http: true
+Runner image: ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:3e7867ff7cb0285395aafd380232496f854c6d014c237b8790cbcbfd1bd577ef
+```
+
+The verifier still fails at admission before runner execution:
+
+```text
+The jobs "run-20260709-1824-cua-oauth-status-before" is invalid:
+ValidatingAdmissionPolicy 'lenscloud-platform-bench-command-job-create'
+with binding 'lenscloud-platform-bench-command-job-create' denied request:
+LensCloud Platform may create only labelled bench-command Jobs with an approved
+command family, approved runner image, one non-privileged container, no envFrom,
+no service-account token, restartPolicy Never, backoffLimit <= 1, and no Secret
+volumes except the approved oauth-client-secret/client_secret mount for oauth
+commands.
+```
+
+Important Platform interpretation:
+
+- The denied Job is the `oauth.status` pre-check, so Platform does **not**
+  expect an OAuth client Secret mount on that Job.
+- `oauth.status` should mount only the Sites PVC read-only and should not mount
+  `oauth-client-secret`.
+- `oauth.configure` is the only OAuth command that should create and mount the
+  short-lived Secret.
+- For `oauth.configure`, Platform expects exactly one Secret volume named
+  `oauth-client-secret`, key `client_secret`, mounted read-only at
+  `/lenscloud/secrets/client_secret`.
+- If admission rejected the `oauth.status` Job, the likely infra fixes are in
+  the live admission policy/binding or verifier-generated Job labels/image/family
+  shape, not in the OAuth client Secret mount.
+
+Infra should inspect the rendered verifier Job manifests for both
+`oauth.status` and `oauth.configure` before submission and compare them against
+the live CEL policy:
+
+- required bench-command labels and annotations;
+- approved command family includes `oauth.status` and `oauth.configure`;
+- approved runner image includes the `v0.1.11` digest above;
+- exactly one non-privileged container;
+- no `envFrom`;
+- no service-account token automount;
+- `restartPolicy: Never`;
+- `backoffLimit <= 1`;
+- no Secret volume on `oauth.status`;
+- exactly the approved `oauth-client-secret/client_secret` mount on
+  `oauth.configure`.
+
 After the fix, rerun Infra verification for `oauth.configure` with a local/dev Platform issuer and hand back:
 
 - updated runner contract;

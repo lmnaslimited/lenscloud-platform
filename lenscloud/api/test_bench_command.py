@@ -90,6 +90,9 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertEqual(json.loads(configmap["data"]["request.json"])["command"], "bench_test.status")
 
 
+	def test_runner_image_uses_inf_026_digest(self):
+		self.assertIn("sha256:3e7867ff7cb0285395aafd380232496f854c6d014c237b8790cbcbfd1bd577ef", bench_command.RUNNER_IMAGE)
+
 	def test_runner_supported_command_uses_pinned_runner_and_sites_pvc(self):
 		labels = {
 			PLATFORM_MANAGER_LABEL: "platform",
@@ -184,9 +187,11 @@ class BenchCommandContractTest(unittest.TestCase):
 			"redirect_url": "https://site.example.com/api/method/frappe.integrations.oauth2_logins.custom/lenscloud",
 			"api_endpoint": "/api/method/frappe.integrations.oauth2.openid_profile",
 			"custom_base_url": True,
+			"allow_local_oauth_http": True,
 			"auth_url_data": {"response_type": "code", "scope": "openid"},
 		})
 		self.assertEqual(args["client_secret_source"], "mounted_file")
+		self.assertTrue(args["allow_local_oauth_http"])
 		self.assertNotIn("client_secret", args)
 		with self.assertRaises(frappe.ValidationError):
 			bench_command.command_args("oauth.configure", {"client_secret": "nope"})

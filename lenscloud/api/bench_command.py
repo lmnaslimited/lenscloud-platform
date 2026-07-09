@@ -25,7 +25,7 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:3e7867ff7cb0285395aafd380232496f854c6d014c237b8790cbcbfd1bd577ef"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -74,6 +74,7 @@ APPROVED_OAUTH_CONFIGURE_KEYS = {
 	"redirect_url",
 	"api_endpoint",
 	"custom_base_url",
+	"allow_local_oauth_http",
 	"auth_url_data",
 	"sign_ups",
 }
@@ -177,6 +178,7 @@ def oauth_configure_args(args):
 			clean[key] = clean_scalar_arg("oauth.configure", key, args.get(key), max_length=1000)
 	clean["enable_social_login"] = bool(args.get("enable_social_login"))
 	clean["custom_base_url"] = bool(args.get("custom_base_url"))
+	clean["allow_local_oauth_http"] = bool(args.get("allow_local_oauth_http"))
 	auth_url_data = args.get("auth_url_data") or {}
 	if not isinstance(auth_url_data, dict):
 		frappe.throw(_("oauth.configure auth_url_data must be an object."))
@@ -747,7 +749,7 @@ def platform_oauth_settings():
 	base_url = clean_scalar_arg("oauth", "base_url", getattr(settings, "oauth_base_url", None) or get_url(), max_length=300).rstrip("/")
 	if not base_url.startswith("https://") and "localhost" not in base_url:
 		frappe.throw(_("Platform OAuth base URL must be HTTPS outside local development."))
-	return {"provider": provider, "provider_name": provider_name, "base_url": base_url}
+	return {"provider": provider, "provider_name": provider_name, "base_url": base_url, "allow_local_oauth_http": bool(getattr(settings, "allow_local_oauth_http", 0))}
 
 
 def oauth_redirect_url(site_doc, provider):
@@ -797,6 +799,7 @@ def oauth_configure_request_args(site_doc, oauth_client=None):
 		"client_id": client["client_id"],
 		"client_secret_source": "mounted_file",
 		"base_url": settings["base_url"],
+		"allow_local_oauth_http": settings["allow_local_oauth_http"],
 		"authorize_url": "/api/method/frappe.integrations.oauth2.authorize",
 		"access_token_url": "/api/method/frappe.integrations.oauth2.get_token",
 		"redirect_url": redirect_url,
