@@ -12,6 +12,7 @@
   "oauth_provider",
   "oauth_provider_name",
   "oauth_base_url",
+  "allow_local_oauth_http",
   "column_break_odvf",
   "default_storage_class",
   "active_cluster_context",
@@ -302,17 +303,23 @@
    "label": "OAuth Provider Name"
   },
   {
+   "description": "Public LensCloud Platform URL used by provisioned Sites for OAuth. Local/dev example: http://dev.localhost:8000",
    "fieldname": "oauth_base_url",
    "fieldtype": "Data",
-   "label": "OAuth Base URL",
-   "description": "Public LensCloud Platform URL used by provisioned Sites for OAuth. Local/dev example: http://dev.localhost:8000"
+   "label": "OAuth Base URL"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_local_oauth_http",
+   "fieldtype": "Check",
+   "label": "Allow Local OAuth HTTP"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-03 12:33:27.975952",
+ "modified": "2026-07-09 22:39:06.655048",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Platform Settings",
