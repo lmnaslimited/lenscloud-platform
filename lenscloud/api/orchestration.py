@@ -1512,6 +1512,8 @@ def landscape_environment_sequence(subscription, sites):
 			"site_title": site.get("title") if site else None,
 			"site_status": site.get("site_status") if site else None,
 			"provisioning_status": site.get("provisioning_status") if site else None,
+			"route_status": site.get("route_status") if site else None,
+			"tls_status": site.get("tls_status") if site else None,
 			"access_url": site.get("access_url") if site else None,
 			"release": bench_release_label(site.get("bench")) if site else None,
 		})
@@ -1623,7 +1625,7 @@ def get_customer_portal_context():
 	]
 	permissions = customer_doctype_permissions(user)
 	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name and permissions.get("Subscription", {}).get("read") else []
-	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "site_status", "provisioning_status", "route_status", "access_url", "plan", "subscription", "environment", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
+	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "access_url", "plan", "subscription", "environment", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
 	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc") if permissions.get("Plan", {}).get("read") else []
 	plans = []
 	for row in plan_rows:
@@ -1775,23 +1777,51 @@ def customer_reconcile_state(reconcile):
 	return status or "failed"
 
 
-def customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, reconcile=None, created_subscription=False, message=None):
-	provisioning = customer_reconcile_state(reconcile)
+def customer_site_progress_state(site_doc):
+	if not site_doc:
+		return "failed"
+	if site_doc.provisioning_status == "Failed" or site_doc.site_status == "Failed" or site_doc.route_status == "Failed":
+		return "failed"
+	if site_doc.route_status == "Ready" and site_doc.access_url:
+		return "ready"
+	if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
+		return "route_pending"
+	if site_doc.provisioning_status in {"Accepted", "Running"} or site_doc.site_status in {"Accepted", "Provisioning"}:
+		return "started"
+	if site_doc.provisioning_status in {"Pending", "Not Started"} or site_doc.site_status in {"Requested", "Draft"}:
+		return "paused"
+	return "started"
+
+
+def customer_site_progress_payload(site_doc, subscription=None, plan_doc=None, reconcile=None, created_subscription=False, message=None):
+	provisioning = customer_site_progress_state(site_doc)
 	return {
-		"subscription": subscription.name,
+		"subscription": subscription.name if subscription else site_doc.subscription,
 		"subscription_created": created_subscription,
-		"status": subscription.status,
+		"status": subscription.status if subscription else None,
 		"site": site_doc.name,
 		"domain": site_doc.domain,
 		"hostname": site_doc.title,
 		"access_url": site_doc.access_url,
-		"plan": plan_doc.name,
+		"plan": plan_doc.name if plan_doc else site_doc.plan,
+		"site_status": site_doc.site_status,
+		"provisioning_status": site_doc.provisioning_status,
+		"route_status": site_doc.route_status,
+		"tls_status": site_doc.tls_status,
 		"reconcile": reconcile,
 		"provisioning": provisioning,
-		"retry_available": provisioning in {"paused", "failed", "dry_run"},
+		"retry_available": provisioning in {"paused", "failed", "started", "route_pending"},
 		"message": message or (reconcile or {}).get("message"),
 		"next_actions": (reconcile or {}).get("next_actions") or [],
 	}
+
+
+def customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, reconcile=None, created_subscription=False, message=None):
+	provisioning = customer_reconcile_state(reconcile)
+	payload = customer_site_progress_payload(site_doc, subscription, plan_doc, reconcile, created_subscription, message)
+	payload["provisioning"] = provisioning
+	payload["retry_available"] = provisioning in {"paused", "failed", "dry_run", "started"}
+	return payload
 
 
 def provision_free_plan_site(customer, plan_doc, region, site_name=None, company_name=None, subdomain=None, notes=None):
@@ -1830,9 +1860,8 @@ def provision_free_plan_site(customer, plan_doc, region, site_name=None, company
 def retry_customer_site_provisioning(site):
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Authentication is required."), frappe.PermissionError)
-	customer = frappe.db.get_value("Customer", {"user": frappe.session.user}, "name")
-	if not customer:
-		frappe.throw(_("Customer account is required before retrying Site setup."))
+	membership = require_active_customer_membership(frappe.session.user)
+	customer = membership.customer
 	site_doc = frappe.get_doc("Site", site)
 	if site_doc.customer != customer:
 		frappe.throw(_("You can retry only your own Site setup."), frappe.PermissionError)
@@ -1843,6 +1872,10 @@ def retry_customer_site_provisioning(site):
 	cluster = get_region_cluster(site_doc.region)
 	settings = get_platform_settings()
 	try:
+		if site_doc.provisioning_status in {"Accepted", "Running", "Ready"} or site_doc.site_status in {"Accepted", "Provisioning", "Ready", "Active"}:
+			sync_site_status(site_doc.name, check_route=True)
+			site_doc.reload()
+			return customer_site_progress_payload(site_doc, subscription, plan_doc, message=_("Site status was refreshed."))
 		reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))
 		site_doc.reload()
 		return customer_reconcile_payload(site_doc, subscription, plan_doc, cluster, reconcile, False)

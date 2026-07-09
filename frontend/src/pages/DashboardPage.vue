@@ -163,8 +163,8 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 											Open Site
 											<ExternalLink class="size-4" />
 										</a>
-										<RouterLink v-else-if="activeSite" to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
-											View subscription progress
+										<RouterLink v-else-if="activeSite" :to="`/customer/plans?site=${encodeURIComponent(activeSite.name)}&subscription=${encodeURIComponent(activeSite.subscription || '')}`" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+											View provisioning progress
 											<ArrowRight class="size-4" />
 										</RouterLink>
 										<RouterLink v-else to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">

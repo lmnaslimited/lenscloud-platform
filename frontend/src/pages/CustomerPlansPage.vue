@@ -1,6 +1,6 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
 	AlertTriangle,
@@ -20,6 +20,9 @@ import {
 } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
+
+const route = useRoute()
+const router = useRouter()
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -58,19 +61,25 @@ const domainSuffix = computed(() => settings.value.root_domain ? `.${settings.va
 const hostnamePreview = computed(() => normalizedSubdomain.value && settings.value.root_domain ? `${normalizedSubdomain.value}.${settings.value.root_domain}` : '')
 const setupComplete = computed(() => Boolean(form.region && form.site_name.trim() && normalizedSubdomain.value && settings.value.root_domain))
 const canStartFree = computed(() => Boolean(selectedPlanRecord.value?.is_free && !planDisabled(selectedPlanRecord.value) && setupComplete.value))
-const hasReadySite = computed(() => existingSites.value.some((site) => ['Ready', 'Active'].includes(site.site_status)))
-const readySiteUrl = computed(() => result.value?.access_url || existingSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.access_url)?.access_url || '')
+const resultSite = computed(() => existingSites.value.find((site) => site.name === result.value?.site || site.subscription === result.value?.subscription) || null)
+const resultRouteReady = computed(() => result.value?.route_status === 'Ready' || resultSite.value?.route_status === 'Ready')
+const hasReadySite = computed(() => existingSites.value.some((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready'))
+const readySiteUrl = computed(() => {
+	if (resultRouteReady.value) return result.value?.access_url || resultSite.value?.access_url || ''
+	return existingSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready' && site.access_url)?.access_url || ''
+})
 const provisioningMode = computed(() => result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
-const resultStarted = computed(() => provisioningMode.value === 'started')
+const resultStarted = computed(() => ['started', 'route_pending', 'ready'].includes(provisioningMode.value))
 const resultPaused = computed(() => provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run')
 const resultFailed = computed(() => provisioningMode.value === 'failed')
-const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultPaused.value || resultFailed.value)))
+const resultReady = computed(() => provisioningMode.value === 'ready' || Boolean(readySiteUrl.value))
+const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value)))
 
 const flowSteps = computed(() => [
 	{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
 	{ key: 'setup', label: 'Setup Site', helper: 'Pick Region and Site details.' },
 	{ key: 'checkout', label: 'Free Checkout', helper: 'Confirm ₹0 due today.' },
-	{ key: 'result', label: result.value?.provisioning === 'started' ? 'Launch Site' : 'Approval', helper: 'Track setup and open when ready.' },
+	{ key: 'result', label: resultStarted.value || resultReady.value ? 'Launch Site' : 'Approval', helper: 'Track setup and open when ready.' },
 ])
 
 const currentStepIndex = computed(() => Math.max(0, flowSteps.value.findIndex((item) => item.key === step.value)))
@@ -78,29 +87,73 @@ const screenTitle = computed(() => {
 	if (step.value === 'choose') return 'Select your LensCloud service'
 	if (step.value === 'setup') return 'Set up your first Site'
 	if (step.value === 'checkout') return 'Review Subscription'
-	return result.value?.provisioning === 'started' ? 'Your Site launch has started' : 'Your request is received'
+	return resultStarted.value || resultReady.value ? 'Your Site launch has started' : 'Your request is received'
 })
 const screenSubtitle = computed(() => {
 	if (step.value === 'choose') return 'Pick a submitted Platform Plan to continue.'
 	if (step.value === 'setup') return 'These details reserve your customer-facing Site. LensCloud chooses compatible capacity for you.'
 	if (step.value === 'checkout') return 'The Free Plan has no payment method requirement. Review once and start the subscription.'
-	return result.value?.provisioning === 'started' ? 'Follow setup progress here, then open the Site when it is ready.' : 'The LensCloud team will review this before setup starts.'
+	return resultStarted.value || resultReady.value ? 'Follow setup progress here, then open the Site when it is ready.' : 'The LensCloud team will review this before setup starts.'
 })
 
 const provisioningSteps = computed(() => {
-	const attempted = Boolean(resultStarted.value || resultPaused.value || resultFailed.value)
-	const ready = Boolean(readySiteUrl.value && hasReadySite.value)
+	const attempted = Boolean(result.value?.site || resultStarted.value || resultPaused.value || resultFailed.value || resultReady.value)
+	const runtimeReady = Boolean(['Ready', 'Active'].includes(result.value?.site_status) || result.value?.provisioning_status === 'Ready' || ['Ready', 'Active'].includes(resultSite.value?.site_status))
+	const routeReady = Boolean(resultRouteReady.value)
+	const routeFailed = Boolean(result.value?.route_status === 'Failed' || resultSite.value?.route_status === 'Failed')
 	return [
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
 		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
-		{ label: 'Preparing workspace', state: resultFailed.value ? 'failed' : resultPaused.value ? 'paused' : resultStarted.value && !ready ? 'active' : ready ? 'done' : 'pending', helper: resultFailed.value ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : resultStarted.value && !ready ? 'LensCloud is preparing your workspace.' : ready ? 'Workspace preparation is complete.' : 'Waiting to start.' },
-		{ label: 'Connecting HTTPS', state: ready ? 'done' : resultStarted.value ? 'pending' : 'pending', helper: ready ? 'Secure access is ready.' : 'This starts after workspace preparation.' },
-		{ label: 'Checking setup status', state: ready ? 'active' : 'pending', helper: ready ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after secure access is ready.' },
-		{ label: 'Setting site defaults', state: 'pending', helper: 'Company, Region, timezone, currency, and other safe defaults will be applied by Platform.' },
+		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
+		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
+		{ label: 'Checking setup status', state: routeReady ? 'active' : 'pending', helper: routeReady ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after secure access is ready.' },
+		{ label: 'Setting site defaults', state: 'pending', helper: 'Company, Region, timezone, currency, and other safe defaults need typed Platform setup inputs.' },
 		{ label: 'Platform access', state: 'pending', helper: 'Single sign-on and member access will be completed in a later CUA runner step.' },
-		{ label: 'Ready to open', state: ready ? 'active' : 'pending', helper: ready ? 'Your Site is ready.' : 'We will show the Open Site action here.' },
+		{ label: 'Ready to open', state: routeReady ? 'active' : 'pending', helper: routeReady ? 'Your Site is ready to open.' : 'We will show the Open Site action when access is verified.' },
 	]
 })
+
+
+function progressResultFromSite(site, subscription = null) {
+	if (!site) return null
+	let provisioning = 'started'
+	if (site.provisioning_status === 'Failed' || site.site_status === 'Failed' || site.route_status === 'Failed') provisioning = 'failed'
+	else if (site.route_status === 'Ready' && site.access_url) provisioning = 'ready'
+	else if (['Ready', 'Active'].includes(site.site_status) || site.provisioning_status === 'Ready') provisioning = 'route_pending'
+	else if (['Pending', 'Not Started'].includes(site.provisioning_status) || ['Requested', 'Draft'].includes(site.site_status)) provisioning = 'paused'
+	return {
+		subscription: subscription?.name || site.subscription,
+		status: subscription?.status,
+		site: site.name,
+		domain: site.domain,
+		hostname: site.title,
+		access_url: site.access_url,
+		plan: site.plan || subscription?.plan,
+		site_status: site.site_status,
+		provisioning_status: site.provisioning_status,
+		route_status: site.route_status,
+		tls_status: site.tls_status,
+		provisioning,
+		retry_available: ['paused', 'failed', 'started', 'route_pending'].includes(provisioning),
+	}
+}
+
+function hydrateProgressFromRoute() {
+	const siteName = route.query.site || route.query.progress
+	const subscriptionName = route.query.subscription
+	if (!siteName && !subscriptionName) return
+	const site = existingSites.value.find((item) => item.name === siteName || item.subscription === subscriptionName)
+	const subscription = context.value?.subscriptions?.find((item) => item.name === (subscriptionName || site?.subscription))
+	const nextResult = progressResultFromSite(site, subscription)
+	if (nextResult) {
+		result.value = nextResult
+		step.value = 'result'
+	}
+}
+
+function progressRouteFor(site, subscription) {
+	return { path: '/customer/plans', query: { site: site?.name || site, subscription: subscription?.name || subscription } }
+}
 
 function planBadge(plan) {
 	return plan.portal_badge || (plan.is_default ? 'Recommended' : plan.availability || 'Plan')
@@ -190,6 +243,7 @@ async function load() {
 		context.value = response.message || response
 		if (!selectedPlan.value) selectedPlan.value = context.value.plans?.find((plan) => plan.is_free && !planDisabled(plan))?.name || context.value.plans?.find((plan) => !planDisabled(plan))?.name || context.value.plans?.[0]?.name || ''
 		if (!form.region) form.region = context.value.customer?.region || context.value.regions?.find((item) => !item.is_group)?.name || ''
+		hydrateProgressFromRoute()
 	} catch (err) {
 		error.value = err?.message || 'Unable to load Plans.'
 	} finally {
@@ -212,6 +266,7 @@ async function startFreePlan() {
 		}, 'POST')
 		result.value = response.message || response
 		step.value = 'result'
+		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
 	} catch (err) {
 		error.value = err?.message || 'Unable to start the Free Plan.'
@@ -228,6 +283,7 @@ async function requestAccess(plan) {
 		const response = await callMethod('lenscloud.api.orchestration.request_customer_subscription', { plan: plan.name, region: form.region }, 'POST')
 		result.value = response.message || response
 		step.value = 'result'
+		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
 	} catch (err) {
 		error.value = err?.message || 'Unable to request access.'
@@ -244,6 +300,7 @@ async function retrySetup() {
 		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site }, 'POST')
 		result.value = response.message || response
 		step.value = 'result'
+		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
 	} catch (err) {
 		error.value = err?.message || 'Unable to retry setup.'
@@ -427,9 +484,9 @@ onMounted(load)
 
 							<div v-else class="grid gap-5 xl:grid-cols-[1fr_340px]">
 								<div class="rounded-xl border border-[#EDEDED] bg-white p-6">
-									<Badge :class="resultFailed ? 'bg-red-50 text-red-700' : resultPaused ? 'bg-amber-50 text-amber-800' : resultStarted ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">{{ resultFailed ? 'Setup needs retry' : resultPaused ? 'Setup paused' : resultStarted ? 'Provisioning' : 'Approval pending' }}</Badge>
-									<h3 class="mt-3 text-xl font-semibold text-[#191c1e]">{{ resultFailed ? 'Workspace setup needs attention' : resultPaused ? 'Workspace setup is paused' : resultStarted ? 'Setting up your Site' : 'Subscription request received' }}</h3>
-									<p class="mt-2 text-sm leading-6 text-[#64748B]">{{ resultFailed ? 'Setup did not complete. You can retry after Platform readiness is restored, or contact support and we will continue from the Platform side.' : resultPaused ? 'Your Subscription and Site reservation are saved. Live setup needs the controlled Platform apply window before it can create the actual Site.' : resultStarted ? 'We are preparing your workspace. You can follow progress from here or return to the dashboard.' : 'The LensCloud team will review this request before setup starts.' }}</p>
+									<Badge :class="resultFailed ? 'bg-red-50 text-red-700' : resultPaused ? 'bg-amber-50 text-amber-800' : resultStarted ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">{{ resultFailed ? 'Setup needs retry' : resultPaused ? 'Setup paused' : resultReady ? 'Ready' : resultStarted ? 'Provisioning' : 'Approval pending' }}</Badge>
+									<h3 class="mt-3 text-xl font-semibold text-[#191c1e]">{{ resultFailed ? 'Workspace setup needs attention' : resultPaused ? 'Workspace setup is paused' : resultReady ? 'Your Site is ready to open' : resultStarted ? 'Setting up your Site' : 'Subscription request received' }}</h3>
+									<p class="mt-2 text-sm leading-6 text-[#64748B]">{{ resultFailed ? 'Setup did not complete. You can retry after Platform readiness is restored, or contact support and we will continue from the Platform side.' : resultPaused ? 'Your Subscription and Site reservation are saved. Live setup needs the controlled Platform apply window before it can create the actual Site.' : resultReady ? 'Secure access is verified. You can open the Site from here.' : resultStarted ? 'We are preparing your workspace. You can follow progress from here or refresh status without losing this view.' : 'The LensCloud team will review this request before setup starts.' }}</p>
 
 									<div class="mt-8 space-y-0">
 										<div v-for="(item, index) in provisioningSteps" :key="item.label" class="relative flex items-start pb-7 last:pb-0">
@@ -455,12 +512,12 @@ onMounted(load)
 											</div>
 											<div class="flex shrink-0 flex-wrap gap-3">
 												<a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a>
-												<button v-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting" @click="retrySetup"><RefreshCcw class="size-4" :class="submitting ? 'animate-spin' : ''" />{{ submitting ? 'Retrying...' : 'Retry Setup' }}</button>
+												<button v-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting" @click="retrySetup"><RefreshCcw class="size-4" :class="submitting ? 'animate-spin' : ''" />{{ submitting ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
 											</div>
 										</div>
 									</div>
 
-									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="`/customer/subscriptions`" variant="subtle">View Subscription</Button><Button v-if="readySiteUrl && hasReadySite" as="a" :href="readySiteUrl" target="_blank" variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
+									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="result?.subscription ? `/customer/subscriptions?subscription=${encodeURIComponent(result.subscription)}` : '/customer/subscriptions'" variant="subtle">View Subscription</Button><Button v-if="readySiteUrl && hasReadySite" as="a" :href="readySiteUrl" target="_blank" variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
 								</div>
 								<aside class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5"><div class="grid size-10 place-items-center rounded-full bg-[#dce1ff] text-[#1D4ED8]"><ShieldCheck class="size-5" /></div><h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3><p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p><a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com"><HelpCircle class="size-4" />Contact support</a></aside>
 							</div>

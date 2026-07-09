@@ -1,10 +1,12 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import { ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLink, Globe2, Package, RefreshCcw } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
+
+const route = useRoute()
 
 const loading = ref(true)
 const error = ref('')
@@ -18,8 +20,9 @@ const selectedSubscription = computed(() => subscriptions.value.find((item) => i
 const selectedPlan = computed(() => plans.value.find((plan) => plan.name === selectedSubscription.value?.plan) || null)
 const environmentSequence = computed(() => selectedSubscription.value?.landscape_summary?.environments || [])
 const linkedSites = computed(() => sites.value.filter((site) => site.subscription === selectedSubscription.value?.name))
-const readySite = computed(() => linkedSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.access_url) || environmentSequence.value.find((item) => ['Ready', 'Active'].includes(item.site_status) && item.access_url) || null)
+const readySite = computed(() => linkedSites.value.find((site) => ['Ready', 'Active'].includes(site.site_status) && site.route_status === 'Ready' && site.access_url) || environmentSequence.value.find((item) => ['Ready', 'Active'].includes(item.site_status) && item.route_status === 'Ready' && item.access_url) || null)
 const hasSubscriptions = computed(() => subscriptions.value.length > 0)
+const selectedProgressSite = computed(() => linkedSites.value[0] || environmentSequence.value.find((item) => item.site) || null)
 
 function statusClass(status) {
 	if (['Active', 'Approved'].includes(status)) return 'bg-emerald-50 text-emerald-700'
@@ -53,6 +56,7 @@ async function load() {
 	try {
 		const response = await callMethod('lenscloud.api.orchestration.get_customer_portal_context')
 		context.value = response.message || response
+		if (route.query.subscription && subscriptions.value.some((item) => item.name === route.query.subscription)) selectedName.value = route.query.subscription
 		if (!selectedName.value && subscriptions.value.length) selectedName.value = subscriptions.value[0].name
 	} catch (err) {
 		error.value = err?.message || 'Unable to load subscriptions.'
@@ -123,7 +127,7 @@ onMounted(load)
 							</div>
 							<div class="mt-5">
 								<a v-if="readySite && selectedSubscription?.name === subscription.name" :href="readySite.access_url" target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white hover:bg-[#0037b0]">Open Site <ExternalLink class="size-4" /></a>
-								<Button v-else-if="selectedSubscription?.name === subscription.name" variant="subtle" @click.stop="selectedName = subscription.name">View progress</Button>
+								<Button v-else-if="selectedSubscription?.name === subscription.name" :as="RouterLink" :to="selectedProgressSite ? `/customer/plans?site=${encodeURIComponent(selectedProgressSite.site || selectedProgressSite.name)}&subscription=${encodeURIComponent(subscription.name)}` : `/customer/plans?subscription=${encodeURIComponent(subscription.name)}`" variant="subtle" @click.stop>View progress</Button>
 								<span v-else class="text-sm font-medium text-[#1D4ED8]">View details</span>
 							</div>
 						</article>

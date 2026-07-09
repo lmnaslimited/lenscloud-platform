@@ -159,6 +159,39 @@ class TestCustomerIdentity(FrappeTestCase):
             "apply_to_all_doctypes": 1,
         }))
 
+    def test_signup_uses_conventional_role_profiles_when_settings_are_blank(self):
+        frappe.db.set_single_value("Platform Settings", "default_customer_admin_role_profile", "")
+        frappe.db.set_single_value("Platform Settings", "default_customer_member_role_profile", "")
+        seed_customer_role_profiles()
+
+        email, _domain = unique_email("fallback-owner")
+        user = make_user(email, first_name="Fallback", last_name="Owner")
+        membership = customer_membership_for_user(user.name)
+
+        user_doc = frappe.get_doc("User", user.name)
+        self.assertIn("LensCloud Customer Admin", [row.role_profile for row in user_doc.get("role_profiles")])
+        self.assertTrue(frappe.db.exists("User Permission", {
+            "user": user.name,
+            "allow": "Customer",
+            "for_value": membership.customer,
+            "apply_to_all_doctypes": 1,
+        }))
+
+        second_email = f"fallback-member-{frappe.generate_hash(length=8).lower()}@{email.rsplit('@', 1)[1]}"
+        member = make_user(second_email, first_name="Fallback", last_name="Member")
+        member_doc = frappe.get_doc("User", member.name)
+        member_membership = customer_membership_for_user(member.name)
+
+        self.assertEqual(member_membership.customer, membership.customer)
+        self.assertEqual(member_membership.status, "Pending")
+        self.assertIn("LensCloud Customer Member", [row.role_profile for row in member_doc.get("role_profiles")])
+        self.assertTrue(frappe.db.exists("User Permission", {
+            "user": member.name,
+            "allow": "Customer",
+            "for_value": membership.customer,
+            "apply_to_all_doctypes": 1,
+        }))
+
     def test_second_same_domain_signup_is_pending_member(self):
         first_email, domain = unique_email("domain-owner")
         first = make_user(first_email, first_name="Domain", last_name="Owner")
