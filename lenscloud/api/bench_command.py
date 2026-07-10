@@ -762,6 +762,12 @@ def site_oauth_client_app_name(site_doc):
 	return f"{prefix}-{environment}"[:140]
 
 
+def ensure_oauth_client_customer_roles(doc):
+	roles = {getattr(row, "role", None) for row in (getattr(doc, "allowed_roles", None) or [])}
+	if "All" not in roles:
+		doc.append("allowed_roles", {"role": "All"})
+
+
 def ensure_platform_oauth_client(site_doc, provider, redirect_url):
 	app_name = site_oauth_client_app_name(site_doc)
 	existing = frappe.get_all("OAuth Client", filters={"app_name": app_name}, pluck="name", limit=1)
@@ -776,6 +782,7 @@ def ensure_platform_oauth_client(site_doc, provider, redirect_url):
 	doc.grant_type = "Authorization Code"
 	doc.response_type = "Code"
 	doc.skip_authorization = 1
+	ensure_oauth_client_customer_roles(doc)
 	if doc.is_new():
 		doc.insert(ignore_permissions=True)
 	else:

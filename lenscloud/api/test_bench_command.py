@@ -172,6 +172,20 @@ class BenchCommandContractTest(unittest.TestCase):
 		site = SimpleNamespace(name="run-20260707-cua-oauth.cloud.lmnaslens.com", subdomain="run-20260707-cua-oauth", environment="Prod")
 		self.assertEqual(bench_command.site_oauth_client_app_name(site), "run-20260707-cua-oauth-Prod")
 
+	def test_oauth_client_allows_customer_users(self):
+		class FakeOAuthClient:
+			def __init__(self):
+				self.allowed_roles = [SimpleNamespace(role="Desk User")]
+
+			def append(self, fieldname, value):
+				self.allowed_roles.append(SimpleNamespace(**value))
+
+		doc = FakeOAuthClient()
+		bench_command.ensure_oauth_client_customer_roles(doc)
+		self.assertIn("All", {row.role for row in doc.allowed_roles})
+		bench_command.ensure_oauth_client_customer_roles(doc)
+		self.assertEqual([row.role for row in doc.allowed_roles].count("All"), 1)
+
 	def test_oauth_args_are_secret_safe_and_typed(self):
 		self.assertEqual(bench_command.command_args("oauth.status", {"provider": "lenscloud"}), {"provider": "lenscloud"})
 		args = bench_command.command_args("oauth.configure", {

@@ -1,7 +1,7 @@
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from lenscloud.api.orchestration import clean_setup_data, customer_site_setup_schema, setup_identity_args, setup_is_complete
+from lenscloud.api.orchestration import clean_setup_data, customer_site_progress_state, customer_site_setup_schema, setup_identity_args, setup_is_complete
 
 
 def ensure_app(name):
@@ -135,6 +135,17 @@ class TestCustomerSiteSetup(FrappeTestCase):
 			"display_text": "Setup wizard: Complete",
 			"message": "Bench Command site_setup.status finished with phase Succeeded; cleanup removed 3 resource(s). Result: Setup wizard: Complete.",
 		}))
+
+	def test_progress_moves_to_setup_defaults_when_setup_required(self):
+		site = frappe._dict({
+			"site_status": "Ready",
+			"provisioning_status": "Ready",
+			"route_status": "Ready",
+			"access_url": "https://example.test",
+			"setup_status": "Required",
+			"oauth_status": "Not Checked",
+		})
+		self.assertEqual(customer_site_progress_state(site), "setup_running")
 
 	def test_setup_identity_uses_logged_in_user_profile(self):
 		user = make_setup_user(f"setup-{frappe.generate_hash(length=8).lower()}@example.com", first_name="Nithu", last_name="Customer")

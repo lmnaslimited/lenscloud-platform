@@ -2015,26 +2015,37 @@ def orchestrate_customer_site_oauth(site_doc):
 		return None
 	from lenscloud.api.bench_command import configure_site_oauth_for_orchestration, run_site_oauth_status_for_orchestration
 	try:
-		status_result = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth status check")
-		if oauth_is_configured(status_result):
+		oauth_status = getattr(site_doc, "oauth_status", None) or "Not Checked"
+		if oauth_status in {"Configured", "Enabled"}:
+			return {"status": "Configured"}
+		if oauth_status in {"Not Checked", "Required", ""}:
+			status_result = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth status check")
 			site_doc.reload()
-			set_site_oauth_state(site_doc, "Configured", None)
+			set_site_oauth_state(
+				site_doc,
+				"Configured" if oauth_is_configured(status_result) else "Pending",
+				None if oauth_is_configured(status_result) else None,
+			)
 			return status_result
-		site_doc.reload()
-		set_site_oauth_state(site_doc, "Running", None)
-		configure_result = configure_site_oauth_for_orchestration(site_doc.name, reason="Configure LensCloud Platform OAuth before customer Open Site")
-		if (configure_result or {}).get("status") != "Succeeded":
+		if oauth_status == "Pending":
 			site_doc.reload()
-			set_site_oauth_state(site_doc, "Failed", (configure_result or {}).get("display_text") or (configure_result or {}).get("fallback_summary") or (configure_result or {}).get("message") or _("Platform access configuration failed."))
+			set_site_oauth_state(site_doc, "Running", None)
+			configure_result = configure_site_oauth_for_orchestration(site_doc.name, reason="Configure LensCloud Platform OAuth before customer Open Site")
+			if (configure_result or {}).get("status") != "Succeeded":
+				site_doc.reload()
+				set_site_oauth_state(site_doc, "Failed", (configure_result or {}).get("display_text") or (configure_result or {}).get("fallback_summary") or (configure_result or {}).get("message") or _("Platform access configuration failed."))
+				return configure_result
 			return configure_result
-		final_status = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth completion check")
-		site_doc.reload()
-		set_site_oauth_state(
-			site_doc,
-			"Configured" if oauth_is_configured(final_status) else "Required",
-			None if oauth_is_configured(final_status) else _("Platform access is not configured yet."),
-		)
-		return final_status
+		if oauth_status == "Running":
+			final_status = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth completion check")
+			site_doc.reload()
+			set_site_oauth_state(
+				site_doc,
+				"Configured" if oauth_is_configured(final_status) else "Required",
+				None if oauth_is_configured(final_status) else _("Platform access is not configured yet."),
+			)
+			return final_status
+		return None
 	except Exception as exc:
 		site_doc.reload()
 		set_site_oauth_state(site_doc, "Failed", sanitize_error(exc))
@@ -2046,34 +2057,41 @@ def orchestrate_customer_site_setup(site_doc):
 		return None
 	from lenscloud.api.bench_command import run_site_setup_command_for_orchestration
 	try:
-		status_result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup status check")
-		if setup_is_complete(status_result):
+		setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
+		if setup_status in {"Not Checked", "Pending", ""}:
+			status_result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup status check")
 			site_doc.reload()
-			site_doc.setup_status = "Complete"
+			if setup_is_complete(status_result):
+				site_doc.setup_status = "Complete"
+				site_doc.setup_error = None
+			else:
+				site_doc.setup_status = "Required"
+				site_doc.setup_error = None
+			site_doc.save(ignore_permissions=True)
+			return status_result
+		if setup_status == "Required":
+			schema = parse_setup_data(getattr(site_doc, "setup_schema_json", None)) or customer_site_setup_schema(site_doc.plan)
+			args = site_setup_args(site_doc, schema)
+			missing = [key for key in ("language", "email", "full_name", "country", "timezone", "currency") if not args.get(key)]
+			missing.extend(field["name"] for field in schema.get("fields") or [] if field.get("required") and not args.get(field["name"]))
+			missing = sorted(set(missing))
+			if missing:
+				block_site_setup(site_doc, missing)
+				return {"status": "Blocked", "missing_fields": missing}
+			site_doc.setup_status = "Running"
 			site_doc.setup_error = None
 			site_doc.save(ignore_permissions=True)
-			orchestrate_customer_site_oauth(site_doc)
-			return status_result
-		schema = parse_setup_data(getattr(site_doc, "setup_schema_json", None)) or customer_site_setup_schema(site_doc.plan)
-		args = site_setup_args(site_doc, schema)
-		missing = [key for key in ("language", "email", "full_name", "country", "timezone", "currency") if not args.get(key)]
-		missing.extend(field["name"] for field in schema.get("fields") or [] if field.get("required") and not args.get(field["name"]))
-		missing = sorted(set(missing))
-		if missing:
-			block_site_setup(site_doc, missing)
-			return {"status": "Blocked", "missing_fields": missing}
-		site_doc.setup_status = "Running"
-		site_doc.setup_error = None
-		site_doc.save(ignore_permissions=True)
-		run_site_setup_command_for_orchestration(site_doc.name, "site_setup.complete", args=args, reason="Complete first-time Site setup from customer-provided defaults")
-		final_status = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup completion check")
-		site_doc.reload()
-		site_doc.setup_status = "Complete" if setup_is_complete(final_status) else "Required"
-		site_doc.setup_error = None if site_doc.setup_status == "Complete" else _("Site setup still reports pending after setup completion.")
-		site_doc.save(ignore_permissions=True)
-		if site_doc.setup_status == "Complete":
-			orchestrate_customer_site_oauth(site_doc)
-		return final_status
+			return run_site_setup_command_for_orchestration(site_doc.name, "site_setup.complete", args=args, reason="Complete first-time Site setup from customer-provided defaults")
+		if setup_status == "Running":
+			final_status = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup completion check")
+			site_doc.reload()
+			site_doc.setup_status = "Complete" if setup_is_complete(final_status) else "Required"
+			site_doc.setup_error = None if site_doc.setup_status == "Complete" else _("Site setup still reports pending after setup completion.")
+			site_doc.save(ignore_permissions=True)
+			return final_status
+		if setup_status == "Complete":
+			return orchestrate_customer_site_oauth(site_doc)
+		return None
 	except Exception as exc:
 		site_doc.reload()
 		site_doc.setup_status = "Failed"
@@ -2150,7 +2168,7 @@ def customer_site_progress_state(site_doc):
 	if site_doc.route_status == "Ready" and site_doc.access_url and setup_status == "Complete":
 		return "oauth_configuring" if oauth_status == "Running" else "oauth_checking"
 	if site_doc.route_status == "Ready" and site_doc.access_url:
-		return "setup_running" if setup_status == "Running" else "setup_checking"
+		return "setup_running" if setup_status in {"Required", "Running"} else "setup_checking"
 	if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
 		return "route_pending"
 	if site_doc.provisioning_status in {"Accepted", "Running"} or site_doc.site_status in {"Accepted", "Provisioning"}:
@@ -2271,7 +2289,10 @@ def retry_customer_site_provisioning(site):
 						raise
 			site_doc.reload()
 			if site_doc.route_status == "Ready" and site_doc.access_url:
-				orchestrate_customer_site_setup(site_doc)
+				if getattr(site_doc, "setup_status", None) in {"Complete"}:
+					orchestrate_customer_site_oauth(site_doc)
+				else:
+					orchestrate_customer_site_setup(site_doc)
 				site_doc.reload()
 			return customer_site_progress_payload(site_doc, subscription, plan_doc, message=_("Site status was refreshed."))
 		reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))

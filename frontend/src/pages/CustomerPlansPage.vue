@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
@@ -29,6 +29,7 @@ const submitting = ref(false)
 const polling = ref(false)
 const setupSchemaLoading = ref(false)
 const setupDialogOpen = ref(false)
+const setupDialogDismissed = ref(false)
 const error = ref('')
 const context = ref(null)
 const selectedPlan = ref('')
@@ -36,7 +37,9 @@ const result = ref(null)
 const step = ref('choose')
 const placementFilter = ref('all')
 let progressPoller = null
+let visualProgressTimer = null
 const setupSchemaState = ref(null)
+const visualProvisioningIndex = ref(0)
 
 const form = reactive({
 	region: '',
@@ -112,7 +115,7 @@ const screenSubtitle = computed(() => {
 	return resultStarted.value || resultReady.value ? 'Follow setup progress here, then open the Site when it is ready.' : 'The LensCloud team will review this before setup starts.'
 })
 
-const provisioningSteps = computed(() => {
+const rawProvisioningSteps = computed(() => {
 	const attempted = Boolean(result.value?.site || resultStarted.value || resultPaused.value || resultFailed.value || resultReady.value)
 	const runtimeReady = Boolean(['Ready', 'Active'].includes(result.value?.site_status) || result.value?.provisioning_status === 'Ready' || ['Ready', 'Active'].includes(resultSite.value?.site_status))
 	const routeReady = Boolean(resultRouteReady.value)
@@ -121,7 +124,7 @@ const provisioningSteps = computed(() => {
 	const setupDone = setupStatus === 'Complete' || resultReady.value
 	const setupBlocked = setupStatus === 'Blocked' || resultSetupRequired.value
 	const setupFailed = setupStatus === 'Failed' || (provisioningMode.value === 'failed' && routeReady)
-	const setupRunning = provisioningMode.value === 'setup_running'
+	const setupRunning = provisioningMode.value === 'setup_running' || setupStatus === 'Required'
 	const setupChecking = provisioningMode.value === 'setup_checking'
 	const oauthStatus = resultOauthStatus.value
 	const oauthDone = resultOauthConfigured.value || resultReady.value
@@ -140,6 +143,88 @@ const provisioningSteps = computed(() => {
 })
 
 
+const targetProvisioningIndex = computed(() => {
+	const steps = rawProvisioningSteps.value
+	const blockedIndex = steps.findIndex((item) => ['failed', 'paused'].includes(item.state))
+	if (blockedIndex >= 0) return blockedIndex
+	const activeIndex = steps.findIndex((item) => item.state === 'active')
+	if (activeIndex >= 0) return activeIndex
+	let lastDoneIndex = 0
+	steps.forEach((item, index) => {
+		if (item.state === 'done') lastDoneIndex = index
+	})
+	return lastDoneIndex
+})
+
+const provisioningSteps = computed(() => {
+	const steps = rawProvisioningSteps.value
+	const targetIndex = targetProvisioningIndex.value
+	return steps.map((item, index) => {
+		if (!result.value?.site) return item
+		if (index < visualProvisioningIndex.value) return { ...item, state: 'done' }
+		if (index > visualProvisioningIndex.value) return { ...item, state: 'pending' }
+		if (['failed', 'paused'].includes(item.state)) return item
+		if (item.state === 'done' && visualProvisioningIndex.value < targetIndex) return { ...item, state: 'active' }
+		return item
+	})
+})
+
+function clearVisualProgressTimer() {
+	if (!visualProgressTimer) return
+	clearInterval(visualProgressTimer)
+	visualProgressTimer = null
+}
+
+function advanceVisualProvisioningIndex() {
+	clearVisualProgressTimer()
+	const targetIndex = targetProvisioningIndex.value
+	if (!result.value?.site) {
+		visualProvisioningIndex.value = 0
+		return
+	}
+	if (visualProvisioningIndex.value > targetIndex) {
+		visualProvisioningIndex.value = targetIndex
+		return
+	}
+	if (visualProvisioningIndex.value >= targetIndex) return
+	visualProgressTimer = setInterval(() => {
+		if (visualProvisioningIndex.value >= targetProvisioningIndex.value) {
+			clearVisualProgressTimer()
+			return
+		}
+		visualProvisioningIndex.value += 1
+	}, 850)
+}
+
+function flowStepState(index) {
+	if (hasReadySite.value && index <= currentStepIndex.value) return 'done'
+	if (index < currentStepIndex.value) return 'done'
+	if (index === currentStepIndex.value && progressActive.value) return 'active'
+	if (index === currentStepIndex.value) return 'current'
+	return 'pending'
+}
+
+function shouldAutoOpenSetupDialog() {
+	return Boolean(
+		step.value === 'setup' &&
+		!setupDialogOpen.value &&
+		!setupSchemaLoading.value &&
+		setupFields.value.length &&
+		!setupDefaultsComplete.value &&
+		!setupDialogDismissed.value
+	)
+}
+
+function maybeAutoOpenSetupDialog() {
+	if (shouldAutoOpenSetupDialog()) setupDialogOpen.value = true
+}
+
+function dismissSetupDialog() {
+	setupDialogDismissed.value = true
+	setupDialogOpen.value = false
+}
+
+
 function progressResultFromSite(site, subscription = null) {
 	if (!site) return null
 	let provisioning = 'started'
@@ -148,7 +233,7 @@ function progressResultFromSite(site, subscription = null) {
 	else if (site.setup_status === 'Blocked') provisioning = 'setup_required'
 	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete' && oauthConfiguredStatuses.has(site.oauth_status)) provisioning = 'ready'
 	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete') provisioning = site.oauth_status === 'Running' ? 'oauth_configuring' : 'oauth_checking'
-	else if (site.route_status === 'Ready' && site.access_url) provisioning = site.setup_status === 'Running' ? 'setup_running' : 'setup_checking'
+	else if (site.route_status === 'Ready' && site.access_url) provisioning = ['Required', 'Running'].includes(site.setup_status) ? 'setup_running' : 'setup_checking'
 	else if (['Ready', 'Active'].includes(site.site_status) || site.provisioning_status === 'Ready') provisioning = 'route_pending'
 	else if (['Pending', 'Not Started'].includes(site.provisioning_status) || ['Requested', 'Draft'].includes(site.site_status)) provisioning = 'paused'
 	return {
@@ -185,6 +270,7 @@ function hydrateProgressFromRoute() {
 		if (nextResult.plan) selectedPlan.value = nextResult.plan
 		if (nextResult.region) form.region = nextResult.region
 		step.value = 'result'
+		advanceVisualProvisioningIndex()
 	}
 }
 
@@ -263,7 +349,9 @@ async function continueFromPlan() {
 	if (membershipPending.value || !canCreateSubscription.value || !selectedPlanRecord.value || planDisabled(selectedPlanRecord.value)) return
 	if (selectedPlanRecord.value.cta_mode === 'self_service') {
 		step.value = 'setup'
+		setupDialogDismissed.value = false
 		await loadSetupSchema()
+		maybeAutoOpenSetupDialog()
 		return
 	}
 	if (selectedPlanRecord.value.cta_mode === 'request_access') requestAccess(selectedPlanRecord.value)
@@ -292,6 +380,7 @@ async function loadSetupSchema(country = form.setup_defaults.country, options = 
 }
 
 async function openSetupDialog() {
+	setupDialogDismissed.value = false
 	await loadSetupSchema()
 	setupDialogOpen.value = true
 }
@@ -308,6 +397,7 @@ async function saveSetupDefaults() {
 		try {
 			const response = await callMethod('lenscloud.api.orchestration.update_customer_site_setup_defaults', { site: result.value.site, setup_data: form.setup_defaults }, 'POST')
 			result.value = response.message || response
+			setupDialogDismissed.value = true
 			setupDialogOpen.value = false
 			await refreshProgress()
 		} catch (err) {
@@ -317,6 +407,7 @@ async function saveSetupDefaults() {
 		}
 		return
 	}
+	setupDialogDismissed.value = true
 	setupDialogOpen.value = false
 }
 
@@ -440,11 +531,22 @@ async function retrySetup() {
 	}
 }
 
+watch(targetProvisioningIndex, advanceVisualProvisioningIndex)
+watch(() => result.value?.site, () => {
+	visualProvisioningIndex.value = 0
+	advanceVisualProvisioningIndex()
+})
+watch([step, setupFields, setupDefaultsComplete, setupSchemaLoading], maybeAutoOpenSetupDialog, { flush: 'post' })
+
 onMounted(async () => {
 	await load()
 	startProgressPolling()
+	advanceVisualProvisioningIndex()
 })
-onBeforeUnmount(stopProgressPolling)
+onBeforeUnmount(() => {
+	stopProgressPolling()
+	clearVisualProgressTimer()
+})
 </script>
 
 <template>
@@ -459,14 +561,14 @@ onBeforeUnmount(stopProgressPolling)
 			<div class="h-full overflow-y-auto bg-[#f7f9fb] p-4 lg:p-6">
 				<Alert v-if="error" theme="red" title="Plan action failed" :description="error" class="mb-4" />
 
-		<div v-if="setupDialogOpen" class="fixed inset-0 z-[1000] grid place-items-center bg-black/30 px-4 py-6" role="presentation" @mousedown.self="setupDialogOpen = false">
+		<div v-if="setupDialogOpen" class="fixed inset-0 z-[1000] grid place-items-center bg-black/30 px-4 py-6" role="presentation" @mousedown.self="dismissSetupDialog">
 			<form class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl" @submit.prevent="saveSetupDefaults">
 				<div class="flex items-start justify-between gap-4">
 					<div>
 						<h3 class="text-lg font-semibold text-gray-900">Setup defaults</h3>
 						<p class="mt-1 text-sm text-gray-500">Required fields come from the target app setup contract.</p>
 					</div>
-					<button class="rounded-md p-2 text-gray-500 hover:bg-gray-100" type="button" aria-label="Close" @click="setupDialogOpen = false"><XCircle class="size-5" /></button>
+					<button class="rounded-md p-2 text-gray-500 hover:bg-gray-100" type="button" aria-label="Close" @click="dismissSetupDialog"><XCircle class="size-5" /></button>
 				</div>
 				<div v-if="setupSchemaLoading" class="mt-6 rounded-lg bg-gray-50 p-4 text-sm text-gray-600">Loading setup fields...</div>
 				<div v-else class="mt-6 grid gap-4 sm:grid-cols-2">
@@ -480,7 +582,7 @@ onBeforeUnmount(stopProgressPolling)
 					</label>
 				</div>
 				<div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-					<Button variant="subtle" type="button" @click="setupDialogOpen = false">Cancel</Button>
+					<Button variant="subtle" type="button" @click="dismissSetupDialog">Cancel</Button>
 					<Button variant="solid" type="submit" :disabled="!setupDefaultsComplete || submitting">{{ submitting ? 'Saving...' : 'Save defaults' }}</Button>
 				</div>
 			</form>
@@ -717,8 +819,9 @@ onBeforeUnmount(stopProgressPolling)
 					<p class="text-sm font-semibold text-ink-gray-9">Launch progress</p>
 					<div class="mt-4 space-y-3">
 						<div v-for="(item, index) in flowSteps" :key="item.key" class="flex gap-3">
-							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="index < currentStepIndex ? 'bg-emerald-500 text-white' : index === currentStepIndex ? 'bg-[#1D4ED8] text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
-								<CheckCircle2 v-if="index < currentStepIndex" class="size-4" />
+							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="flowStepState(index) === 'done' ? 'bg-emerald-500 text-white' : ['active', 'current'].includes(flowStepState(index)) ? 'bg-[#1D4ED8] text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
+								<CheckCircle2 v-if="flowStepState(index) === 'done'" class="size-4" />
+								<RefreshCcw v-else-if="flowStepState(index) === 'active'" class="size-4 animate-spin" />
 								<Clock3 v-else class="size-4" />
 							</div>
 							<div>
