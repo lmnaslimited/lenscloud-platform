@@ -147,12 +147,20 @@ Bench Upgrade Plan owns:
 - scheduled window
 - status
 - checklist state
+- site scheduling gate state
+- all-sites-scheduled readiness
 - operator job reference
 - started at
 - completed at
 - rollback release
 - approval owner
 - notes
+
+The initial workflow may live directly on Bench/Site fields before a dedicated
+Bench Upgrade Plan is introduced. In that phase, `Bench.next_release` holds the
+target Release, Site `upgrade_state` tracks per-Site scheduling, and Site
+`upgrade_tested`, `tested_on`, and `tested_by` gate whether a Site may be moved
+to Scheduled.
 
 ## Notes
 

@@ -58,11 +58,15 @@ Bench actions:
 
 - create Bench from Release Group and Release
 - schedule upgrade to next Release
+- set next Release from a released Release in the same Release Group
+- schedule Site upgrades manually after the Site upgrade-tested gate passes
 - run pre-upgrade checklist
 - start upgrade
 - verify upgrade
 - rollback to previous Release
 - mark upgrade complete
+- refresh available apps from the Release Group app catalog
+- install an eligible app to an existing Site through a Platform/customer action
 
 Bench upgrade SOP states:
 
@@ -81,6 +85,9 @@ Frontend expectations:
 - Release Group pages must summarize release adoption across Benches.
 - Release pages must show build/promotion status and affected Benches.
 - Bench pages must show current Release, next Release, schedule, and SOP progress.
+- Site upgrade scheduling must be blocked until `upgrade_tested`, `tested_on`, and `tested_by` are filled.
+- Bench update must be blocked until every Site on that Bench is in `upgrade_state = Scheduled` for the intended next Release.
+- Platform and customer portal app install controls must only offer apps present in the Release Group catalog and eligible for the target Site.
 - Missing backend/operator behavior must be marked as a gap until connected.
 
 ## Workspace Model

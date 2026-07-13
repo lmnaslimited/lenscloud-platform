@@ -14,7 +14,9 @@
   "image_repository",
   "supported_frappe_major_version",
   "column_break_prbw",
+  "apps_tab",
   "included_apps",
+  "apps_meta_section",
   "apps_metadata"
  ],
  "fields": [
@@ -58,7 +60,7 @@
   },
   {
    "fieldname": "included_apps",
-   "fieldtype": "Table MultiSelect",
+   "fieldtype": "Table",
    "label": "Included Apps",
    "options": "Release Group Apps"
   },
@@ -75,6 +77,16 @@
   {
    "fieldname": "column_break_prbw",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "apps_tab",
+   "fieldtype": "Tab Break",
+   "label": "Apps"
+  },
+  {
+   "fieldname": "apps_meta_section",
+   "fieldtype": "Section Break",
+   "label": "Apps Meta"
   }
  ],
  "grid_page_length": 50,
@@ -96,7 +108,7 @@
    "link_fieldname": "release_group"
   }
  ],
- "modified": "2026-06-23 15:07:17.031209",
+ "modified": "2026-07-10 14:56:23.732940",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Release Group",

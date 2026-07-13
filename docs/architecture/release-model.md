@@ -13,7 +13,7 @@ Release Group should hold:
 - title/name
 - registry URL
 - image repository
-- included apps, selected from `App` master data through the `Release Group Apps` table multiselect
+- included apps, selected from `App` master data through the `Release Group Apps` child table, with per-app site-install eligibility and install sequence
 - supported Frappe major version
 - release policy
 - active/inactive status
@@ -75,11 +75,14 @@ Bench should support:
 
 - create Bench from Release Group and Release
 - schedule upgrade to next Release
+- update `next_release` when a new Release is released for the same Release Group
+- schedule each Site only after the Site has `upgrade_tested` checked and `tested_on`/`tested_by` filled
 - run pre-upgrade checklist
 - start upgrade
 - verify upgrade
 - rollback to previous Release
 - mark upgrade complete
+- refresh available apps when the Release Group gains apps
 
 ## SOP Entity
 
@@ -105,14 +108,12 @@ It should hold:
 The first LensCloud Platform implementation pass now reflects this model:
 
 - `Release Group` remains master data and no longer carries a deployable image tag/current-version concept.
-- `App` is available as release-family master data, and `Release Group.included_apps` uses the `Release Group Apps` table multiselect instead of long text.
+- `App` is available as release-family master data, and `Release Group.included_apps` uses the `Release Group Apps` child table instead of long text or Table MultiSelect. The child rows carry `install_at_site_creation` and `install_sequence` for new Site bootstrap.
 - `Release` is available as the transactional deployable version and links to `Release Group`.
 - `Bench` links to `release_group`, `current_release`, and `next_release`, and carries upgrade window, policy, and SOP status fields.
 - Frontend platform resources include `Release` and expose Release Group adoption, Release affected benches, Bench current/next release, and operator-readiness metadata.
 
-Build/promotion and rollout planning remain future workflow work. Bench and
-Site operator reconciliation is implemented and must now be live-accepted
-through the approved `lens-pure` Release.
+Build/promotion, Bench update execution, and post-release app installation remain workflow gaps until the Platform action and Infra command contracts are wired. Bench and Site operator reconciliation is implemented and must now be live-accepted through the approved `lens-pure` Release.
 
 Approved Phase 1 release data:
 
@@ -138,5 +139,7 @@ Approved Phase 1 release data:
 - Do not store image tag on Release Group as the active deployable version.
 - Do not upgrade a Bench directly by changing Release Group.
 - Bench upgrades should move from current Release to next/target Release through an explicit SOP workflow.
+- Do not allow the Bench update action to run until every Site on the Bench has been manually scheduled for upgrade and every scheduled Site has passed the upgrade-tested gate.
+- Existing Site app installs must use the Release Group app catalog as the source of eligibility; new apps added to a Release Group should refresh Bench/Site install choices before the install action is offered.
 - Frontend pages must distinguish master data, deployable release, and runtime bench state.
 - Operator integration must use Bench current Release to derive the image deployed by `FrappeBench`.

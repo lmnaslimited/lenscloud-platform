@@ -6,7 +6,9 @@
  "editable_grid": 1,
  "engine": "InnoDB",
  "field_order": [
-  "app"
+  "app",
+  "install_at_site_creation",
+  "install_sequence"
  ],
  "fields": [
   {
@@ -16,13 +18,26 @@
    "label": "App",
    "options": "App",
    "reqd": 1
+  },
+  {
+   "default": "0",
+   "fieldname": "install_at_site_creation",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Install At Site Creation"
+  },
+  {
+   "fieldname": "install_sequence",
+   "fieldtype": "Int",
+   "in_list_view": 1,
+   "label": "Install Sequence"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "istable": 1,
  "links": [],
- "modified": "2026-06-03 13:04:10.610373",
+ "modified": "2026-07-10 14:50:51.344598",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Release Group Apps",

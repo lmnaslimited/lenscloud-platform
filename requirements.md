@@ -31,6 +31,10 @@ Build a Frappe-based platform application that serves both customer self-service
 - The platform must represent Release Group as master data for a release family, not as a deployable version.
 - Release Group must hold stable product/image-family configuration such as registry URL, image repository, included apps, supported Frappe major version, and release policy.
 - Release Group included apps must support per-app install-at-site-creation and install-sequence flags so Platform and Infra can install selected apps during new Site creation in the declared order.
+- When a new Release is released for a Release Group, eligible Benches in that Release Group must allow `next_release` to be set to that Release without changing the Bench Release Group.
+- Site upgrade scheduling for a Bench upgrade must remain manual initially, but a Site may move to `upgrade_state = Scheduled` only when `upgrade_tested` is checked and `tested_on` and `tested_by` are filled.
+- Bench upgrade execution must be gated until every Site on the Bench is scheduled for the target Release, after which the Bench action `update bench` may move the Bench to `next_release`.
+- If a Release Group gains additional apps, Benches in that Release Group must refresh their available app list, and Platform/customer portal users must be able to install eligible apps to existing Sites through a governed install action.
 - The platform must introduce Release as the transactional deployable version for a Release Group.
 - Release must hold image tag, image digest when available, build status, pipeline/build reference, release status, changelog, compatibility notes, and promotion state.
 - Bench must link to a Release Group and deploy a specific current Release of that group.
