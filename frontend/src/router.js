@@ -11,6 +11,7 @@ import CustomerPlansPage from '@/pages/CustomerPlansPage.vue'
 import CustomerMembersPage from '@/pages/CustomerMembersPage.vue'
 import CustomerSitesPage from '@/pages/CustomerSitesPage.vue'
 import CustomerSubscriptionsPage from '@/pages/CustomerSubscriptionsPage.vue'
+import CustomerMarketplacePage from '@/pages/CustomerMarketplacePage.vue'
 
 const routes = [
 	{
@@ -83,6 +84,7 @@ const routes = [
 			{ path: 'sites', name: 'customer-sites', component: CustomerSitesPage, meta: { scope: 'customer' } },
 			{ path: 'plans', name: 'customer-plans', component: CustomerPlansPage, meta: { scope: 'customer' } },
 			{ path: 'subscriptions', name: 'customer-subscriptions', component: CustomerSubscriptionsPage, meta: { scope: 'customer' } },
+			{ path: 'marketplace', name: 'customer-marketplace', component: CustomerMarketplacePage, meta: { scope: 'customer' } },
 			{ path: 'members', name: 'customer-members', component: CustomerMembersPage, meta: { scope: 'customer' } },
 			{ path: 'sites/:name', name: 'customer-site-detail', component: CustomerSitesPage, meta: { scope: 'customer' } },
 			{ path: 'create-site', name: 'customer-create-site', component: CustomerCreateSitePage, meta: { scope: 'customer' } },
