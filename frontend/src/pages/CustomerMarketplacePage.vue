@@ -10,10 +10,11 @@ const error = ref('')
 const context = ref(null)
 const selectedCode = ref('')
 
-// Local-only opt-in state for Phase 2 (visual only).
-// Phase 3 replaces this with real persistence via toggle_opt_in,
-// and Phase 4 hydrates it from the backend on load.
+// Phase 3: persisted via toggle_opt_in.
+// Phase 4 will hydrate this from the backend on load (currently starts empty
+// each visit until get_marketplace_context is extended to include it).
 const optedIn = ref({})
+const togglingCode = ref('')
 
 const capabilities = computed(() => context.value?.capabilities || [])
 const hasCapabilities = computed(() => capabilities.value.length > 0)
@@ -31,14 +32,33 @@ function isOptedIn(capability) {
 	return Boolean(optedIn.value[capability.capability_code])
 }
 
-function toggleOptIn(capability) {
-	// Phase 2: local UI toggle only.
-	// Phase 3 will call:
-	//   await callMethod('lenscloud.api.capability.toggle_opt_in', {
-	//     capability_code: capability.capability_code,
-	//     opted_in: !isOptedIn(capability),
-	//   })
-	optedIn.value[capability.capability_code] = !isOptedIn(capability)
+async function toggleOptIn(capability) {
+	const code = capability.capability_code
+	if (togglingCode.value === code) return // guard against double-clicks mid-request
+
+	const previous = isOptedIn(capability)
+	const next = !previous
+
+	// Optimistic update so the toggle feels instant.
+	optedIn.value[code] = next
+	togglingCode.value = code
+	error.value = ''
+
+	try {
+		const response = await callMethod('lenscloud.api.capability.toggle_opt_in', {
+			capability_code: code,
+			opted_in: next,
+		})
+		const result = response.message || response
+		// Reconcile with the authoritative server state in case it differs.
+		optedIn.value[code] = Boolean(result.opted_in)
+	} catch (err) {
+		// Roll back on failure.
+		optedIn.value[code] = previous
+		error.value = err?.message || `Unable to update opt-in for ${capability.capability_name}.`
+	} finally {
+		togglingCode.value = ''
+	}
 }
 
 async function load() {
@@ -136,9 +156,10 @@ onMounted(load)
 
 								<button
 									type="button"
-									class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition"
+									class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-60"
 									:class="isOptedIn(capability) ? 'bg-[#1D4ED8]' : 'bg-[#e2e5ea]'"
 									:aria-pressed="isOptedIn(capability)"
+									:disabled="togglingCode === capability.capability_code"
 									@click.stop="toggleOptIn(capability)"
 								>
 									<span

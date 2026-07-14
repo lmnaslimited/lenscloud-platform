@@ -1,0 +1,107 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "format:{customer}-{capability}",
+ "creation": "2026-07-14 15:14:08.022602",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer",
+  "capability",
+  "column_break_1",
+  "opted_in",
+  "opted_on",
+  "opted_out_on",
+  "section_break_1",
+  "opted_by"
+ ],
+ "fields": [
+  {
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "capability",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Capability",
+   "options": "Capability",
+   "reqd": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "description": "Current state. Flipped to 0 on opt-out; the record is kept for history rather than deleted.",
+   "fieldname": "opted_in",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Opted In"
+  },
+  {
+   "description": "Timestamp of the most recent opt-in.",
+   "fieldname": "opted_on",
+   "fieldtype": "Datetime",
+   "label": "Opted On",
+   "read_only": 1
+  },
+  {
+   "description": "Timestamp of the most recent opt-out, if any.",
+   "fieldname": "opted_out_on",
+   "fieldtype": "Datetime",
+   "label": "Opted Out On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break",
+   "label": "Audit"
+  },
+  {
+   "description": "User who performed the most recent toggle action.",
+   "fieldname": "opted_by",
+   "fieldtype": "Link",
+   "label": "Opted By",
+   "options": "User",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-14 15:19:20.807957",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Capability Opted",
+ "naming_rule": "Expression (old style)",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}
