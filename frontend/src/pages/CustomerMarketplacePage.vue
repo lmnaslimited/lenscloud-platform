@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { Alert, Badge, Button } from 'frappe-ui'
-import { CheckCircle2, ExternalLink, LayoutGrid, RefreshCcw, Sparkles } from 'lucide-vue-next'
+import { CheckCircle2, ExternalLink, FlaskConical, LayoutGrid, ListChecks, Lock, RefreshCcw, Sparkles } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
@@ -29,6 +29,10 @@ function statusClass(status) {
 
 function isOptedIn(capability) {
 	return Boolean(optedIn.value[capability.capability_code])
+}
+
+function isOptedInCode(code) {
+	return Boolean(optedIn.value[code])
 }
 
 async function toggleOptIn(capability) {
@@ -137,7 +141,7 @@ onMounted(load)
 										{{ capability.capability_name }}
 										<Sparkles v-if="capability.is_featured" class="size-4 text-amber-500" />
 									</p>
-									<p class="mt-1 text-xs text-[#64748B]">{{ capability.category || 'Uncategorized' }}</p>
+									<p class="mt-1 text-xs text-[#64748B]">{{ capability.category_label || 'Uncategorized' }}</p>
 								</div>
 								<Badge :class="statusClass(capability.status)">{{ capability.status }}</Badge>
 							</div>
@@ -179,11 +183,19 @@ onMounted(load)
 		<template #inspector>
 			<div v-if="selectedCapability" class="space-y-4">
 				<div class="rounded-xl border border-[#EDEDED] bg-white p-4">
-					<p class="text-xs font-semibold text-[#64748B]">{{ selectedCapability.category || 'Uncategorized' }}</p>
-					<h3 class="mt-2 text-base font-semibold text-[#191c1e]">{{ selectedCapability.capability_name }}</h3>
+					<div class="flex items-start justify-between gap-2">
+						<p class="text-xs font-semibold text-[#64748B]">{{ selectedCapability.category_label || 'Uncategorized' }}</p>
+						<Badge :class="statusClass(selectedCapability.status)">{{ selectedCapability.status }}</Badge>
+					</div>
+					<h3 class="mt-2 flex items-center gap-2 text-base font-semibold text-[#191c1e]">
+						{{ selectedCapability.capability_name }}
+						<Sparkles v-if="selectedCapability.is_featured" class="size-4 text-amber-500" />
+					</h3>
+					<p v-if="selectedCapability.experimental" class="mt-2 inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
+						<FlaskConical class="size-3.5" /> Experimental
+					</p>
+
 					<div class="mt-4 space-y-2 text-sm leading-6 text-[#505f76]">
-						<p>Status: <span class="font-medium text-[#191c1e]">{{ selectedCapability.status }}</span></p>
-						<p>Pricing: <span class="font-medium text-[#191c1e]">{{ selectedCapability.pricing_model || 'Not specified' }}</span></p>
 						<p class="flex items-center gap-2">
 							Opted in:
 							<span class="inline-flex items-center gap-1 font-medium" :class="isOptedIn(selectedCapability) ? 'text-emerald-700' : 'text-[#191c1e]'">
@@ -191,12 +203,51 @@ onMounted(load)
 								{{ isOptedIn(selectedCapability) ? 'Yes' : 'No' }}
 							</span>
 						</p>
+						<p class="flex items-center gap-2">
+							Access:
+							<span class="inline-flex items-center gap-1 font-medium text-[#191c1e]">
+								<Lock v-if="selectedCapability.request_access_only" class="size-3.5" />
+								{{ selectedCapability.request_access_only ? 'Request access required' : selectedCapability.allow_self_service ? 'Self-service opt-in' : 'Not self-service' }}
+							</span>
+						</p>
 					</div>
 				</div>
+
+				<div class="rounded-xl border border-[#EDEDED] bg-white p-4">
+					<p class="text-sm font-semibold text-[#191c1e]">Pricing</p>
+					<div class="mt-3 space-y-2 text-sm leading-6 text-[#505f76]">
+						<p>Pricing model: <span class="font-medium text-[#191c1e]">{{ selectedCapability.pricing_model_label || 'Not specified' }}</span></p>
+						<p>Price: <span class="font-medium text-[#191c1e]">{{ selectedCapability.monthly_price || '0' }}</span></p>
+						<p>Billing frequency: <span class="font-medium text-[#191c1e]">{{ selectedCapability.billing_frequency || 'Not specified' }}</span></p>
+					</div>
+				</div>
+
+				<div v-if="selectedCapability.prerequisites?.length" class="rounded-xl border border-[#EDEDED] bg-white p-4">
+					<p class="flex items-center gap-2 text-sm font-semibold text-[#191c1e]"><ListChecks class="size-4" /> Prerequisites</p>
+					<div class="mt-3 space-y-2">
+						<div v-for="prereq in selectedCapability.prerequisites" :key="prereq.capability_code" class="flex items-center justify-between gap-2 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] px-3 py-2 text-sm">
+							<span class="text-[#434655]">{{ prereq.capability_name }}</span>
+							<span class="inline-flex items-center gap-1 text-xs font-medium" :class="isOptedInCode(prereq.capability_code) ? 'text-emerald-700' : 'text-[#94A3B8]'">
+								<CheckCircle2 v-if="isOptedInCode(prereq.capability_code)" class="size-3.5" />
+								{{ isOptedInCode(prereq.capability_code) ? 'Opted in' : 'Not opted in' }}
+							</span>
+						</div>
+					</div>
+				</div>
+
 				<div v-if="selectedCapability.long_description" class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-4">
 					<p class="text-sm font-semibold text-[#191c1e]">About this capability</p>
 					<div class="mt-2 text-sm leading-6 text-[#64748B]" v-html="selectedCapability.long_description" />
 				</div>
+
+				<a
+					v-if="selectedCapability.docs_link"
+					:href="selectedCapability.docs_link"
+					target="_blank"
+					class="flex items-center justify-center gap-2 rounded-lg bg-[#f2f4f6] px-4 py-2 text-sm font-semibold text-[#434655] transition hover:bg-[#e8ecf1]"
+				>
+					Learn more <ExternalLink class="size-4" />
+				</a>
 			</div>
 			<div v-else class="rounded-xl border border-[#EDEDED] bg-white p-4 text-sm leading-6 text-[#64748B]">
 				Select a capability to see its details.
