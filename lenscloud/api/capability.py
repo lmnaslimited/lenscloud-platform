@@ -156,7 +156,6 @@ def get_marketplace_context():
 			"icon",
 			"category",
 			"status",
-			"is_featured",
 			"pricing_model",
 			"monthly_price",
 			"billing_frequency",

@@ -139,7 +139,7 @@ onMounted(load)
 								<div>
 									<p class="flex items-center gap-2 text-lg font-semibold text-[#191c1e]">
 										{{ capability.capability_name }}
-										<Sparkles v-if="capability.is_featured" class="size-4 text-amber-500" />
+										<Sparkles class="size-4 text-amber-500" />
 									</p>
 									<p class="mt-1 text-xs text-[#64748B]">{{ capability.category_label || 'Uncategorized' }}</p>
 								</div>
@@ -189,7 +189,7 @@ onMounted(load)
 					</div>
 					<h3 class="mt-2 flex items-center gap-2 text-base font-semibold text-[#191c1e]">
 						{{ selectedCapability.capability_name }}
-						<Sparkles v-if="selectedCapability.is_featured" class="size-4 text-amber-500" />
+						<Sparkles class="size-4 text-amber-500" />
 					</h3>
 					<p v-if="selectedCapability.experimental" class="mt-2 inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
 						<FlaskConical class="size-3.5" /> Experimental
