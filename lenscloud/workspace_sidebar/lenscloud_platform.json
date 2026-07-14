@@ -53,17 +53,6 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
-   "label": "Customer Members",
-   "link_type": "URL",
-   "show_arrow": 0,
-   "type": "Link",
-   "url": "/lenscloud/platform/customer-members"
-  },
-  {
-   "child": 1,
-   "collapsible": 1,
-   "indent": 0,
-   "keep_closed": 0,
    "label": "Plans",
    "link_type": "URL",
    "show_arrow": 0,
@@ -309,7 +298,7 @@
    "url": "/lenscloud/platform/settings"
   }
  ],
- "modified": "2026-07-03 10:40:11.887936",
+ "modified": "2026-07-14 12:52:02.690899",
  "modified_by": "Administrator",
  "name": "LensCloud Platform",
  "owner": "Administrator",

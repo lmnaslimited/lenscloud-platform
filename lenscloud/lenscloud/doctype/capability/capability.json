@@ -1,0 +1,166 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "field:capability_code",
+ "creation": "2026-07-14 12:26:30.159463",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "capability_name",
+  "capability_code",
+  "column_break_1",
+  "status",
+  "enabled",
+  "section_break_1",
+  "short_description",
+  "long_description",
+  "section_break_2",
+  "icon",
+  "category",
+  "column_break_2",
+  "is_featured",
+  "sort_order",
+  "commercial_tab",
+  "section_break_3",
+  "pricing_model",
+  "docs_link"
+ ],
+ "fields": [
+  {
+   "fieldname": "capability_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Capability Name",
+   "reqd": 1
+  },
+  {
+   "description": "Unique slug/key used in URLs, opt-in records, and API filters (e.g. upgrade, migration, lens-ai-test-pilot, chordium)",
+   "fieldname": "capability_code",
+   "fieldtype": "Data",
+   "label": "Capability Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Active",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Active\nInactive\nComing Soon",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "description": "Soft toggle to hide from marketplace without deleting the record",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "description": "Shown on the marketplace card",
+   "fieldname": "short_description",
+   "fieldtype": "Small Text",
+   "label": "Short Description"
+  },
+  {
+   "description": "Shown on the detail / expanded view",
+   "fieldname": "long_description",
+   "fieldtype": "Text Editor",
+   "label": "Long Description"
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break",
+   "label": "Display"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Attach Image",
+   "label": "Icon / Banner Image"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "label": "Category",
+   "options": "Category"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "is_featured",
+   "fieldtype": "Check",
+   "label": "Featured"
+  },
+  {
+   "default": "0",
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  },
+  {
+   "fieldname": "section_break_3",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "pricing_model",
+   "fieldtype": "Select",
+   "label": "Pricing Model",
+   "options": "\nFree\nPaid\nTrial"
+  },
+  {
+   "fieldname": "docs_link",
+   "fieldtype": "Data",
+   "label": "Learn More Link",
+   "options": "URL"
+  },
+  {
+   "fieldname": "commercial_tab",
+   "fieldtype": "Tab Break",
+   "label": "Commercial"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-14 12:55:08.995688",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Capability",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "states": []
+}
