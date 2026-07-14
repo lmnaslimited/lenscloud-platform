@@ -72,6 +72,10 @@ const routes = [
 			{ path: 'orchestration-logs', name: 'platform-orchestration-logs', component: ResourcePage, props: { scope: 'platform', resourceKey: 'orchestration-logs', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'orchestration-logs/:name', name: 'platform-orchestration-log-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'orchestration-logs', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'settings', name: 'platform-settings', component: ResourcePage, props: { scope: 'platform', resourceKey: 'settings', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'capability', name: 'platform-capability', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'capability/:name', name: 'platform-capability-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'capability-opted', name: 'platform-capability-opted', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability-opted', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'capability-opted/:name', name: 'platform-capability-opted-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability-opted', mode: 'detail' }, meta: { scope: 'platform' } },
 		],
 	},
 	{

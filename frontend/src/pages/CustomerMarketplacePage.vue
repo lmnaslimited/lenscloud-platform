@@ -136,12 +136,18 @@ onMounted(load)
 							@click="selectedCode = capability.capability_code"
 						>
 							<div class="flex items-start justify-between gap-3">
-								<div>
-									<p class="flex items-center gap-2 text-lg font-semibold text-[#191c1e]">
-										{{ capability.capability_name }}
-										<Sparkles class="size-4 text-amber-500" />
-									</p>
-									<p class="mt-1 text-xs text-[#64748B]">{{ capability.category_label || 'Uncategorized' }}</p>
+								<div class="flex items-start gap-3">
+									<div class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-lg bg-[#f2f4f6]">
+										<img v-if="capability.icon" :src="capability.icon" :alt="capability.capability_name" class="size-full object-cover" />
+										<LayoutGrid v-else class="size-5 text-[#94A3B8]" />
+									</div>
+									<div>
+										<p class="flex items-center gap-2 text-lg font-semibold text-[#191c1e]">
+											{{ capability.capability_name }}
+											<Sparkles class="size-4 text-amber-500" />
+										</p>
+										<p class="mt-1 text-xs text-[#64748B]">{{ capability.category_label || 'Uncategorized' }}</p>
+									</div>
 								</div>
 								<Badge :class="statusClass(capability.status)">{{ capability.status }}</Badge>
 							</div>
@@ -183,15 +189,23 @@ onMounted(load)
 		<template #inspector>
 			<div v-if="selectedCapability" class="space-y-4">
 				<div class="rounded-xl border border-[#EDEDED] bg-white p-4">
-					<div class="flex items-start justify-between gap-2">
-						<p class="text-xs font-semibold text-[#64748B]">{{ selectedCapability.category_label || 'Uncategorized' }}</p>
-						<Badge :class="statusClass(selectedCapability.status)">{{ selectedCapability.status }}</Badge>
+					<div class="flex items-start gap-3">
+						<div class="grid size-12 shrink-0 place-items-center overflow-hidden rounded-lg bg-[#f2f4f6]">
+							<img v-if="selectedCapability.icon" :src="selectedCapability.icon" :alt="selectedCapability.capability_name" class="size-full object-cover" />
+							<LayoutGrid v-else class="size-6 text-[#94A3B8]" />
+						</div>
+						<div class="min-w-0 flex-1">
+							<div class="flex items-start justify-between gap-2">
+								<p class="text-xs font-semibold text-[#64748B]">{{ selectedCapability.category_label || 'Uncategorized' }}</p>
+								<Badge :class="statusClass(selectedCapability.status)">{{ selectedCapability.status }}</Badge>
+							</div>
+							<h3 class="mt-2 flex items-center gap-2 text-base font-semibold text-[#191c1e]">
+								{{ selectedCapability.capability_name }}
+								<Sparkles class="size-4 text-amber-500" />
+							</h3>
+						</div>
 					</div>
-					<h3 class="mt-2 flex items-center gap-2 text-base font-semibold text-[#191c1e]">
-						{{ selectedCapability.capability_name }}
-						<Sparkles class="size-4 text-amber-500" />
-					</h3>
-					<p v-if="selectedCapability.experimental" class="mt-2 inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
+					<p v-if="selectedCapability.experimental" class="mt-3 inline-flex items-center gap-1 rounded-full bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700">
 						<FlaskConical class="size-3.5" /> Experimental
 					</p>
 
