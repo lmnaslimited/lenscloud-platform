@@ -10,9 +10,8 @@ const error = ref('')
 const context = ref(null)
 const selectedCode = ref('')
 
-// Phase 3: persisted via toggle_opt_in.
-// Phase 4 will hydrate this from the backend on load (currently starts empty
-// each visit until get_marketplace_context is extended to include it).
+// Hydrated from get_marketplace_context on load (Phase 4), then kept in
+// sync locally via optimistic updates from toggleOptIn (Phase 3).
 const optedIn = ref({})
 const togglingCode = ref('')
 
@@ -70,6 +69,9 @@ async function load() {
 		if (!selectedCode.value && capabilities.value.length) {
 			selectedCode.value = capabilities.value[0].capability_code
 		}
+		// Hydrate opt-in state from the backend rather than assuming none.
+		const opted = context.value?.opted_capabilities || []
+		optedIn.value = Object.fromEntries(opted.map((code) => [code, true]))
 	} catch (err) {
 		error.value = err?.message || 'Unable to load marketplace capabilities.'
 	} finally {

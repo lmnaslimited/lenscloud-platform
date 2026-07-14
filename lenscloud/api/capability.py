@@ -77,13 +77,21 @@ def toggle_opt_in(capability_code, opted_in):
 	}
 
 
+def get_opted_capability_codes(customer):
+	"""Return the set of capability_codes the given customer currently has
+	opted_in = 1 for, per Capability Opted."""
+	rows = frappe.get_all(
+		"Capability Opted",
+		filters={"customer": customer, "opted_in": 1},
+		fields=["capability"],
+	)
+	return [row.capability for row in rows]
+
+
 @frappe.whitelist()
 def get_marketplace_context():
-	"""Return the capability catalogue for the customer marketplace page.
-
-	Phase 2 scope: capability list only.
-	Phase 4 will extend this (or a sibling method) to merge in the
-	logged-in customer's Capability Opted state.
+	"""Return the capability catalogue plus the logged-in customer's
+	current opt-in state, for the customer marketplace page.
 	"""
 	capabilities = frappe.get_all(
 		"Capability",
@@ -105,6 +113,17 @@ def get_marketplace_context():
 		order_by="sort_order asc",
 	)
 
+	opted_capabilities = []
+	try:
+		customer = get_logged_in_customer()
+		opted_capabilities = get_opted_capability_codes(customer)
+	except frappe.PermissionError:
+		# No Customer linked to this session (e.g. viewed by a non-customer
+		# user in a lower environment). Degrade gracefully rather than
+		# failing the whole marketplace load.
+		frappe.clear_last_message()
+
 	return {
 		"capabilities": capabilities,
+		"opted_capabilities": opted_capabilities,
 	}
