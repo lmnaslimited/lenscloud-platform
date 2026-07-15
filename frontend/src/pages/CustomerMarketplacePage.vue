@@ -1,7 +1,7 @@
 <script setup>
 import { computed, onMounted, ref } from 'vue'
 import { Alert, Badge, Button } from 'frappe-ui'
-import { CheckCircle2, ExternalLink, FlaskConical, LayoutGrid, ListChecks, Lock, RefreshCcw, Sparkles } from 'lucide-vue-next'
+import { Archive, CheckCircle2, Circle, Clock3, ExternalLink, FlaskConical, LayoutGrid, ListChecks, Lock, PencilLine, RefreshCcw, Sparkles, TestTube2 } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
@@ -21,10 +21,24 @@ const selectedCapability = computed(
 	() => capabilities.value.find((item) => item.capability_code === selectedCode.value) || capabilities.value[0] || null
 )
 
+const STATUS_META = {
+	Available: { class: 'bg-emerald-50 text-emerald-700', icon: Sparkles, iconColor: 'text-amber-500' },
+	Planning: { class: 'bg-slate-50 text-slate-700', icon: PencilLine, iconColor: 'text-amber-500' },
+	Beta: { class: 'bg-purple-50 text-purple-700', icon: TestTube2, iconColor: 'text-amber-500' },
+	'Coming Soon': { class: 'bg-amber-50 text-amber-700', icon: Clock3, iconColor: 'text-amber-500' },
+	Retired: { class: 'bg-rose-50 text-rose-700', icon: Archive, iconColor: 'text-amber-500' },
+}
+
 function statusClass(status) {
-	if (status === 'Active') return 'bg-emerald-50 text-emerald-700'
-	if (status === 'Coming Soon') return 'bg-amber-50 text-amber-700'
-	return 'bg-[#f2f4f6] text-[#64748B]'
+	return STATUS_META[status]?.class || 'bg-[#f2f4f6] text-[#64748B]'
+}
+
+function statusIcon(status) {
+	return STATUS_META[status]?.icon || Circle
+}
+
+function statusIconColor(status) {
+	return STATUS_META[status]?.iconColor || 'text-[#94A3B8]'
 }
 
 function isOptedIn(capability) {
@@ -144,7 +158,7 @@ onMounted(load)
 									<div>
 										<p class="flex items-center gap-2 text-lg font-semibold text-[#191c1e]">
 											{{ capability.capability_name }}
-											<Sparkles class="size-4 text-amber-500" />
+											<component :is="statusIcon(capability.status)" class="size-4" :class="statusIconColor(capability.status)" />
 										</p>
 										<p class="mt-1 text-xs text-[#64748B]">{{ capability.category_label || 'Uncategorized' }}</p>
 									</div>
@@ -201,7 +215,7 @@ onMounted(load)
 							</div>
 							<h3 class="mt-2 flex items-center gap-2 text-base font-semibold text-[#191c1e]">
 								{{ selectedCapability.capability_name }}
-								<Sparkles class="size-4 text-amber-500" />
+								<component :is="statusIcon(selectedCapability.status)" class="size-4" :class="statusIconColor(selectedCapability.status)" />
 							</h3>
 						</div>
 					</div>
