@@ -2,26 +2,32 @@ import frappe
 from frappe.utils import now_datetime
 
 
-def get_logged_in_customer():
-	"""Resolve the Customer document for the currently logged-in User.
+def get_logged_in_membership():
+	"""Resolve the (customer_member, customer) pair for the currently
+	logged-in User.
 
-	Tries Customer Member first (multi-user-per-customer membership model),
-	then falls back to a direct Customer.user link. Raises PermissionError
-	if the logged-in user has no associated Customer.
+	Tries Customer Member first (multi-user-per-customer membership model);
+	customer_member is that row's name. Falls back to a direct Customer.user
+	link when no membership row applies, in which case customer_member is
+	None. Raises PermissionError if the logged-in user has no associated
+	Customer at all.
 	"""
 	user = frappe.session.user
 
 	if user == "Guest":
 		frappe.throw("You must be logged in to do this.", frappe.PermissionError)
 
-	customer = frappe.db.get_value(
+	membership = frappe.db.get_value(
 		"Customer Member",
 		{"user": user, "status": "Active"},
-		"customer",
+		["name", "customer"],
+		as_dict=True,
 	)
 
-	if not customer:
-		customer = frappe.db.get_value("Customer", {"user": user}, "name")
+	if membership:
+		return membership.name, membership.customer
+
+	customer = frappe.db.get_value("Customer", {"user": user}, "name")
 
 	if not customer:
 		frappe.throw(
@@ -29,6 +35,13 @@ def get_logged_in_customer():
 			frappe.PermissionError,
 		)
 
+	return None, customer
+
+
+def get_logged_in_customer():
+	"""Convenience wrapper around get_logged_in_membership() for callers
+	that only need the resolved Customer, not the membership record."""
+	_, customer = get_logged_in_membership()
 	return customer
 
 
@@ -38,9 +51,10 @@ def toggle_opt_in(capability_code, opted_in):
 
 	Writes to Capability Opted, keyed by {customer}-{capability} via
 	autoname. Opting out flips opted_in to 0 rather than deleting the
-	record, preserving history for auditing.
+	record, preserving history for auditing. Records which Customer Member
+	(if any) performed the action, alongside the resolved Customer.
 	"""
-	customer = get_logged_in_customer()
+	customer_member, customer = get_logged_in_membership()
 
 	if not frappe.db.exists("Capability", capability_code):
 		frappe.throw(f"Unknown capability: {capability_code}")
@@ -51,6 +65,8 @@ def toggle_opt_in(capability_code, opted_in):
 
 	if frappe.db.exists("Capability Opted", record_name):
 		doc = frappe.get_doc("Capability Opted", record_name)
+		doc.customer_member = customer_member
+		doc.customer = customer
 		doc.opted_in = 1 if opted_in else 0
 		if opted_in:
 			doc.opted_on = now_datetime()
@@ -61,6 +77,7 @@ def toggle_opt_in(capability_code, opted_in):
 	else:
 		doc = frappe.get_doc({
 			"doctype": "Capability Opted",
+			"customer_member": customer_member,
 			"customer": customer,
 			"capability": capability_code,
 			"opted_in": 1 if opted_in else 0,

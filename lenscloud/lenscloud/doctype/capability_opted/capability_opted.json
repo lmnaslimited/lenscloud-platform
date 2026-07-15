@@ -7,6 +7,7 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "customer_member",
   "customer",
   "capability",
   "column_break_1",
@@ -17,15 +18,6 @@
   "opted_by"
  ],
  "fields": [
-  {
-   "fieldname": "customer",
-   "fieldtype": "Link",
-   "in_list_view": 1,
-   "in_standard_filter": 1,
-   "label": "Customer",
-   "options": "Customer",
-   "reqd": 1
-  },
   {
    "fieldname": "capability",
    "fieldtype": "Link",
@@ -74,12 +66,32 @@
    "label": "Opted By",
    "options": "User",
    "read_only": 1
+  },
+  {
+   "fieldname": "customer_member",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer Member",
+   "options": "Customer Member",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer_member.customer",
+   "fetch_if_empty": 1,
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-14 15:19:20.807957",
+ "modified": "2026-07-15 14:43:23.108322",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Capability Opted",
