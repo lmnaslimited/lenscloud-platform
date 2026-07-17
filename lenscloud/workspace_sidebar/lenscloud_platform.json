@@ -191,6 +191,61 @@
    "url": "/lenscloud/platform/apps"
   },
   {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Tools",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/tools"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Skills",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/skills"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Capabilities",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/capabilities"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Subscription Capabilities",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/subscription-capabilities"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Capability Policies",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/capability-landscape-policies"
+  },
+  {
    "child": 0,
    "collapsible": 1,
    "indent": 0,
@@ -320,7 +375,7 @@
    "url": "/lenscloud/platform/settings"
   }
  ],
- "modified": "2026-07-15 00:49:48.932661",
+ "modified": "2026-07-17 11:00:35.090877",
  "modified_by": "Administrator",
  "name": "LensCloud Platform",
  "owner": "Administrator",

@@ -56,13 +56,13 @@ async function toggleOptIn(capability) {
 	const previous = isOptedIn(capability)
 	const next = !previous
 
-	// Optimistic update so the toggle feels instant.
+	// Optimistic update so the request feels instant.
 	optedIn.value[code] = next
 	togglingCode.value = code
 	error.value = ''
 
 	try {
-		const response = await callMethod('lenscloud.api.capability.toggle_opt_in', {
+		const response = await callMethod(next ? 'lenscloud.api.capability.request_capability' : 'lenscloud.api.capability.toggle_opt_in', {
 			capability_code: code,
 			opted_in: next,
 		})
@@ -72,7 +72,7 @@ async function toggleOptIn(capability) {
 	} catch (err) {
 		// Roll back on failure.
 		optedIn.value[code] = previous
-		error.value = err?.message || `Unable to update opt-in for ${capability.capability_name}.`
+		error.value = err?.message || `Unable to update capability request for ${capability.capability_name}.`
 	} finally {
 		togglingCode.value = ''
 	}
@@ -103,17 +103,14 @@ onMounted(load)
 <template>
 	<WorkspaceLayout
 		title="Marketplace"
-		subtitle="Explore LensCloud capabilities and opt in to the ones you need."
+		subtitle="Explore LensCloud capabilities and request or subscribe to the capabilities you need."
 		inspector-kicker="Capability"
 		:inspector-title="selectedCapability ? selectedCapability.capability_name : 'No Capability Selected'"
 		inspector-subtitle="Details, category, and access."
 	>
 		<template #actions>
 			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load">
-				<span class="flex items-center gap-2">
-					<RefreshCcw class="size-4" />
-					<span>Refresh</span>
-				</span>
+				<RefreshCcw class="size-4 shrink-0" /><span>Refresh</span>
 			</Button>
 		</template>
 
@@ -140,7 +137,7 @@ onMounted(load)
 						<div>
 							<p class="text-xs font-semibold text-[#64748B]">LensCloud Platform</p>
 							<h2 class="mt-2 text-2xl font-semibold text-[#191c1e]">Marketplace</h2>
-							<p class="mt-2 text-sm leading-6 text-[#64748B]">Opt in to the capabilities you want enabled for your account.</p>
+							<p class="mt-2 text-sm leading-6 text-[#64748B]">Request capabilities for your subscription. Platform fulfills the required apps and services behind the scenes.</p>
 						</div>
 					</div>
 
@@ -149,7 +146,7 @@ onMounted(load)
 							v-for="capability in capabilities"
 							:key="capability.capability_code"
 							class="cursor-pointer rounded-xl border bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-sm"
-							:class="selectedCapability?.capability_code === capability.capability_code ? 'border-secondary' : 'border-[#EDEDED]'"
+							:class="selectedCapability?.capability_code === capability.capability_code ? 'border-[#1D4ED8] ring-2 ring-[#dce1ff]' : 'border-[#EDEDED]'"
 							@click="selectedCode = capability.capability_code"
 						>
 							<div class="flex items-start justify-between gap-3">
@@ -186,7 +183,7 @@ onMounted(load)
 								<button
 									type="button"
 									class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-60"
-									:class="isOptedIn(capability) ? 'bg-primary' : 'bg-[#e2e5ea]'"
+									:class="isOptedIn(capability) ? 'bg-[#1D4ED8]' : 'bg-[#e2e5ea]'"
 									:aria-pressed="isOptedIn(capability)"
 									:disabled="togglingCode === capability.capability_code"
 									@click.stop="toggleOptIn(capability)"
@@ -228,17 +225,17 @@ onMounted(load)
 
 					<div class="mt-4 space-y-2 text-sm leading-6 text-[#505f76]">
 						<p class="flex items-center gap-2">
-							Opted in:
+							Requested:
 							<span class="inline-flex items-center gap-1 font-medium" :class="isOptedIn(selectedCapability) ? 'text-emerald-700' : 'text-[#191c1e]'">
 								<CheckCircle2 v-if="isOptedIn(selectedCapability)" class="size-4" />
-								{{ isOptedIn(selectedCapability) ? 'Yes' : 'No' }}
+								{{ isOptedIn(selectedCapability) ? 'Requested' : 'Not requested' }}
 							</span>
 						</p>
 						<p class="flex items-center gap-2">
 							Access:
 							<span class="inline-flex items-center gap-1 font-medium text-[#191c1e]">
 								<Lock v-if="selectedCapability.request_access_only" class="size-3.5" />
-								{{ selectedCapability.request_access_only ? 'Request access required' : selectedCapability.allow_self_service ? 'Self-service opt-in' : 'Not self-service' }}
+								{{ selectedCapability.request_access_only ? 'Request access required' : selectedCapability.allow_self_service ? 'Self-service request' : 'Not self-service' }}
 							</span>
 						</p>
 					</div>
@@ -260,7 +257,7 @@ onMounted(load)
 							<span class="text-[#434655]">{{ prereq.capability_name }}</span>
 							<span class="inline-flex items-center gap-1 text-xs font-medium" :class="isOptedInCode(prereq.capability_code) ? 'text-emerald-700' : 'text-[#94A3B8]'">
 								<CheckCircle2 v-if="isOptedInCode(prereq.capability_code)" class="size-3.5" />
-								{{ isOptedInCode(prereq.capability_code) ? 'Opted in' : 'Not opted in' }}
+								{{ isOptedInCode(prereq.capability_code) ? 'Requested' : 'Not requested' }}
 							</span>
 						</div>
 					</div>

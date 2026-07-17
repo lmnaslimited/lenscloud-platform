@@ -43,6 +43,12 @@ Run this before Platform or Customer E2E.
    - signup/member approval creates a Customer User Permission;
    - customer menus are expected to appear only when the current user's Role Profile grants DocType read permission.
 
+9. Confirm Capability baseline:
+   - Platform sidebar shows Tool, Skill, Capability, Subscription Capability, and Capability Policy entries under Product and Delivery;
+   - Tool and Skill are first-class Platform DocTypes;
+   - Capability bundle child tables use Link fields for App, Tool, and Skill;
+   - at least one customer-visible Capability is seeded for marketplace testing, or record that the Marketplace empty state is the expected result for this pass.
+
 ## Platform Operator Segment
 
 The Platform operator verifies the service can safely provision and observe the customer journey.
@@ -80,6 +86,17 @@ The Platform operator verifies the service can safely provision and observe the 
 10. Confirm protected resource rules still hold:
    - `default/frappe-mariadb` is protected/read-only;
    - unlabelled, cross-namespace, cluster-scoped, and protected-resource operations are rejected.
+
+12. Open Product and Delivery Capability records:
+   - Tool;
+   - Skill;
+   - Capability;
+   - Subscription Capability;
+   - Capability Policy.
+13. Create or inspect one Capability and confirm its Apps, Tools, and Skills child tables use Link value help, not free-text codes.
+14. Confirm the Platform Site detail shows read-only Site Capability State and offers only governed actions: Sync Capability State, Install Capability, and Install Bootstrap Apps.
+15. Confirm direct editing of Site Capability State rows is not used as a mutation path.
+
 11. Record the Platform evidence:
    - Platform user;
    - timestamp;
@@ -154,6 +171,12 @@ The Customer segment validates the launch experience and customer-safe language.
     - users without Subscription create can browse Plans if Plan read is granted, but cannot start a Subscription;
     - if Customer User Permission is missing, APIs still return only the Customer from active membership or legacy `Customer.user` and must not leak another Customer.
 
+
+25. Open Customer Marketplace.
+26. If Capability records are seeded, confirm Capability cards render from Platform data and customer action language is request/subscribe, not install app. Request one Capability for the test Subscription when the pass explicitly permits mutation.
+27. If no Capability records are seeded, confirm the Marketplace empty state renders without browser errors and record that no-card state as expected for this dataset.
+28. Confirm customer pages do not expose raw app install controls; apps remain implementation details behind Capability fulfillment.
+
 Expected result: a customer can understand what they bought, what happens next, and where to return, without learning platform runtime internals.
 
 Provisioning retry checks:
@@ -224,6 +247,14 @@ Run this only after the common preflight and both UI segments pass.
 3. Submit one Free Plan customer Subscription through the customer UI.
 4. Watch Platform action logs and customer progress until the Site reaches a terminal ready or failed state.
 5. Verify the ready Site:
+
+5a. Verify bootstrap app install:
+   - before site setup completion, Platform creates a `site_bootstrap.install_apps` action when Release Group apps are marked Install At Site Creation;
+   - the action excludes `frappe`;
+   - apps are rendered in install sequence;
+   - retry skips already-installed apps and fails on real install errors;
+   - Site setup (`site_setup.status` / `site_setup.complete`) runs only after bootstrap install has succeeded or there are no bootstrap apps.
+5b. Verify Site Capability State remains read-only and reflects Capability fulfillment/sync evidence only.
    - HTTPS route responds;
    - static asset returns HTTP 200;
    - customer dashboard and Subscription detail show ready/open state.
@@ -251,6 +282,10 @@ Run where applicable:
 - `bench --site dev.localhost migrate`
 - `bench --site dev.localhost run-tests --module lenscloud.api.test_plan_catalog`
 - `bench --site dev.localhost run-tests --module lenscloud.api.test_policy`
+
+- `bench --site dev.localhost run-tests --module lenscloud.api.test_capability_api`
+- authenticated Platform route smoke for `/platform/tools`, `/platform/skills`, `/platform/capabilities`, `/platform/subscription-capabilities`, and `/platform/capability-landscape-policies`
+- customer Marketplace desktop/mobile Playwright capture
 - `npm --prefix apps/lenscloud/frontend run build`
 - authenticated desktop Playwright
 - authenticated mobile Playwright

@@ -41,7 +41,7 @@ async function capture(browser, name, viewport, referencePath) {
 	})
 
 	await page.goto(`${baseURL}/lenscloud/customer/marketplace`)
-	await page.getByRole('heading', { name: 'Marketplace',level: 1, exact: true }).waitFor()
+	await page.locator('h2').filter({ hasText: /^Marketplace$/ }).waitFor()
 	await page.waitForTimeout(1200)
 
 	const cardCount = await page.locator('article').count()

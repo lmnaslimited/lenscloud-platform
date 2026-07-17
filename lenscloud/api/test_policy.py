@@ -134,12 +134,14 @@ class TestTopologyPolicy(FrappeTestCase):
         release_group = get_doctype_editor_schema("Release Group")
         fields = {field["fieldname"]: field for field in release_group["fields"]}
         self.assertTrue(any(field["fieldtype"] in {"Section Break", "Column Break", "Tab Break"} for field in release_group["fields"]))
-        self.assertEqual(fields["included_apps"]["fieldtype"], "Table MultiSelect")
+        self.assertEqual(fields["included_apps"]["fieldtype"], "Table")
         plan = get_doctype_editor_schema("Plan")
         plan_fields = {field["fieldname"]: field for field in plan["fields"]}
         self.assertEqual(plan_fields["allowed_privacy_profiles"]["fieldtype"], "Table MultiSelect")
         self.assertEqual(fields["included_apps"]["columns"][0]["fieldtype"], "Link")
         self.assertEqual(fields["included_apps"]["columns"][0]["options"], "App")
+        self.assertIn("install_at_site_creation", [column["fieldname"] for column in fields["included_apps"]["columns"]])
+        self.assertIn("install_sequence", [column["fieldname"] for column in fields["included_apps"]["columns"]])
         self.assertEqual(release_group["naming_field"], "title")
         self.assertTrue(release_group["allow_rename"])
 

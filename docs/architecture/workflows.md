@@ -87,7 +87,7 @@ Frontend expectations:
 - Bench pages must show current Release, next Release, schedule, and SOP progress.
 - Site upgrade scheduling must be blocked until `upgrade_tested`, `tested_on`, and `tested_by` are filled.
 - Bench update must be blocked until every Site on that Bench is in `upgrade_state = Scheduled` for the intended next Release.
-- Platform and customer portal app install controls must only offer apps present in the Release Group catalog and eligible for the target Site.
+- Customer portal controls request or subscribe to Capabilities, not raw apps. Platform capability fulfillment resolves eligible apps from the Capability bundle and Release Group catalog before any app-aware install job runs.
 - Missing backend/operator behavior must be marked as a gap until connected.
 
 ## Workspace Model
@@ -123,6 +123,31 @@ Rules:
 - Customer-facing inspector views should be curated and lighter weight.
 - Missing backend behavior must be surfaced as a gap rather than assumed.
 
+
+
+## Capability Fulfillment Workflow
+
+Customers request or subscribe to Capabilities. Platform resolves the request through `Subscription Capability`, `Capability Landscape Policy`, and the Site's Bench Release Group. Raw app installation is an implementation detail.
+
+Customer actions:
+
+- browse Capability marketplace
+- request or subscribe to a Capability for a Subscription
+- view friendly Capability progression on Subscription/Site surfaces
+
+Platform actions:
+
+- define Capability bundles with apps/tools/skills
+- configure Capability Landscape Policy per Landscape and Environment
+- approve or activate Subscription Capability records
+- fulfill a Capability to a Site through app-aware runtime-image jobs
+- sync read-only Site Capability State
+
+Rules:
+
+- Site Capability State is read-only and must not be used as a mutation table.
+- Existing Site app install must only run as a Capability fulfillment action or platform recovery action.
+- Release Group image resolution is generic per Release Group and Release digest; `lens-pure` is only the current launch Release Group.
 
 ## Customer Plan-First Workflow
 

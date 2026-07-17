@@ -1,0 +1,49 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-16 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Capability Skill",
+ "owner": "Administrator",
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "skill",
+  "required",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "skill",
+   "fieldtype": "Link",
+   "label": "Skill",
+   "options": "Skill",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "label": "Required",
+   "default": "1"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "permissions": []
+}

@@ -36,7 +36,14 @@
   "pricing_model",
   "monthly_price",
   "billing_frequency",
-  "docs_link"
+  "docs_link",
+  "bundle_tab",
+  "apps_section",
+  "apps",
+  "tools_section",
+  "tools",
+  "skills_section",
+  "skills"
  ],
  "fields": [
   {
@@ -212,6 +219,44 @@
    "fieldname": "portal_controls_tab",
    "fieldtype": "Tab Break",
    "label": "Portal Controls"
+  },
+  {
+   "fieldname": "bundle_tab",
+   "fieldtype": "Tab Break",
+   "label": "Bundle"
+  },
+  {
+   "fieldname": "apps_section",
+   "fieldtype": "Section Break",
+   "label": "Apps"
+  },
+  {
+   "fieldname": "apps",
+   "fieldtype": "Table",
+   "label": "Apps",
+   "options": "Capability App"
+  },
+  {
+   "fieldname": "tools_section",
+   "fieldtype": "Section Break",
+   "label": "Tools"
+  },
+  {
+   "fieldname": "tools",
+   "fieldtype": "Table",
+   "label": "Tools",
+   "options": "Capability Tool"
+  },
+  {
+   "fieldname": "skills_section",
+   "fieldtype": "Section Break",
+   "label": "Skills"
+  },
+  {
+   "fieldname": "skills",
+   "fieldtype": "Table",
+   "label": "Skills",
+   "options": "Capability Skill"
   }
  ],
  "grid_page_length": 50,
