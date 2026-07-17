@@ -91,7 +91,18 @@ async function load() {
 		const opted = context.value?.opted_capabilities || []
 		optedIn.value = Object.fromEntries(opted.map((code) => [code, true]))
 	} catch (err) {
-		error.value = err?.message || 'Unable to load marketplace capabilities.'
+		// error.value = err?.message || 'Unable to load marketplace capabilities.'
+		console.log(err)
+
+		const message = err?.message || ''
+
+		if (message.includes('does not have doctype access')) {
+			error.value =
+				'Marketplace is currently unavailable for your account. Please contact your administrator or try again later.'
+		} else {
+			error.value =
+				"We couldn't load the Marketplace right now. Please refresh the page or try again later."
+		}
 	} finally {
 		loading.value = false
 	}

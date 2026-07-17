@@ -156,7 +156,7 @@ watch(() => route.fullPath, () => {
 					<button type="button" class="mt-2 flex w-full items-center gap-3 border-t border-outline-gray-2 px-3 py-3 text-left text-sm font-medium text-ink-gray-8 hover:bg-surface-gray-1" @click="signOut"><LogOut class="size-4 shrink-0" /><span>Sign Out</span></button>
 				</div>
 				<button type="button" data-testid="account-menu-trigger" class="mt-1 flex w-full items-center gap-3 rounded-xl bg-surface-gray-1 px-3 py-2.5 text-left transition hover:bg-surface-gray-2" @click="accountMenuOpen = !accountMenuOpen">
-					<div class="grid size-9 shrink-0 place-items-center rounded-full bg-[#1D4ED8] text-sm font-semibold text-white">{{ accountInitials }}</div>
+					<div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">{{ accountInitials }}</div>
 					<div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ accountName }}</p><p class="truncate text-xs text-ink-gray-5">{{ accountCaption }}</p></div>
 					<ChevronRight class="size-4 shrink-0 text-ink-gray-5" />
 				</button>
@@ -170,7 +170,7 @@ watch(() => route.fullPath, () => {
 				<div v-for="group in bottomNavVisibleGroups" :key="group.heading" class="mt-3 border-t border-outline-gray-2 pt-2"><p class="px-2 py-1 text-xs font-medium text-ink-gray-5">{{ group.heading }}</p><RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-2 py-2 text-sm hover:bg-surface-gray-1" @click="closeMobileNav"><component :is="item.icon || Circle" class="size-4 text-ink-gray-4" />{{ item.label }}</RouterLink></div>
 				<div class="mt-3 border-t border-outline-gray-2 pt-3">
 					<button type="button" data-testid="mobile-account-menu-trigger" class="flex w-full items-center gap-3 rounded-xl bg-surface-gray-1 px-3 py-3 text-left" @click="accountMenuOpen = !accountMenuOpen">
-						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-[#1D4ED8] text-sm font-semibold text-white">{{ accountInitials }}</div>
+						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">{{ accountInitials }}</div>
 						<div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ accountName }}</p><p class="truncate text-xs text-ink-gray-5">{{ accountCaption }}</p></div>
 						<ChevronRight class="size-4 shrink-0 text-ink-gray-5" />
 					</button>

@@ -20,6 +20,7 @@ import {
 } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
+ import posthog from 'posthog-js'
 
 const route = useRoute()
 const router = useRouter()
@@ -868,7 +869,7 @@ onBeforeUnmount(() => {
 						<div v-for="(item, index) in flowSteps" :key="item.key" class="flex gap-3">
 							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="flowStepState(index) === 'done' ? 'bg-emerald-500 text-white' : ['active', 'current'].includes(flowStepState(index)) ? 'bg-[#1D4ED8] text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
 								<CheckCircle2 v-if="flowStepState(index) === 'done'" class="size-4 text-ink-green-5" />
-								<RefreshCcw v-else-if="flowStepState(index) === 'active'" class="size-4 animate-spin" />
+								<RefreshCcw v-else-if="flowStepState(index) === 'active'" class="size-4 animate-spin text-ink-green-5" />
 								<Clock3 v-else class="size-4" />
 							</div>
 							<div>

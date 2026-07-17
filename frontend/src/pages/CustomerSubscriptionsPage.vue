@@ -5,6 +5,7 @@ import { Alert, Badge, Button } from 'frappe-ui'
 import { ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLink, Globe2, Package, RefreshCcw } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
+import posthog from 'posthog-js'
 
 const route = useRoute()
 
@@ -115,7 +116,14 @@ onMounted(load)
 							:key="subscription.name"
 							class="cursor-pointer rounded-xl border bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-sm"
 							:class="selectedSubscription?.name === subscription.name ? 'border-secondary' : 'border-[#EDEDED]'"
-							@click="selectedName = subscription.name"
+							@click="
+								posthog.capture('subscription_selected', {
+									subscription: subscription.name,
+									plan: subscription.plan,
+									status: subscription.status,
+								});
+								selectedName = subscription.name
+							"
 						>
 							<div class="flex items-start justify-between gap-3">
 								<div>
@@ -130,7 +138,17 @@ onMounted(load)
 								<div class="flex items-center gap-2"><CheckCircle2 class="size-4 text-emerald-600" />{{ subscription.landscape_summary?.environments?.length || 0 }} environment{{ Number(subscription.landscape_summary?.environments?.length || 0) === 1 ? '' : 's' }}</div>
 							</div>
 							<div class="mt-5">
-								<a v-if="readySite && selectedSubscription?.name === subscription.name" :href="readySite.access_url" target="_blank" class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white ">Open Site <ExternalLink class="size-4" /></a>
+								<a v-if="readySite && selectedSubscription?.name === subscription.name" 
+								:href="readySite.access_url" target="_blank" 
+								@click="
+								console.log('clicked');
+									posthog.capture('subscription_site_opened', {
+										subscription: subscription.name,
+										site: readySite.site,
+										plan: subscription.plan,
+									})
+								"
+								class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white ">Open Site <ExternalLink class="size-4" /></a>
 								<RouterLink v-else-if="selectedSubscription?.name === subscription.name" :to="selectedProgressSite ? `/customer/plans?site=${encodeURIComponent(selectedProgressSite.site || selectedProgressSite.name)}&subscription=${encodeURIComponent(subscription.name)}` : `/customer/plans?subscription=${encodeURIComponent(subscription.name)}`" class="inline-flex items-center gap-2 rounded-lg bg-[#f2f4f6] px-4 py-2 text-sm font-semibold text-[#434655] transition hover:bg-[#e8ecf1]" @click.stop>View progress</RouterLink>
 								<span v-else class="text-sm font-medium text-[#1D4ED8]">View details</span>
 							</div>
@@ -169,7 +187,16 @@ onMounted(load)
 								<p class="text-sm font-medium text-[#191c1e]">{{ item.environment }}</p>
 								<p class="mt-1 text-xs text-[#64748B]">{{ item.site_title || 'Site will be created as part of this landscape' }}</p>
 								<p class="mt-1 text-xs text-[#64748B]">Status: {{ environmentStatusText(item) }}<span v-if="item.release"> · Version: {{ item.release }}</span></p>
-								<a v-if="item.access_url && ['Ready','Active'].includes(item.site_status)" :href="item.access_url" target="_blank" class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">Open Site <ExternalLink class="size-3" /></a>
+								<a v-if="item.access_url && ['Ready','Active'].includes(item.site_status)" 
+								:href="item.access_url" target="_blank" 
+								@click="
+									posthog.capture('environment_site_opened', {
+										subscription: selectedSubscription?.name,
+										environment: item.environment,
+										site: item.site,
+									})
+								"
+								class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">Open Site <ExternalLink class="size-3" /></a>
 							</div>
 						</div>
 					</div>
