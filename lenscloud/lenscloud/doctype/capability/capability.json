@@ -1,0 +1,290 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "field:capability_code",
+ "creation": "2026-07-14 12:26:30.159463",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "capability_name",
+  "capability_code",
+  "column_break_1",
+  "status",
+  "enabled",
+  "section_break_1",
+  "short_description",
+  "long_description",
+  "section_break_2",
+  "icon",
+  "category",
+  "column_break_2",
+  "sort_order",
+  "prerequisites_tab",
+  "section_break_prereq",
+  "prerequisites",
+  "column_break_3",
+  "portal_controls_tab",
+  "section_break_portal",
+  "publish_in_customer_portal",
+  "allow_self_service",
+  "column_break_4",
+  "request_access_only",
+  "experimental",
+  "commercial_tab",
+  "section_break_3",
+  "pricing_model",
+  "monthly_price",
+  "billing_frequency",
+  "docs_link",
+  "bundle_tab",
+  "apps_section",
+  "apps",
+  "tools_section",
+  "tools",
+  "skills_section",
+  "skills"
+ ],
+ "fields": [
+  {
+   "fieldname": "capability_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Capability Name",
+   "reqd": 1
+  },
+  {
+   "description": "Unique slug/key used in URLs, opt-in records, and API filters (e.g. upgrade, migration, lens-ai-test-pilot, chordium)",
+   "fieldname": "capability_code",
+   "fieldtype": "Data",
+   "label": "Capability Code",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "column_break_1",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "Available",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "in_standard_filter": 1,
+   "label": "Status",
+   "options": "Available\nPlanning\nBeta\nComing Soon\nRetired",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "description": "Soft toggle to hide from marketplace without deleting the record",
+   "fieldname": "enabled",
+   "fieldtype": "Check",
+   "in_list_view": 1,
+   "label": "Enabled"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_1",
+   "fieldtype": "Section Break",
+   "label": "Description"
+  },
+  {
+   "description": "Shown on the marketplace card",
+   "fieldname": "short_description",
+   "fieldtype": "Small Text",
+   "label": "Short Description"
+  },
+  {
+   "description": "Shown on the detail / expanded view",
+   "fieldname": "long_description",
+   "fieldtype": "Text Editor",
+   "label": "Long Description"
+  },
+  {
+   "fieldname": "section_break_2",
+   "fieldtype": "Section Break",
+   "label": "Display"
+  },
+  {
+   "fieldname": "icon",
+   "fieldtype": "Attach Image",
+   "label": "Icon / Banner Image"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Link",
+   "label": "Category",
+   "options": "Category"
+  },
+  {
+   "fieldname": "column_break_2",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "sort_order",
+   "fieldtype": "Int",
+   "label": "Sort Order"
+  },
+  {
+   "fieldname": "section_break_prereq",
+   "fieldtype": "Section Break"
+  },
+  {
+   "description": "Other capabilities that must already be opted-in before this one can be enabled.",
+   "fieldname": "prerequisites",
+   "fieldtype": "Table MultiSelect",
+   "label": "Prerequisite Capabilities",
+   "options": "Capability Prerequisite"
+  },
+  {
+   "fieldname": "section_break_3",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "pricing_model",
+   "fieldtype": "Link",
+   "label": "Pricing Model",
+   "options": "Pricing Model"
+  },
+  {
+   "default": "0",
+   "description": "Amount per billing cycle. Ignored/display-only when Pricing Model is Free.",
+   "fieldname": "monthly_price",
+   "fieldtype": "Data",
+   "label": "Price"
+  },
+  {
+   "default": "Monthly",
+   "fieldname": "billing_frequency",
+   "fieldtype": "Select",
+   "label": "Billing Frequency",
+   "options": "Monthly\nQuarterly\nYearly\nOne Time"
+  },
+  {
+   "fieldname": "column_break_3",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "docs_link",
+   "fieldtype": "Data",
+   "label": "Learn More Link",
+   "options": "URL"
+  },
+  {
+   "fieldname": "commercial_tab",
+   "fieldtype": "Tab Break",
+   "label": "Commercial"
+  },
+  {
+   "fieldname": "section_break_portal",
+   "fieldtype": "Section Break"
+  },
+  {
+   "default": "1",
+   "fieldname": "publish_in_customer_portal",
+   "fieldtype": "Check",
+   "label": "Publish in Customer Portal"
+  },
+  {
+   "default": "0",
+   "fieldname": "allow_self_service",
+   "fieldtype": "Check",
+   "label": "Allow Self Service"
+  },
+  {
+   "fieldname": "column_break_4",
+   "fieldtype": "Column Break"
+  },
+  {
+   "default": "0",
+   "fieldname": "request_access_only",
+   "fieldtype": "Check",
+   "label": "Request Access Only"
+  },
+  {
+   "default": "0",
+   "fieldname": "experimental",
+   "fieldtype": "Check",
+   "label": "Experimental"
+  },
+  {
+   "fieldname": "prerequisites_tab",
+   "fieldtype": "Tab Break",
+   "label": "Prerequisites"
+  },
+  {
+   "fieldname": "portal_controls_tab",
+   "fieldtype": "Tab Break",
+   "label": "Portal Controls"
+  },
+  {
+   "fieldname": "bundle_tab",
+   "fieldtype": "Tab Break",
+   "label": "Bundle"
+  },
+  {
+   "fieldname": "apps_section",
+   "fieldtype": "Section Break",
+   "label": "Apps"
+  },
+  {
+   "fieldname": "apps",
+   "fieldtype": "Table",
+   "label": "Apps",
+   "options": "Capability App"
+  },
+  {
+   "fieldname": "tools_section",
+   "fieldtype": "Section Break",
+   "label": "Tools"
+  },
+  {
+   "fieldname": "tools",
+   "fieldtype": "Table",
+   "label": "Tools",
+   "options": "Capability Tool"
+  },
+  {
+   "fieldname": "skills_section",
+   "fieldtype": "Section Break",
+   "label": "Skills"
+  },
+  {
+   "fieldname": "skills",
+   "fieldtype": "Table",
+   "label": "Skills",
+   "options": "Capability Skill"
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-15 14:58:30.756319",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Capability",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "sort_order",
+ "sort_order": "ASC",
+ "states": []
+}

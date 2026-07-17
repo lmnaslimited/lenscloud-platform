@@ -11,6 +11,7 @@ import CustomerPlansPage from '@/pages/CustomerPlansPage.vue'
 import CustomerMembersPage from '@/pages/CustomerMembersPage.vue'
 import CustomerSitesPage from '@/pages/CustomerSitesPage.vue'
 import CustomerSubscriptionsPage from '@/pages/CustomerSubscriptionsPage.vue'
+import CustomerMarketplacePage from '@/pages/CustomerMarketplacePage.vue'
 
 const routes = [
 	{
@@ -38,6 +39,16 @@ const routes = [
 			{ path: 'release-groups/:name', name: 'platform-release-group-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'release-groups', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'apps', name: 'platform-apps', component: ResourcePage, props: { scope: 'platform', resourceKey: 'apps', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'apps/:name', name: 'platform-app-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'apps', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'tools', name: 'platform-tools', component: ResourcePage, props: { scope: 'platform', resourceKey: 'tools', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'tools/:name', name: 'platform-tool-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'tools', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'skills', name: 'platform-skills', component: ResourcePage, props: { scope: 'platform', resourceKey: 'skills', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'skills/:name', name: 'platform-skill-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'skills', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'capabilities', name: 'platform-capabilities', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capabilities', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'capabilities/:name', name: 'platform-capability-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capabilities', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'subscription-capabilities', name: 'platform-subscription-capabilities', component: ResourcePage, props: { scope: 'platform', resourceKey: 'subscription-capabilities', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'subscription-capabilities/:name', name: 'platform-subscription-capability-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'subscription-capabilities', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'capability-landscape-policies', name: 'platform-capability-landscape-policies', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability-landscape-policies', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'capability-landscape-policies/:name', name: 'platform-capability-landscape-policy-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability-landscape-policies', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'releases', name: 'platform-releases', component: ResourcePage, props: { scope: 'platform', resourceKey: 'releases', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'releases/:name', name: 'platform-release-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'releases', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'clusters', name: 'platform-clusters', component: ResourcePage, props: { scope: 'platform', resourceKey: 'clusters', mode: 'list' }, meta: { scope: 'platform' } },
@@ -83,6 +94,7 @@ const routes = [
 			{ path: 'sites', name: 'customer-sites', component: CustomerSitesPage, meta: { scope: 'customer' } },
 			{ path: 'plans', name: 'customer-plans', component: CustomerPlansPage, meta: { scope: 'customer' } },
 			{ path: 'subscriptions', name: 'customer-subscriptions', component: CustomerSubscriptionsPage, meta: { scope: 'customer' } },
+			{ path: 'marketplace', name: 'customer-marketplace', component: CustomerMarketplacePage, meta: { scope: 'customer' } },
 			{ path: 'members', name: 'customer-members', component: CustomerMembersPage, meta: { scope: 'customer' } },
 			{ path: 'sites/:name', name: 'customer-site-detail', component: CustomerSitesPage, meta: { scope: 'customer' } },
 			{ path: 'create-site', name: 'customer-create-site', component: CustomerCreateSitePage, meta: { scope: 'customer' } },

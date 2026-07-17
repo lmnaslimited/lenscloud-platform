@@ -1,5 +1,6 @@
 import json
 import re
+import shlex
 import time
 
 import frappe
@@ -1014,3 +1015,252 @@ def configure_site_oauth_for_orchestration(site, timeout_seconds=300, reason=Non
 def configure_site_oauth(site, timeout_seconds=300, reason=None, cleanup=True):
 	frappe.only_for("System Manager")
 	return configure_site_oauth_for_orchestration(site, timeout_seconds=timeout_seconds, reason=reason, cleanup=cleanup)
+
+
+APP_AWARE_COMMANDS = {"site_bootstrap.install_apps", "site_app.install", "bench.update"}
+APP_AWARE_FAMILIES = {"site_bootstrap", "site_app", "bench"}
+
+
+def release_runtime_image(release_name):
+	if not release_name:
+		frappe.throw(_("Release is required for app-aware runtime-image commands."))
+	release = frappe.get_doc("Release", release_name)
+	if not release.image_digest:
+		frappe.throw(_("Release {0} must have image_digest before app-aware commands can run.").format(release.name))
+	release_group = frappe.get_doc("Release Group", release.release_group)
+	repository = "/".join(filter(None, [(release_group.registry_url or "").rstrip("/"), (release_group.image_repository or "").lstrip("/")]))
+	if not repository:
+		frappe.throw(_("Release Group {0} requires registry_url and image_repository.").format(release_group.name))
+	digest = str(release.image_digest).strip()
+	if digest.startswith("sha256:"):
+		digest = digest.split(":", 1)[1]
+	if not re.match(r"^[0-9a-f]{64}$", digest):
+		frappe.throw(_("Release {0} image_digest must be a sha256 64-hex digest.").format(release.name))
+	return f"{repository}@sha256:{digest}", release, release_group
+
+
+def release_group_install_apps(release_group_name, site_creation=False, requested_apps=None):
+	release_group = frappe.get_doc("Release Group", release_group_name)
+	allowed = []
+	seen = set()
+	requested = {str(app).strip() for app in (requested_apps or []) if str(app).strip()}
+	for row in release_group.get("included_apps") or []:
+		app = str(row.app or "").strip()
+		if not app or app.lower() == "frappe":
+			continue
+		if requested and app not in requested:
+			continue
+		if site_creation and not row.install_at_site_creation:
+			continue
+		if app in seen:
+			frappe.throw(_("Duplicate app {0} in Release Group {1}.").format(app, release_group.name))
+		seen.add(app)
+		allowed.append({"app": app, "install_sequence": row.install_sequence})
+	missing = sorted(requested - seen) if requested else []
+	if missing:
+		frappe.throw(_("App(s) not present in Release Group {0}: {1}").format(release_group.name, ", ".join(missing)))
+	return [row["app"] for row in sorted(allowed, key=lambda item: (item.get("install_sequence") is None, item.get("install_sequence") or 0, item.get("app") or ""))]
+
+
+def app_install_script(site_name, apps, summary):
+	termination = "printf '%s\\n' '" + json.dumps(summary, separators=(",", ":")) + "' > /dev/termination-log"
+	if not apps:
+		return "set -euo pipefail\n" + termination + "\n"
+	commands = ["set -euo pipefail"]
+	site_arg = shlex.quote(str(site_name))
+	for app in apps:
+		app_arg = shlex.quote(str(app))
+		commands.append(f"if bench --site {site_arg} list-apps | grep -qx {app_arg}; then echo 'Skipping already installed app {app}'; else bench --site {site_arg} install-app {app_arg}; fi")
+	commands.append(termination)
+	return "\n".join(commands) + "\n"
+
+
+def bench_update_script(summary):
+	commands = [
+		"set -euo pipefail",
+		"bench --site all set-config -p maintenance_mode 1",
+		"bench --site all set-config -p pause_scheduler 1",
+		"bench --site all migrate",
+		"bench --site all set-config -p maintenance_mode 0",
+		"bench --site all set-config -p pause_scheduler 0",
+		"printf '%s\n' '" + json.dumps(summary, separators=(",", ":")) + "' > /dev/termination-log",
+	]
+	return "\n".join(commands) + "\n"
+
+
+def app_aware_job_manifest(name, namespace, labels, annotations, image, script, bench):
+	return {
+		"apiVersion": "batch/v1",
+		"kind": "Job",
+		"metadata": {"name": name, "namespace": namespace, "labels": labels, "annotations": annotations},
+		"spec": {
+			"backoffLimit": 1,
+			"template": {
+				"metadata": {"labels": labels},
+				"spec": {
+					"automountServiceAccountToken": False,
+					"restartPolicy": "Never",
+					"containers": [{
+						"name": "bench-command",
+						"image": image,
+						"imagePullPolicy": "IfNotPresent",
+						"command": ["bash", "-lc"],
+						"args": [script],
+						"securityContext": {"privileged": False},
+						"volumeMounts": [
+							{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": False},
+							{"name": "sites-assets", "mountPath": "/home/frappe/frappe-bench/sites/assets", "subPath": "frappe-sites/assets", "readOnly": False},
+						],
+					}],
+					"volumes": [
+						{"name": "sites", "persistentVolumeClaim": {"claimName": bench_sites_pvc_name(bench)}},
+						{"name": "sites-assets", "persistentVolumeClaim": {"claimName": bench_sites_pvc_name(bench)}},
+					],
+				},
+			},
+		},
+	}
+
+
+def app_aware_labels(command_id_value, site_doc=None, bench=None):
+	labels = {
+		PLATFORM_MANAGER_LABEL: PLATFORM_MANAGER_VALUE,
+		RESOURCE_KIND_LABEL: BENCH_COMMAND_RESOURCE_KIND,
+		RESOURCE_ID_LABEL: label_value(command_id_value),
+	}
+	customer = getattr(site_doc, "customer", None) or getattr(bench, "owner_customer", None)
+	if customer:
+		labels[CUSTOMER_LABEL] = label_value(customer)
+	return labels
+
+
+def run_app_aware_job(command, cluster, namespace, bench, image, script, site_doc=None, timeout_seconds=900, message=None):
+	if command not in APP_AWARE_COMMANDS:
+		frappe.throw(_("Unsupported app-aware command {0}.").format(command))
+	log = create_action_log(
+		"Bench App Command",
+		"Pending",
+		site=getattr(site_doc, "name", None),
+		bench=bench.name,
+		cluster=cluster.name,
+		region=getattr(site_doc, "region", None) or bench.region,
+		dry_run=False,
+		resource_kind="bench-command",
+		operation=command,
+		message=message or f"Preparing app-aware command {command}.",
+	)
+	job_name = None
+	try:
+		command_id_value = command_id(log.name)
+		job_name = f"{safe_name(command_id_value)}-job"
+		labels = app_aware_labels(command_id_value, site_doc=site_doc, bench=bench)
+		annotations = {
+			"lenscloud.io/bench-command-family": command_family(command),
+			"lenscloud.io/bench-command": command,
+		}
+		job = app_aware_job_manifest(job_name, namespace, labels, annotations, image, script, bench)
+		log.manifest = manifest_yaml({"job": job})
+		log.message = sanitize_error(json.dumps({"job": job_name, "namespace": namespace, "command": command, "image": image}, sort_keys=True))
+		log.status = "Queued"
+		log.save(ignore_permissions=True)
+		frappe.db.commit()
+		with get_cluster_client(cluster) as client:
+			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
+		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, timeout_value(timeout_seconds))
+		summary = sanitized_termination_summary(pods) or {"phase": phase, "summary": f"{command} finished with {phase}", "redacted": True}
+		deleted = cleanup_command_resources(cluster, namespace, job_name, None)
+		message = f"App-aware command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
+		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message)
+		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message}
+	except Exception as exc:
+		if job_name:
+			try:
+				cleanup_command_resources(cluster, namespace, job_name, None)
+			except Exception:
+				pass
+		finish_action_log(log, "Failed", error=exc, message=f"App-aware command {command} failed.")
+		frappe.db.commit()
+		frappe.throw(_("{0} Action log: {1}.").format(sanitize_error(exc), log.name))
+
+
+@frappe.whitelist()
+def install_site_bootstrap_apps(site, timeout_seconds=900, enforce_permissions=True):
+	if enforce_permissions:
+		frappe.only_for("System Manager")
+	site_doc, bench, cluster, namespace, _subscription, _policy = validate_site_target(site)
+	image, release, release_group = release_runtime_image(bench.current_release)
+	apps = release_group_install_apps(release_group.name, site_creation=True)
+	summary = {"phase": "Succeeded", "summary": "Site bootstrap app install completed", "apps": apps, "site": site_doc.name, "redacted": True}
+	script = app_install_script(site_doc.name, apps, summary)
+	return run_app_aware_job("site_bootstrap.install_apps", cluster, namespace, bench, image, script, site_doc=site_doc, timeout_seconds=timeout_seconds, message=f"Install bootstrap apps for Site {site_doc.name}.")
+
+
+@frappe.whitelist()
+def install_site_capability(site, subscription_capability, timeout_seconds=900):
+	frappe.only_for("System Manager")
+	from lenscloud.api.capability import capability_app_rows, upsert_site_capability_state
+
+	site_doc, bench, cluster, namespace, _subscription, _policy = validate_site_target(site)
+	subcap = frappe.get_doc("Subscription Capability", subscription_capability)
+	if subcap.subscription != site_doc.subscription:
+		frappe.throw(_("Subscription Capability does not belong to the Site Subscription."))
+	image, _release, release_group = release_runtime_image(bench.current_release)
+	capability_apps = [row["app"] for row in capability_app_rows(subcap.capability) if row.get("install_scope") == "Site"]
+	apps = release_group_install_apps(release_group.name, requested_apps=capability_apps)
+	upsert_site_capability_state(site_doc, subcap, status="Installing", source="Capability Fulfillment")
+	summary = {"phase": "Succeeded", "summary": "Site capability install completed", "capability": subcap.capability, "apps": apps, "site": site_doc.name, "redacted": True}
+	script = app_install_script(site_doc.name, apps, summary)
+	result = run_app_aware_job("site_app.install", cluster, namespace, bench, image, script, site_doc=site_doc, timeout_seconds=timeout_seconds, message=f"Install capability {subcap.capability} for Site {site_doc.name}.")
+	if result.get("status") == "Succeeded":
+		subcap.status = "Active"
+		subcap.activated_on = now_datetime()
+		subcap.last_fulfilled_on = now_datetime()
+		subcap.last_action_log = result.get("action_log")
+		subcap.save(ignore_permissions=True)
+		upsert_site_capability_state(site_doc, subcap, status="Active", source="Command Result", installed_apps=apps)
+		frappe.db.commit()
+	return result
+
+
+def bench_update_ready_sites(bench_name):
+	sites = frappe.get_all("Site", filters={"bench": bench_name, "site_status": ["not in", ["Deleted", "Deletion Requested", "Deleting"]]}, fields=["name", "upgrade_state", "upgrade_tested", "tested_on", "tested_by"])
+	blocked = []
+	for site in sites:
+		if site.upgrade_state != "Scheduled" or not site.upgrade_tested or not site.tested_on or not site.tested_by:
+			blocked.append(site.name)
+	return sites, blocked
+
+
+@frappe.whitelist()
+def run_bench_update(bench, timeout_seconds=1800):
+	frappe.only_for("System Manager")
+	bench_doc = frappe.get_doc("Bench", bench)
+	if not bench_doc.next_release:
+		frappe.throw(_("Bench {0} requires next_release before update.").format(bench_doc.name))
+	current_group = frappe.db.get_value("Release", bench_doc.current_release, "release_group") if bench_doc.current_release else bench_doc.release_group
+	next_group = frappe.db.get_value("Release", bench_doc.next_release, "release_group")
+	if next_group != bench_doc.release_group or current_group != bench_doc.release_group:
+		frappe.throw(_("Bench update target Release must belong to the Bench Release Group."))
+	_sites, blocked = bench_update_ready_sites(bench_doc.name)
+	if blocked:
+		frappe.throw(_("Every active Site must be Scheduled and tested before Bench update. Blocked: {0}").format(", ".join(blocked)))
+	cluster = get_region_cluster(bench_doc.region)
+	namespace = default_runtime_namespace(cluster)
+	if bench_doc.kubernetes_namespace:
+		namespace = frappe.db.get_value("Runtime Namespace", bench_doc.kubernetes_namespace, "namespace") or namespace
+	image, release, _release_group = release_runtime_image(bench_doc.next_release)
+	summary = {"phase": "Succeeded", "summary": "Bench update completed", "target_release": release.name, "operation": "bench --site all maintenance/pause/migrate", "redacted": True}
+	result = run_app_aware_job("bench.update", cluster, namespace, bench_doc, image, bench_update_script(summary), timeout_seconds=timeout_seconds, message=f"Update Bench {bench_doc.name} to {release.name}.")
+	if result.get("status") == "Succeeded":
+		bench_doc.current_release = bench_doc.next_release
+		bench_doc.next_release = None
+		bench_doc.upgrade_sop_status = "Completed"
+		bench_doc.bench_status = "Ready"
+		bench_doc.save(ignore_permissions=True)
+		try:
+			from lenscloud.api.orchestration import reconcile_bench
+			reconcile_bench(bench_doc.name, dry_run=False)
+		except Exception as exc:
+			result["runtime_reconcile_warning"] = sanitize_error(exc)
+		frappe.db.commit()
+	return result

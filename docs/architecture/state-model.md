@@ -15,6 +15,9 @@
 - Restore
 - Upgrade
 - Bench Upgrade Plan
+- Capability
+- Subscription Capability
+- Site Capability State
 
 ## Supporting Concepts
 
@@ -161,6 +164,17 @@ Bench Upgrade Plan is introduced. In that phase, `Bench.next_release` holds the
 target Release, Site `upgrade_state` tracks per-Site scheduling, and Site
 `upgrade_tested`, `tested_on`, and `tested_by` gate whether a Site may be moved
 to Scheduled.
+
+
+## Capability Model
+
+Capability is customer-facing product master data. It may bundle apps, tools, skills, and supporting services. Customers request or subscribe to Capabilities; they do not install raw apps.
+
+Subscription Capability is the durable entitlement and progression record for one Subscription and one Capability. It tracks Requested, Pending Approval, Approved, Provisioning, Active, Failed, Suspended, or Cancelled.
+
+Capability Landscape Policy controls fulfillment per Landscape and Environment. It defines whether fulfillment is Manual, Self Service, Approval Required, or Platform Managed, and whether it runs at Site creation, after Subscription approval, manually, or after Bench upgrade.
+
+Site Capability State is a read-only child table on Site. It reflects observed fulfillment state from capability actions, command results, and cluster/runtime sync. It must not be edited directly; all mutation must happen through Platform or customer actions.
 
 ## Notes
 

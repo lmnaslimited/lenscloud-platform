@@ -1,0 +1,73 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2026-07-16 00:00:00.000000",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-16 00:00:00.000000",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Capability App",
+ "owner": "Administrator",
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": [],
+ "istable": 1,
+ "editable_grid": 1,
+ "field_order": [
+  "app",
+  "required",
+  "install_at_site_creation",
+  "install_sequence",
+  "install_scope",
+  "notes"
+ ],
+ "fields": [
+  {
+   "fieldname": "app",
+   "fieldtype": "Link",
+   "label": "App",
+   "options": "App",
+   "reqd": 1,
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "required",
+   "fieldtype": "Check",
+   "label": "Required",
+   "default": "1",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "install_at_site_creation",
+   "fieldtype": "Check",
+   "label": "Install At Site Creation",
+   "default": "0",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "install_sequence",
+   "fieldtype": "Int",
+   "label": "Install Sequence",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "install_scope",
+   "fieldtype": "Select",
+   "label": "Install Scope",
+   "options": "Site\nBench",
+   "default": "Site"
+  },
+  {
+   "fieldname": "notes",
+   "fieldtype": "Small Text",
+   "label": "Notes"
+  }
+ ],
+ "permissions": []
+}

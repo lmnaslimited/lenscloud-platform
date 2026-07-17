@@ -57,7 +57,9 @@
   "upgrade_state",
   "upgrade_tested",
   "tested_on",
-  "tested_by"
+  "tested_by",
+  "capabilities_tab",
+  "site_capability_state"
  ],
  "fields": [
   {
@@ -374,6 +376,18 @@
    "fieldname": "tested_by",
    "fieldtype": "Data",
    "label": "Tested By"
+  },
+  {
+   "fieldname": "capabilities_tab",
+   "fieldtype": "Tab Break",
+   "label": "Capabilities"
+  },
+  {
+   "fieldname": "site_capability_state",
+   "fieldtype": "Table",
+   "label": "Site Capability State",
+   "options": "Site Capability State",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,

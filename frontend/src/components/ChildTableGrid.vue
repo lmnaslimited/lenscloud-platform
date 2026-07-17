@@ -41,7 +41,7 @@ function moveRow(index, direction) {
 }
 function rowKey(row, index) { return row.name || `new-child-${index}` }
 function inputProps(row, column) {
-	return { ...props.controlProps(row, column), label: column.label, disabled: props.disabled || column.readOnly }
+	return { ...props.controlProps(row, column), label: column.label, 'aria-label': column.label, disabled: props.disabled || column.readOnly }
 }
 </script>
 

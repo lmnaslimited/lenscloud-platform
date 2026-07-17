@@ -2052,11 +2052,25 @@ def orchestrate_customer_site_oauth(site_doc):
 		return {"status": "Failed", "message": getattr(site_doc, "oauth_error", None)}
 
 
+def site_bootstrap_apps_installed(site_doc):
+	return bool(frappe.db.exists("Orchestration Action Log", {"site": site_doc.name, "operation": "site_bootstrap.install_apps", "status": "Succeeded"}))
+
+
+def orchestrate_customer_site_bootstrap(site_doc):
+	if site_bootstrap_apps_installed(site_doc):
+		return None
+	from lenscloud.api.bench_command import install_site_bootstrap_apps
+	return install_site_bootstrap_apps(site_doc.name, timeout_seconds=900, enforce_permissions=False)
+
+
 def orchestrate_customer_site_setup(site_doc):
 	if site_doc.route_status != "Ready" or not site_doc.access_url:
 		return None
 	from lenscloud.api.bench_command import run_site_setup_command_for_orchestration
 	try:
+		bootstrap_result = orchestrate_customer_site_bootstrap(site_doc)
+		if bootstrap_result:
+			site_doc.reload()
 		setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
 		if setup_status in {"Not Checked", "Pending", ""}:
 			status_result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup status check")

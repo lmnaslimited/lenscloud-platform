@@ -11,8 +11,7 @@ Infra applied the updated admission policy on the manager cluster on
 Live manager verification passed:
 
 - existing `bench_test.status` Platform smoke Job still succeeds;
-- digest-pinned `ghcr.io/lmnaslimited/lensdocker/lens-pure@sha256:<digest>`
-  runtime images are admitted for app-aware `bench.update`;
+- digest-pinned current launch Release Group runtime images are admitted for app-aware `bench.update`; live evidence used `ghcr.io/lmnaslimited/lensdocker/lens-pure@sha256:<digest>`;
 - old `ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:<digest>`
   images are denied for app-aware `bench.update`;
 - mutable `ghcr.io/lmnaslimited/lensdocker/lens-pure:<tag>` images are denied;
@@ -78,13 +77,13 @@ For these app-aware families:
 | `site_app` | `site_app.install` | Release Group runtime image containing requested app |
 | `bench` | `bench.update` | Bench `next_release` runtime image |
 
-Use only immutable digests:
+Use only immutable digests. Platform derives the runtime image from Release Group and Release metadata:
 
 ```text
-ghcr.io/lmnaslimited/lensdocker/lens-pure@sha256:<64-hex-digest>
+{Release Group.registry_url}/{Release Group.image_repository}@sha256:{Release.image_digest}
 ```
 
-Do not submit mutable tags such as `lens-pure:v16.14.3` in Kubernetes Jobs.
+`lens-pure` is the current launch Release Group used by Infra acceptance evidence, not a Platform constant. Do not submit mutable tags such as `lens-pure:v16.14.3` in Kubernetes Jobs.
 
 ## Implementation Tasks
 
@@ -111,8 +110,7 @@ Implement these as three separate Platform paths.
 
 2. Existing Site app install
 
-   This is a later Platform/customer action on an already Ready Site. It must
-   not be used as a substitute for first-time bootstrap install.
+   This is a later Capability fulfillment or Platform recovery action on an already Ready Site. Customers request or subscribe to Capabilities; they do not install raw apps. It must not be used as a substitute for first-time bootstrap install.
 
    Required behavior:
 
@@ -363,12 +361,25 @@ Minimum failure result:
 Never expose Secret values, kubeconfig material, raw `site_config.json`, DB
 passwords, private keys, access tokens, environment dumps, or full logs.
 
+
+## Capability-Led Fulfillment Revision
+
+The customer-facing construct is now Capability, not App. Platform must model:
+
+- `Capability` as catalogue/master data;
+- `Capability App`, `Capability Tool`, and `Capability Skill` bundle rows; Tool and Skill are first-class Link DocTypes, not free-text codes;
+- `Subscription Capability` as the durable customer entitlement/progression record;
+- `Capability Landscape Policy` as the per-Landscape/Environment progression gate;
+- `Site Capability State` as a read-only observed child table on Site.
+
+`Site Capability State` must not be edited directly. It is updated only by customer/platform actions, app-aware command results, or sync. Raw app installation is an implementation detail of fulfilling a Capability.
+
 ## Platform Acceptance Checklist
 
 - New Site bootstrap installs Release Group apps selected for site creation.
 - Retrying the same app install is idempotent and shows already-installed apps
   as skipped/success.
-- Existing Site app install works only for apps in the Bench Release Group.
+- Existing Site Capability fulfillment installs only Capability-bundled apps that are present in the Bench Release Group.
 - `bench.update` uses the Bench `next_release` runtime image digest.
 - `bench.update` runs the bench-wide migration sequence, not per-site
   migrations.

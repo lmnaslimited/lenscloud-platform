@@ -19,10 +19,11 @@ import {
 	AlertTriangle,
 	CircleHelp,
 	ScrollText,
+	Sparkles,
 } from 'lucide-vue-next'
 
-const linkField = (options, labelFields = ['title']) => ({ type: 'link', options, labelFields })
-const submittedLinkField = (options, labelFields = ['title']) => ({ ...linkField(options, labelFields), targetIsSubmittable: true })
+const linkField = (options, labelFields = []) => ({ type: 'link', options, labelFields })
+const submittedLinkField = (options, labelFields = []) => ({ ...linkField(options, labelFields), targetIsSubmittable: true })
 const selectField = (options) => ({ type: 'select', options })
 const checkField = { type: 'check' }
 
@@ -604,11 +605,12 @@ export const platformResources = [
 				key: 'upgrade-bench',
 				label: 'Upgrade bench',
 				icon: RefreshCcw,
-				description: 'Upgrade controls are surfaced in the UI, while the orchestration backend remains a gap.',
-				backendSupported: false,
+				description: 'Run the app-aware bench.update path after every active Site on this Bench is Scheduled and tested.',
+				backendSupported: true,
+				method: 'lenscloud.api.bench_command.run_bench_update',
+				paramsFromRecord: { bench: 'name' },
 				fields: [
-					{ key: 'target_release', label: 'Target Release', placeholder: 'Release document name', ...linkField('Release', ['image_tag', 'release_group']) },
-					{ key: 'notes', label: 'Notes', type: 'textarea', placeholder: 'Why this upgrade is needed.' },
+					{ key: 'timeout_seconds', label: 'Timeout seconds', type: 'number', default: 1800 },
 				],
 			},
 			{
@@ -675,6 +677,7 @@ export const platformResources = [
 			{ key: 'backup_state', label: 'Backup state', ...selectField(backupStateOptions) },
 			{ key: 'restore_state', label: 'Restore state', ...selectField(restoreStateOptions) },
 			{ key: 'upgrade_state', label: 'Upgrade state', ...selectField(upgradeStateOptions) },
+			{ key: 'site_capability_state', label: 'Site Capability State', readOnly: true },
 		],
 		actions: [
 			{
@@ -689,6 +692,9 @@ export const platformResources = [
 			},
 			{ key: 'reconcile-site', label: 'Reconcile Site', icon: RefreshCcw, description: 'Idempotently apply the FrappeSite and Traefik wildcard route when restricted access is enabled.', backendSupported: true, method: 'lenscloud.api.orchestration.reconcile_site', paramsFromRecord: { site: 'name' }, fields: [{ key: 'dry_run', label: 'Dry run', ...checkField }] },
 			{ key: 'sync-site', label: 'Sync provisioning and access', icon: RefreshCcw, description: 'Read operator status and verify the HTTPS route.', backendSupported: true, method: 'lenscloud.api.orchestration.sync_site_status', paramsFromRecord: { site: 'name' }, fields: [] },
+			{ key: 'sync-site-capability-state', label: 'Sync Capability State', icon: RefreshCcw, description: 'Refresh read-only Site Capability State from Subscription Capability records and command results.', backendSupported: true, method: 'lenscloud.api.capability.sync_site_capability_state', paramsFromRecord: { site: 'name' }, fields: [] },
+			{ key: 'install-site-capability', label: 'Install Capability', icon: Sparkles, description: 'Fulfill a Subscription Capability onto this Site through the app-aware runtime-image install path.', backendSupported: true, method: 'lenscloud.api.bench_command.install_site_capability', paramsFromRecord: { site: 'name' }, fields: [{ key: 'subscription_capability', label: 'Subscription Capability', ...linkField('Subscription Capability', ['capability', 'status']) }, { key: 'timeout_seconds', label: 'Timeout seconds', type: 'number', default: 900 }] },
+			{ key: 'install-bootstrap-apps', label: 'Install Bootstrap Apps', icon: Package, description: 'Install Release Group apps marked Install At Site Creation. Intended for provisioning recovery before customer handoff.', backendSupported: true, method: 'lenscloud.api.bench_command.install_site_bootstrap_apps', paramsFromRecord: { site: 'name' }, fields: [{ key: 'timeout_seconds', label: 'Timeout seconds', type: 'number', default: 900 }] },
 			{ key: 'inspect-site', label: 'Inspect runtime', icon: ScrollText, description: 'Show secret-safe FrappeSite CR, finalizer, related workload, PVC, Service, Ingress, Job, and warning Event state.', backendSupported: true, method: 'lenscloud.api.orchestration.inspect_site_runtime', paramsFromRecord: { site: 'name' }, fields: [] },
 			{
 				key: 'configure-oauth',
@@ -1002,6 +1008,107 @@ export const platformResources = [
 		actions: [],
 	},
 
+
+	{
+		key: 'tools', scope: 'platform', label: 'Tools', doctype: 'Tool', route: '/platform/tools',
+		detailRoute: (name) => `/platform/tools/${encodeURIComponent(name)}`, icon: Settings2, creatable: true, editable: true,
+		listHelp: 'Reusable platform tools that can be bundled into customer-facing Capabilities.',
+		lifecycleFields: [{ key: 'title', label: 'Title', required: true }, { key: 'status', label: 'Status', ...selectField(['Active', 'Inactive', 'Retired']) }, { key: 'description', label: 'Description', type: 'textarea' }],
+		summaryFields: [{ key: 'title', label: 'Tool' }, { key: 'status', label: 'Status' }],
+		detailFields: [{ key: 'name', label: 'Tool ID' }, { key: 'title', label: 'Title' }, { key: 'status', label: 'Status', ...selectField(['Active', 'Inactive', 'Retired']) }, { key: 'description', label: 'Description' }],
+		actions: [],
+	},
+	{
+		key: 'skills', scope: 'platform', label: 'Skills', doctype: 'Skill', route: '/platform/skills',
+		detailRoute: (name) => `/platform/skills/${encodeURIComponent(name)}`, icon: CircleHelp, creatable: true, editable: true,
+		listHelp: 'Reusable service or automation skills that can be bundled into customer-facing Capabilities.',
+		lifecycleFields: [{ key: 'title', label: 'Title', required: true }, { key: 'status', label: 'Status', ...selectField(['Active', 'Inactive', 'Retired']) }, { key: 'description', label: 'Description', type: 'textarea' }],
+		summaryFields: [{ key: 'title', label: 'Skill' }, { key: 'status', label: 'Status' }],
+		detailFields: [{ key: 'name', label: 'Skill ID' }, { key: 'title', label: 'Title' }, { key: 'status', label: 'Status', ...selectField(['Active', 'Inactive', 'Retired']) }, { key: 'description', label: 'Description' }],
+		actions: [],
+	},
+	{
+		key: 'capabilities', scope: 'platform', label: 'Capabilities', doctype: 'Capability', route: '/platform/capabilities',
+		detailRoute: (name) => `/platform/capabilities/${encodeURIComponent(name)}`, icon: Sparkles, creatable: true, editable: true,
+		listHelp: 'Customer-facing capabilities that bundle apps, tools, skills, and fulfillment policy.',
+		lifecycleFields: [
+			{ key: 'capability_name', label: 'Capability Name', required: true },
+			{ key: 'capability_code', label: 'Capability Code', required: true },
+			{ key: 'status', label: 'Status', ...selectField(['Available', 'Planning', 'Beta', 'Coming Soon', 'Retired']) },
+			{ key: 'enabled', label: 'Enabled', ...checkField },
+		],
+		summaryFields: [
+			{ key: 'capability_name', label: 'Capability' },
+			{ key: 'capability_code', label: 'Code' },
+			{ key: 'status', label: 'Status' },
+			{ key: 'enabled', label: 'Enabled' },
+		],
+		detailFields: [
+			{ key: 'name', label: 'Capability ID' },
+			{ key: 'capability_name', label: 'Capability Name' },
+			{ key: 'capability_code', label: 'Capability Code' },
+			{ key: 'status', label: 'Status', ...selectField(['Available', 'Planning', 'Beta', 'Coming Soon', 'Retired']) },
+			{ key: 'enabled', label: 'Enabled', ...checkField },
+			{ key: 'publish_in_customer_portal', label: 'Publish in Customer Portal', ...checkField },
+			{ key: 'allow_self_service', label: 'Allow Self Service', ...checkField },
+			{ key: 'request_access_only', label: 'Request Access Only', ...checkField },
+			{ key: 'short_description', label: 'Short Description' },
+			{ key: 'category', label: 'Category', ...linkField('Category', ['category_name']) },
+			{ key: 'pricing_model', label: 'Pricing Model', ...linkField('Pricing Model', ['pricing_model_name']) },
+			{ key: 'apps', label: 'Apps' },
+			{ key: 'tools', label: 'Tools' },
+			{ key: 'skills', label: 'Skills' },
+		],
+		actions: [],
+	},
+	{
+		key: 'subscription-capabilities', scope: 'platform', label: 'Subscription Capabilities', doctype: 'Subscription Capability', route: '/platform/subscription-capabilities',
+		detailRoute: (name) => `/platform/subscription-capabilities/${encodeURIComponent(name)}`, icon: Sparkles, creatable: true, editable: true,
+		listHelp: 'Durable customer subscription capability entitlement and fulfillment state.',
+		summaryFields: [
+			{ key: 'customer', label: 'Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'subscription', label: 'Subscription', linkPrefix: '/platform/subscriptions/', ...linkField('Subscription', ['customer', 'plan', 'status']) },
+			{ key: 'capability', label: 'Capability', linkPrefix: '/platform/capabilities/', ...linkField('Capability', ['capability_name']) },
+			{ key: 'status', label: 'Status' },
+		],
+		detailFields: [
+			{ key: 'name', label: 'Subscription Capability' },
+			{ key: 'customer', label: 'Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'subscription', label: 'Subscription', linkPrefix: '/platform/subscriptions/', ...linkField('Subscription', ['customer', 'plan', 'status']) },
+			{ key: 'capability', label: 'Capability', linkPrefix: '/platform/capabilities/', ...linkField('Capability', ['capability_name']) },
+			{ key: 'status', label: 'Status', ...selectField(['Requested', 'Pending Approval', 'Approved', 'Provisioning', 'Active', 'Failed', 'Suspended', 'Cancelled']) },
+			{ key: 'landscape', label: 'Landscape', linkPrefix: '/platform/landscapes/', ...linkField('Landscape') },
+			{ key: 'environment', label: 'Environment', linkPrefix: '/platform/environments/', ...linkField('Environment') },
+			{ key: 'policy', label: 'Policy', linkPrefix: '/platform/capability-landscape-policies/', ...linkField('Capability Landscape Policy', ['capability', 'landscape', 'environment']) },
+			{ key: 'last_action_log', label: 'Last Action Log', linkPrefix: '/platform/orchestration-logs/', ...linkField('Orchestration Action Log') },
+			{ key: 'last_error', label: 'Last Error', readOnly: true },
+		],
+		actions: [],
+	},
+	{
+		key: 'capability-landscape-policies', scope: 'platform', label: 'Capability Landscape Policies', doctype: 'Capability Landscape Policy', route: '/platform/capability-landscape-policies',
+		detailRoute: (name) => `/platform/capability-landscape-policies/${encodeURIComponent(name)}`, icon: Layers3, creatable: true, editable: true,
+		listHelp: 'Landscape and environment progression policy for capability fulfillment.',
+		summaryFields: [
+			{ key: 'capability', label: 'Capability', linkPrefix: '/platform/capabilities/', ...linkField('Capability', ['capability_name']) },
+			{ key: 'landscape', label: 'Landscape', linkPrefix: '/platform/landscapes/', ...linkField('Landscape') },
+			{ key: 'environment', label: 'Environment', linkPrefix: '/platform/environments/', ...linkField('Environment') },
+			{ key: 'progression_policy', label: 'Policy' },
+		],
+		detailFields: [
+			{ key: 'name', label: 'Policy ID' },
+			{ key: 'capability', label: 'Capability', linkPrefix: '/platform/capabilities/', ...linkField('Capability', ['capability_name']) },
+			{ key: 'landscape', label: 'Landscape', linkPrefix: '/platform/landscapes/', ...linkField('Landscape') },
+			{ key: 'environment', label: 'Environment', linkPrefix: '/platform/environments/', ...linkField('Environment') },
+			{ key: 'status', label: 'Status', ...selectField(['Draft', 'Active', 'Paused', 'Retired']) },
+			{ key: 'progression_policy', label: 'Progression Policy', ...selectField(['Manual', 'Self Service', 'Approval Required', 'Platform Managed']) },
+			{ key: 'fulfillment_timing', label: 'Fulfillment Timing', ...selectField(['At Site Creation', 'After Subscription Approval', 'Manual Action', 'After Bench Upgrade']) },
+			{ key: 'approval_required', label: 'Approval Required', ...checkField },
+			{ key: 'notes', label: 'Notes' },
+		],
+		actions: [],
+	},
+
 ]
 
 export const platformSettings = {
@@ -1120,6 +1227,7 @@ export const customerResources = [
 			{ key: 'backup_state', label: 'Backup state', ...selectField(backupStateOptions) },
 			{ key: 'restore_state', label: 'Restore state', ...selectField(restoreStateOptions) },
 			{ key: 'upgrade_state', label: 'Upgrade state', ...selectField(upgradeStateOptions) },
+			{ key: 'site_capability_state', label: 'Site Capability State', readOnly: true },
 		],
 		actions: [
 			{
@@ -1158,6 +1266,11 @@ export const platformNav = [
 		{ key: 'platform-release-groups', label: 'Release Groups', route: '/platform/release-groups', icon: Layers3 },
 		{ key: 'platform-releases', label: 'Releases', route: '/platform/releases', icon: GitBranch },
 		{ key: 'platform-apps', label: 'Apps', route: '/platform/apps', icon: Package },
+		{ key: 'platform-tools', label: 'Tools', route: '/platform/tools', icon: Settings2 },
+		{ key: 'platform-skills', label: 'Skills', route: '/platform/skills', icon: CircleHelp },
+		{ key: 'platform-capabilities', label: 'Capabilities', route: '/platform/capabilities', icon: Sparkles },
+		{ key: 'platform-subscription-capabilities', label: 'Subscription Capabilities', route: '/platform/subscription-capabilities', icon: Sparkles },
+		{ key: 'platform-capability-landscape-policies', label: 'Capability Policies', route: '/platform/capability-landscape-policies', icon: Layers3 },
 	] },
 	{ heading: 'Runtime', collapsible: true, keep_closed: true, items: [
 		{ key: 'platform-clusters', label: 'Clusters', route: '/platform/clusters', icon: Server },
@@ -1183,6 +1296,7 @@ export const customerNav = [
 			{ key: 'customer-dashboard', label: 'Dashboard', note: 'Site status and next steps', route: '/customer/dashboard', icon: LayoutDashboard },
 			{ key: 'customer-plans', label: 'Plans', note: 'Choose a subscription', route: '/customer/plans', icon: Package, doctype: 'Plan' },
 			{ key: 'customer-subscriptions', label: 'Subscriptions', note: 'Service status', route: '/customer/subscriptions', icon: CreditCard, doctype: 'Subscription' },
+			{ key: 'customer-marketplace', label: 'Marketplace', note: 'Capabilities', route: '/customer/marketplace', icon: Sparkles, doctype: 'Capability' },
 			{ key: 'customer-members', label: 'Members', note: 'Team access', route: '/customer/members', icon: UserRound, doctype: 'Customer Member' },
 		],
 	},
