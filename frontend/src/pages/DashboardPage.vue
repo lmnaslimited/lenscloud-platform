@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLink, Globe2, LifeBuoy, Package, Server, Sparkles, Users } from 'lucide-vue-next'
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLink, Globe2, LifeBuoy, Package, Server, Sparkles, Users, RefreshCw } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -64,7 +64,13 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 		:inspector-subtitle="scope === 'platform' ? 'All values come from authoritative aggregate APIs.' : 'Your Plan, Subscription, and Site progress stay here.'"
 	>
 		<template #actions>
-			<Button variant="subtle" @click="load">Refresh</Button>
+			<Button variant="subtle" @click="load">
+			<template #prefix>
+				<RefreshCw class="h-4 w-4" />
+			</template>
+
+			Refresh
+			</Button>
 		</template>
 
 		<template #main>
@@ -124,7 +130,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 									<CheckCircle2 class="size-3.5" />
 									Account ready
 								</div>
-								<h2 class="mt-5 max-w-2xl text-[28px] font-bold leading-[36px] text-[#191c1e] lg:text-[36px] lg:leading-[44px]">Launch your first LensCloud Site in a guided flow</h2>
+								<h2 class="mt-5 max-w-2xl text-[28px] font-bold leading-[36px] text-[#191c1e] lg:text-[36px] lg:leading-[44px]">Launch your first LensCloud workspace in a guided flow</h2>
 								<p class="mt-4 max-w-xl text-base leading-6 text-[#505f76]">Choose the Free Plan, confirm your ₹0 subscription, and LensCloud will prepare your Site. You will always know the next step.</p>
 								<div class="mt-7 flex flex-col gap-3 sm:flex-row">
 									<RouterLink to="/customer/plans" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2 active:scale-[0.99]">
@@ -159,7 +165,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 									<h2 class="mt-4 text-[24px] font-semibold leading-8 text-[#191c1e]">{{ activeSite ? 'Your LensCloud Site is on its way' : 'Your subscription is active' }}</h2>
 									<p class="mt-3 max-w-xl text-sm leading-6 text-[#505f76]">{{ activeSite ? 'Follow setup progress and open your Site as soon as it is ready.' : 'Your service subscription is ready. Start or review your Site setup from here.' }}</p>
 									<div class="mt-6 flex flex-col gap-3 sm:flex-row">
-										<a v-if="activeSite && ['Ready','Active'].includes(activeSite.site_status) && activeSite.access_url" :href="activeSite.access_url" target="_blank" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+										<a v-if="activeSite && ['Ready','Active'].includes(activeSite.site_status) && activeSite.access_url" :href="activeSite.access_url" target="_blank" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/2 focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
 											Open Site
 											<ExternalLink class="size-4" />
 										</a>
@@ -175,7 +181,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 									</div>
 								</div>
 								<div class="grid grid-cols-3 gap-2 text-center">
-									<RouterLink to="/customer/subscriptions" class="rounded-lg border border-[#1D4ED8] bg-[#dce1ff] p-3 transition hover:bg-[#cad3ff]"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.subscriptions || 0 }}</p><p class="text-xs font-semibold text-[#0039b5]">Subscriptions</p></RouterLink>
+									<RouterLink to="/customer/subscriptions" class="rounded-lg border border-primary bg-secondary p-3 transition hover:bg-secondary/2"><p class="text-xl font-semibold text-primary">{{ customerUsage.subscriptions || 0 }}</p><p class="text-xs font-semibold text-[#0039b5]">Subscriptions</p></RouterLink>
 									<div class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.sites || 0 }}</p><p class="text-xs text-[#64748B]">Sites</p></div>
 									<div class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.ready_sites || 0 }}</p><p class="text-xs text-[#64748B]">Ready</p></div>
 								</div>
@@ -183,9 +189,9 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 						</section>
 
 						<section class="mx-auto mt-4 grid max-w-5xl gap-4 md:grid-cols-3">
-							<div class="rounded-xl border border-[#EDEDED] bg-white p-4"><div class="flex items-center gap-2"><CreditCard class="size-4 text-[#1D4ED8]" /><p class="text-sm font-semibold text-[#191c1e]">{{ selectedSubscription?.plan || freePlan?.title || 'Subscription' }}</p></div><p class="mt-2 text-sm leading-6 text-[#64748B]">{{ selectedSubscription?.status || 'Active' }} service subscription.</p></div>
-							<div class="rounded-xl border border-[#EDEDED] bg-white p-4"><div class="flex items-center gap-2"><Globe2 class="size-4 text-[#1D4ED8]" /><p class="text-sm font-semibold text-[#191c1e]">{{ activeSite?.title || activeSite?.name || 'Site setup' }}</p></div><p class="mt-2 text-sm leading-6 text-[#64748B]">{{ activeSite?.site_status || 'Preparing' }}</p></div>
-							<div class="rounded-xl border border-[#EDEDED] bg-white p-4"><div class="flex items-center gap-2"><LifeBuoy class="size-4 text-[#1D4ED8]" /><p class="text-sm font-semibold text-[#191c1e]">Support</p></div><p class="mt-2 text-sm leading-6 text-[#64748B]">Contact support from any setup state.</p></div>
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><CreditCard class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">{{ selectedSubscription?.plan || freePlan?.title || 'Subscription' }}</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">{{ selectedSubscription?.status || 'Active' }} service subscription.</p></div>
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><Globe2 class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">{{ activeSite?.title || activeSite?.name || 'Site setup' }}</p></div><p class="mt-3 text-base leading-67text-[#64748B]">{{ activeSite?.site_status || 'Preparing' }}</p></div>
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><LifeBuoy class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">Support</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">Contact support from any setup state.</p></div>
 						</section>
 					</template>
 				</template>			</div>
@@ -194,7 +200,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 		<template #inspector>
 			<div class="space-y-2 text-sm">
 				<div v-if="scope === 'platform'" class="rounded bg-surface-gray-1 p-3"><p class="font-medium text-ink-gray-8">Truthful metrics</p><p class="mt-1 text-ink-gray-5">Counts are calculated server-side without list limits.</p></div>
-				<div v-else class="rounded bg-surface-gray-1 p-3"><p class="font-medium text-ink-gray-8">Simple by design</p><p class="mt-1 text-ink-gray-5">Your Plan determines the supported environment and isolation policy.</p></div>
+				<div v-else class="rounded bg-surface-gray-2 p-3"><p class="font-medium text-ink-gray-8">Simple by design</p><p class="mt-2 text-ink-gray-5">Your Plan determines the supported environment and isolation policy.</p></div>
 			</div>
 		</template>
 	</WorkspaceLayout>

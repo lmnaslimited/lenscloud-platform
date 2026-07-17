@@ -110,7 +110,10 @@ onMounted(load)
 	>
 		<template #actions>
 			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load">
-				<RefreshCcw class="size-4 shrink-0" /><span>Refresh</span>
+				<span class="flex items-center gap-2">
+					<RefreshCcw class="size-4" />
+					<span>Refresh</span>
+				</span>
 			</Button>
 		</template>
 
@@ -146,7 +149,7 @@ onMounted(load)
 							v-for="capability in capabilities"
 							:key="capability.capability_code"
 							class="cursor-pointer rounded-xl border bg-white p-5 transition hover:-translate-y-0.5 hover:shadow-sm"
-							:class="selectedCapability?.capability_code === capability.capability_code ? 'border-[#1D4ED8] ring-2 ring-[#dce1ff]' : 'border-[#EDEDED]'"
+							:class="selectedCapability?.capability_code === capability.capability_code ? 'border-secondary' : 'border-[#EDEDED]'"
 							@click="selectedCode = capability.capability_code"
 						>
 							<div class="flex items-start justify-between gap-3">
@@ -183,7 +186,7 @@ onMounted(load)
 								<button
 									type="button"
 									class="relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition disabled:opacity-60"
-									:class="isOptedIn(capability) ? 'bg-[#1D4ED8]' : 'bg-[#e2e5ea]'"
+									:class="isOptedIn(capability) ? 'bg-primary' : 'bg-[#e2e5ea]'"
 									:aria-pressed="isOptedIn(capability)"
 									:disabled="togglingCode === capability.capability_code"
 									@click.stop="toggleOptIn(capability)"

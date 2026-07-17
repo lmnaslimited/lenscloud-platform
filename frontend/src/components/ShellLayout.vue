@@ -118,19 +118,24 @@ watch(() => route.fullPath, () => {
 
 <template>
 	<div class="flex h-screen overflow-hidden bg-surface-white text-ink-gray-9">
-		<aside class="hidden w-60 shrink-0 flex-col border-r border-outline-gray-2 bg-surface-menu-bar lg:flex">
+		<aside class="hidden w-64 shrink-0 flex-col border-r border-outline-gray-2 bg-surface-menu-bar lg:flex">
 			<div class="flex h-14 items-center gap-2 border-b border-outline-gray-2 px-3">
-				<div class="grid size-7 place-items-center rounded bg-ink-gray-9 text-xs font-semibold text-white">LC</div>
-				<div class="min-w-0"><div class="truncate text-sm font-semibold text-ink-gray-9">LensCloud</div><div class="text-xs text-ink-gray-5">{{ scopeLabel }}</div></div>
+				<!-- <div class="grid size-7 place-items-center rounded bg-ink-gray-9 text-xs font-semibold text-white">LC</div> -->
+				<img
+				src="/lenscloud.png"
+				alt="LensCloud"
+				class="h-10 w-10 shrink-0"
+				/>
+				<div class="min-w-0"><div class="truncate text-sm font-semibold text-ink-gray-9">LensCloud</div><div class="text-xs text-ink-gray-5 mt-2">{{ scopeLabel }}</div></div>
 			</div>
 			<div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
 				<nav v-for="group in primaryNavGroups" :key="group.heading" class="mb-1">
 					<button type="button" class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-1" @click="group.collapsible && toggleGroup(group)">
 						<span>{{ group.heading }}</span><component v-if="group.collapsible" :is="groupOpen(group) ? ChevronDown : ChevronRight" class="size-3.5" />
 					</button>
-					<div v-show="groupOpen(group)" class="mt-0.5 space-y-0.5">
-						<RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-ink-gray-7 hover:bg-surface-gray-1" :class="{ 'bg-surface-gray-2 font-medium text-ink-gray-9': route.path === item.route || route.path.startsWith(`${item.route}/`) }" @click="closeMobileNav">
-							<component :is="item.icon || Circle" class="size-4 shrink-0 text-ink-gray-4" /><span class="truncate">{{ item.label }}</span>
+					<div v-show="groupOpen(group)" class="mt-2 space-y-1">
+						<RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-3 py-3 text-sm text-ink-gray-7" :class="{ 'bg-surface-gray-3 font-medium text-ink-gray-9': route.path === item.route || route.path.startsWith(`${item.route}/`) }" @click="closeMobileNav">
+							<component :is="item.icon || Circle" class="size-4 shrink-0 text-primary" /><span class="truncate">{{ item.label }}</span>
 						</RouterLink>
 					</div>
 				</nav>

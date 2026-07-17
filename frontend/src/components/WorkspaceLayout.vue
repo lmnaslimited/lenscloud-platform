@@ -35,11 +35,17 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 						<span v-if="kicker" class="text-ink-gray-3">/</span>
 						<h1 class="truncate text-lg font-semibold text-ink-gray-9">{{ title }}</h1>
 					</div>
-					<p v-if="subtitle" class="mt-0.5 truncate text-sm text-ink-gray-5">{{ subtitle }}</p>
+					<p v-if="subtitle" class="mt-2 truncate text-sm text-ink-gray-5">{{ subtitle }}</p>
 				</div>
 			</div>
 			<div class="flex shrink-0 items-center gap-2">
 				<slot name="actions" />
+				<Button variant="subtle" :tooltip="assistantOpen ? 'Hide assistant' : assistantLabel" @click="assistantOpen = !assistantOpen">
+					<span class="flex items-center gap-2">
+						<component :is="assistantIcon" class="size-4" />
+						<span>Assistant</span>
+					</span>
+					</Button>
 			</div>
 		</header>
 
@@ -63,11 +69,11 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 				<div class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-outline-gray-2 px-4">
 					<div class="min-w-0">
 						<p class="text-xs font-medium text-ink-gray-5">{{ inspectorKicker }}</p>
-						<h2 class="truncate text-base font-semibold text-ink-gray-9">{{ inspectorTitle }}</h2>
+						<h2 class="truncate text-base font-semibold text-ink-gray-9 mt-2">{{ inspectorTitle }}</h2>
 					</div>
-					<Button variant="ghost" :tooltip="assistantOpen ? 'Hide assistant' : assistantLabel" @click="assistantOpen = !assistantOpen">
+					<!-- <Button variant="ghost" :tooltip="assistantOpen ? 'Hide assistant' : assistantLabel" @click="assistantOpen = !assistantOpen">
 						<component :is="assistantIcon" class="size-4" />
-					</Button>
+					</Button> -->
 				</div>
 
 				<div class="min-h-0 flex-1 overflow-y-auto px-3 py-3">
