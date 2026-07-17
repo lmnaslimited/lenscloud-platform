@@ -6,6 +6,7 @@ from frappe.tests.utils import FrappeTestCase
 from frappe.website.utils import clear_website_cache, get_home_page
 
 from lenscloud.api.customer_identity import (
+    customer_doctype_permissions,
     customer_membership_for_user,
     get_lenscloud_home_page,
     provision_customer_for_user,
@@ -176,6 +177,7 @@ class TestCustomerIdentity(FrappeTestCase):
             "for_value": membership.customer,
             "apply_to_all_doctypes": 1,
         }))
+        self.assertTrue(customer_doctype_permissions(user.name).get("Capability", {}).get("read"))
 
         second_email = f"fallback-member-{frappe.generate_hash(length=8).lower()}@{email.rsplit('@', 1)[1]}"
         member = make_user(second_email, first_name="Fallback", last_name="Member")

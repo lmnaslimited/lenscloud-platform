@@ -61,6 +61,12 @@ class BenchCommandContractTest(unittest.TestCase):
 			with self.assertRaises(frappe.ValidationError):
 				bench_command.timeout_value(value)
 
+	def test_app_aware_timeout_allows_install_window(self):
+		self.assertEqual(bench_command.app_aware_timeout_value(900), 900)
+		for value in (1, 1801):
+			with self.assertRaises(frappe.ValidationError):
+				bench_command.app_aware_timeout_value(value)
+
 	def test_job_manifest_uses_secret_safe_shape(self):
 		labels = {
 			PLATFORM_MANAGER_LABEL: "platform",
@@ -91,7 +97,7 @@ class BenchCommandContractTest(unittest.TestCase):
 
 
 	def test_runner_image_uses_inf_026_digest(self):
-		self.assertIn("sha256:3e7867ff7cb0285395aafd380232496f854c6d014c237b8790cbcbfd1bd577ef", bench_command.RUNNER_IMAGE)
+		self.assertIn("sha256:0ba81c0f4031d452eab71a463a562d5f07ace308ae87967725dd807e00c97570", bench_command.RUNNER_IMAGE)
 
 	def test_runner_supported_command_uses_pinned_runner_and_sites_pvc(self):
 		labels = {
@@ -315,3 +321,47 @@ class BenchCommandContractTest(unittest.TestCase):
 			with self.assertRaises(bench_command.KubernetesClientError):
 				bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
 		self.assertNotIn(("pods", "lenscloud-runtime-eu", "bcmd-test-job-unsafe", ""), client.deleted)
+
+	def test_app_aware_job_uses_bench_command_action_type(self):
+		created = {}
+
+		class FakeLog:
+			name = "ORCH-APP-AWARE"
+			manifest = ""
+			message = ""
+			status = "Pending"
+
+			def save(self, ignore_permissions=False):
+				return None
+
+		class FakeClient:
+			def __enter__(self):
+				return self
+
+			def __exit__(self, *_args):
+				return False
+
+			def create_namespaced(self, *_args, **_kwargs):
+				return {}
+
+		def fake_create_action_log(action_type, *args, **kwargs):
+			created["action_type"] = action_type
+			created["operation"] = kwargs.get("operation")
+			return FakeLog()
+
+		cluster = SimpleNamespace(name="cluster")
+		bench = SimpleNamespace(name="bench-doc", region="EU", operator_resource_name="runtime-bench")
+		site = SimpleNamespace(name="site.example.com", customer="CUST001", region="EU")
+		with (
+			patch("lenscloud.api.bench_command.create_action_log", side_effect=fake_create_action_log),
+			patch("lenscloud.api.bench_command.get_cluster_client", return_value=FakeClient()),
+			patch("lenscloud.api.bench_command.wait_for_job", return_value=("Succeeded", {}, [])),
+			patch("lenscloud.api.bench_command.sanitized_termination_summary", return_value={"phase": "Succeeded", "redacted": True}),
+			patch("lenscloud.api.bench_command.cleanup_command_resources", return_value=[]),
+			patch("lenscloud.api.bench_command.finish_action_log"),
+		):
+			result = bench_command.run_app_aware_job("site_bootstrap.install_apps", cluster, "runtime", bench, "image@sha256:" + "a" * 64, "echo ok", site_doc=site)
+
+		self.assertEqual(created["action_type"], "Bench Command")
+		self.assertEqual(created["operation"], "site_bootstrap.install_apps")
+		self.assertEqual(result["status"], "Succeeded")

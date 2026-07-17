@@ -1056,7 +1056,7 @@ def get_route_response(url, timeout):
 				raise
 
 
-def check_site_route(doc, timeout=15):
+def check_site_route(doc, timeout=15, strict_asset=True):
 	url = doc.access_url or f"https://{get_site_hostname(doc)}"
 	response = get_route_response(url, timeout)
 	if not 200 <= response.status_code < 300:
@@ -1066,9 +1066,13 @@ def check_site_route(doc, timeout=15):
 		raise RuntimeError("Route returned no generated static asset reference.")
 	asset_url = urljoin(response.url or url, asset_match.group(1))
 	asset_response = get_route_response(asset_url, timeout)
-	if not 200 <= asset_response.status_code < 300:
+	asset_ok = 200 <= asset_response.status_code < 300
+	if strict_asset and not asset_ok:
 		raise RuntimeError(f"Static asset returned HTTP {asset_response.status_code}.")
-	return {"url": response.url or url, "status_code": response.status_code, "asset_url": asset_response.url or asset_url, "asset_status_code": asset_response.status_code}
+	result = {"url": response.url or url, "status_code": response.status_code, "asset_url": asset_response.url or asset_url, "asset_status_code": asset_response.status_code}
+	if not asset_ok:
+		result["asset_warning"] = f"Static asset returned HTTP {asset_response.status_code}."
+	return result
 
 
 @frappe.whitelist()
@@ -1081,12 +1085,21 @@ def sync_site_status(site, check_route=True):
 		doc.site_status = phase; doc.provisioning_status = "Ready" if phase.lower() == "ready" else "Running"
 		doc.access_url = f"https://{get_site_hostname(doc)}"; doc.hostname_reservation_status = "Reserved"
 		if as_bool(check_route) and phase.lower() == "ready":
-			result = check_site_route(doc); doc.route_status = "Ready"; doc.tls_status = "Ready"; doc.last_route_check = now_datetime(); doc.route_error = None
+			result = check_site_route(doc, strict_asset=False); doc.route_status = "Ready"; doc.tls_status = "Ready"; doc.last_route_check = now_datetime(); doc.route_error = None
 		else:
 			result = None; doc.route_status = "Pending"
 		doc.save(ignore_permissions=True); finish_action_log(log, "Succeeded", f"FrappeSite runtime phase: {phase}; route: {doc.route_status}.")
 		return {"status": doc.site_status, "provisioning_status": doc.provisioning_status, "route_status": doc.route_status, "access_url": doc.access_url, "route": result, "action_log": log.name}
 	except Exception as exc:
+		if is_not_found(exc) and (doc.site_status in {"Deletion Requested", "Deleting"} or doc.provisioning_status in {"Deletion Requested", "Deleting"}):
+			doc.site_status = "Deleted"
+			doc.provisioning_status = "Deleted"
+			doc.route_status = "Unknown"
+			doc.route_error = None
+			doc.last_route_check = now_datetime()
+			doc.save(ignore_permissions=True)
+			finish_action_log(log, "Succeeded", f"FrappeSite {doc.operator_resource_name} is absent after deletion; marked Site Deleted.")
+			return {"status": doc.site_status, "provisioning_status": doc.provisioning_status, "route_status": doc.route_status, "access_url": doc.access_url, "route": None, "action_log": log.name}
 		doc.last_route_check = now_datetime(); doc.route_status = "Failed"; doc.route_error = sanitize_error(exc); doc.save(ignore_permissions=True)
 		next_action = "Run Reconcile Site with Dry run off, require status accepted, then retry Sync provisioning and access." if is_not_found(exc) else "Open this action log, inspect operator conditions and route diagnostics, then retry Site status sync."
 		fail_action(log, exc, next_action)
@@ -1626,6 +1639,9 @@ def get_customer_portal_context():
 	permissions = customer_doctype_permissions(user)
 	subscriptions = frappe.get_all("Subscription", filters={"customer": customer_name, "status": ["not in", ["Cancelled", "Failed"]]}, fields=["name", "plan", "region", "status", "plan_frequency", "effective_from", "effective_to", "next_renewal_date", "landscape", "policy_hash", "modified"], order_by="modified desc") if customer_name and permissions.get("Subscription", {}).get("read") else []
 	sites = frappe.get_all("Site", filters={"customer": customer_name, "site_status": ["!=", "Deleted"]}, fields=["name", "title", "domain", "site_status", "provisioning_status", "route_status", "tls_status", "setup_status", "setup_error", "oauth_status", "oauth_error", "access_url", "plan", "subscription", "environment", "region", "bench", "modified"], order_by="modified desc", limit=20) if customer_name and permissions.get("Site", {}).get("read") else []
+	for site in sites:
+		bootstrap = latest_site_bootstrap_status(frappe._dict(site))
+		site["bootstrap_status"] = (bootstrap or {}).get("status")
 	plan_rows = frappe.get_all("Plan", filters={"status": "Active", "publish_in_customer_portal": 1, "availability": ["in", ["Public", "Beta", "Invite Only"]]}, fields=["name"], order_by="portal_sort_order asc, is_default desc, monthly_price asc, title asc") if permissions.get("Plan", {}).get("read") else []
 	plans = []
 	for row in plan_rows:
@@ -1740,18 +1756,22 @@ SETUP_APP_FIELDS = (
 )
 
 
-def release_group_app_names(release_group_name):
+def release_group_app_names(release_group_name, site_creation=False):
 	if not release_group_name or not frappe.db.exists("Release Group", release_group_name):
 		return []
 	release_group = frappe.get_doc("Release Group", release_group_name)
-	return [str(row.app).lower() for row in release_group.get("included_apps") or [] if row.app]
+	return [
+		str(row.app).lower()
+		for row in release_group.get("included_apps") or []
+		if row.app and (not site_creation or row.install_at_site_creation)
+	]
 
 
 def plan_setup_apps(plan):
 	if not plan:
 		return []
 	plan_doc = frappe.get_doc("Plan", plan) if isinstance(plan, str) else plan
-	apps = release_group_app_names(plan_doc.release_group)
+	apps = release_group_app_names(plan_doc.release_group, site_creation=True)
 	if apps:
 		return apps
 	return []
@@ -2071,7 +2091,21 @@ def orchestrate_customer_site_setup(site_doc):
 		bootstrap_result = orchestrate_customer_site_bootstrap(site_doc)
 		if bootstrap_result:
 			site_doc.reload()
+			if bootstrap_result.get("status") != "Succeeded":
+				summary = bootstrap_result.get("summary") if isinstance(bootstrap_result, dict) else None
+				error = None
+				if isinstance(summary, dict):
+					error = summary.get("summary") or summary.get("code") or summary.get("phase")
+				site_doc.setup_status = "Failed"
+				site_doc.setup_error = sanitize_error(error or "Default app install failed before site setup.")
+				site_doc.save(ignore_permissions=True)
+				return bootstrap_result
 		setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
+		if setup_status == "Failed":
+			setup_status = "Pending"
+			site_doc.setup_status = "Pending"
+			site_doc.setup_error = None
+			site_doc.save(ignore_permissions=True)
 		if setup_status in {"Not Checked", "Pending", ""}:
 			status_result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup status check")
 			site_doc.reload()
@@ -2166,11 +2200,27 @@ def customer_reconcile_state(reconcile):
 	return status or "failed"
 
 
+def latest_site_bootstrap_status(site_doc):
+	if not site_doc:
+		return None
+	rows = frappe.get_all(
+		"Orchestration Action Log",
+		filters={"site": site_doc.name, "operation": "site_bootstrap.install_apps"},
+		fields=["name", "status", "modified"],
+		order_by="modified desc",
+		limit=1,
+	)
+	return rows[0] if rows else None
+
+
 def customer_site_progress_state(site_doc):
 	if not site_doc:
 		return "failed"
 	setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
 	oauth_status = getattr(site_doc, "oauth_status", None) or "Not Checked"
+	bootstrap = latest_site_bootstrap_status(site_doc)
+	if bootstrap and bootstrap.status == "Failed":
+		return "bootstrap_failed"
 	if site_doc.provisioning_status == "Failed" or site_doc.site_status == "Failed" or site_doc.route_status == "Failed" or setup_status == "Failed":
 		return "failed"
 	if oauth_status == "Failed":
@@ -2209,12 +2259,13 @@ def customer_site_progress_payload(site_doc, subscription=None, plan_doc=None, r
 		"tls_status": site_doc.tls_status,
 		"setup_status": getattr(site_doc, "setup_status", None),
 		"setup_error": getattr(site_doc, "setup_error", None),
+		"bootstrap_status": (latest_site_bootstrap_status(site_doc) or {}).get("status"),
 		"oauth_status": getattr(site_doc, "oauth_status", None),
 		"oauth_error": getattr(site_doc, "oauth_error", None),
 		"setup_schema": parse_setup_data(getattr(site_doc, "setup_schema_json", None)),
 		"reconcile": reconcile,
 		"provisioning": provisioning,
-		"retry_available": provisioning in {"paused", "failed", "oauth_failed", "started", "route_pending", "setup_required", "setup_checking", "setup_running", "oauth_checking", "oauth_configuring"},
+		"retry_available": provisioning in {"paused", "failed", "bootstrap_failed", "oauth_failed", "started", "route_pending", "setup_required", "setup_checking", "setup_running", "oauth_checking", "oauth_configuring"},
 		"message": message or getattr(site_doc, "setup_error", None) or getattr(site_doc, "oauth_error", None) or (reconcile or {}).get("message"),
 		"next_actions": (reconcile or {}).get("next_actions") or [],
 	}
@@ -2292,7 +2343,7 @@ def retry_customer_site_provisioning(site):
 			site_doc.reload()
 			if site_doc.route_status != "Ready" and site_doc.access_url:
 				try:
-					check_site_route(site_doc)
+					check_site_route(site_doc, strict_asset=False)
 					site_doc.route_status = "Ready"
 					site_doc.tls_status = "Ready"
 					site_doc.last_route_check = now_datetime()

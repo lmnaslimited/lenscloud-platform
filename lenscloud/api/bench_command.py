@@ -26,7 +26,7 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:3e7867ff7cb0285395aafd380232496f854c6d014c237b8790cbcbfd1bd577ef"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:0ba81c0f4031d452eab71a463a562d5f07ace308ae87967725dd807e00c97570"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -517,18 +517,24 @@ def phase_from_job(job):
 
 
 def sanitized_termination_summary(pods):
+	fallback = None
 	for pod in pods:
+		pod_reason = sanitize_error(((pod.get("status") or {}).get("reason") or "").strip())
 		for container in (pod.get("status") or {}).get("containerStatuses") or []:
 			terminated = ((container.get("state") or {}).get("terminated") or {})
-			message = terminated.get("message")
-			if not message:
+			if not terminated:
 				continue
-			text = sanitize_error(message)
-			try:
-				return json.loads(text)
-			except ValueError:
-				return {"phase": "Succeeded" if terminated.get("exitCode") == 0 else "Failed", "summary": text[:500], "redacted": True}
-	return None
+			message = terminated.get("message")
+			if message:
+				text = sanitize_error(message)
+				try:
+					return json.loads(text)
+				except ValueError:
+					return {"phase": "Succeeded" if terminated.get("exitCode") == 0 else "Failed", "summary": text[:500], "redacted": True}
+			exit_code = terminated.get("exitCode")
+			reason = sanitize_error(terminated.get("reason") or pod_reason or "Container terminated")
+			fallback = {"phase": "Succeeded" if exit_code == 0 else "Failed", "summary": reason, "exitCode": exit_code, "redacted": True}
+	return fallback
 
 
 def pod_phase(pod):
@@ -1021,6 +1027,16 @@ APP_AWARE_COMMANDS = {"site_bootstrap.install_apps", "site_app.install", "bench.
 APP_AWARE_FAMILIES = {"site_bootstrap", "site_app", "bench"}
 
 
+def app_aware_timeout_value(value):
+	try:
+		value = int(value or 900)
+	except Exception:
+		frappe.throw(_("Timeout must be a number of seconds."))
+	if value < 10 or value > 1800:
+		frappe.throw(_("App-aware timeout must be between 10 and 1800 seconds."))
+	return value
+
+
 def release_runtime_image(release_name):
 	if not release_name:
 		frappe.throw(_("Release is required for app-aware runtime-image commands."))
@@ -1063,14 +1079,35 @@ def release_group_install_apps(release_group_name, site_creation=False, requeste
 
 
 def app_install_script(site_name, apps, summary):
-	termination = "printf '%s\\n' '" + json.dumps(summary, separators=(",", ":")) + "' > /dev/termination-log"
+	success_summary = json.dumps(summary, separators=(",", ":"))
+	termination = "printf '%s\\n' " + shlex.quote(success_summary) + " > /dev/termination-log"
 	if not apps:
 		return "set -euo pipefail\n" + termination + "\n"
-	commands = ["set -euo pipefail"]
+	commands = [
+		"set -euo pipefail",
+		"run_step() {",
+		"  step=\"$1\"",
+		"  shift",
+		"  out=\"/tmp/${step}.out\"",
+		"  if \"$@\" >\"$out\" 2>&1; then",
+		"    return 0",
+		"  fi",
+		"  rc=$?",
+		"  python3 - \"$step\" \"$rc\" \"$out\" > /dev/termination-log <<'PY'",
+		"import json, re, sys",
+		"step, rc, path = sys.argv[1], int(sys.argv[2]), sys.argv[3]",
+		"text = open(path, 'r', errors='replace').read().splitlines()[-40:]",
+		"excerpt = '\\n'.join(text)[-2000:]",
+		"excerpt = re.sub(r'(?i)(token|password|secret|authorization)([\"\'=:\\s]+)([^\\s,}\"]+)', r'\\1\\2[REDACTED]', excerpt)",
+		"print(json.dumps({'phase': 'Failed', 'summary': 'Site bootstrap app install failed', 'failed_step': step, 'exit_code': rc, 'error_excerpt': excerpt, 'redacted': True}))",
+		"PY",
+		"  exit \"$rc\"",
+		"}",
+	]
 	site_arg = shlex.quote(str(site_name))
 	for app in apps:
 		app_arg = shlex.quote(str(app))
-		commands.append(f"if bench --site {site_arg} list-apps | grep -qx {app_arg}; then echo 'Skipping already installed app {app}'; else bench --site {site_arg} install-app {app_arg}; fi")
+		commands.append(f"if bench --site {site_arg} list-apps | awk '{{print $1}}' | grep -Fxq {app_arg}; then echo 'Skipping already installed app {app}'; else run_step install-app-{app} bench --site {site_arg} install-app {app_arg}; fi")
 	commands.append(termination)
 	return "\n".join(commands) + "\n"
 
@@ -1138,7 +1175,7 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 	if command not in APP_AWARE_COMMANDS:
 		frappe.throw(_("Unsupported app-aware command {0}.").format(command))
 	log = create_action_log(
-		"Bench App Command",
+		"Bench Command",
 		"Pending",
 		site=getattr(site_doc, "name", None),
 		bench=bench.name,
@@ -1166,11 +1203,13 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 		frappe.db.commit()
 		with get_cluster_client(cluster) as client:
 			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
-		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, timeout_value(timeout_seconds))
+		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, app_aware_timeout_value(timeout_seconds))
 		summary = sanitized_termination_summary(pods) or {"phase": phase, "summary": f"{command} finished with {phase}", "redacted": True}
 		deleted = cleanup_command_resources(cluster, namespace, job_name, None)
 		message = f"App-aware command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
-		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message)
+		status = "Succeeded" if phase == "Succeeded" else "Failed"
+		error = None if status == "Succeeded" else (sanitized_status_summary(summary) or message)
+		finish_action_log(log, status, message, error=error)
 		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message}
 	except Exception as exc:
 		if job_name:

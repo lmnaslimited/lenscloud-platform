@@ -138,6 +138,7 @@ def customer_doctype_permissions(user=None):
 		return {}
 	return {
 		"Plan": {"read": bool(frappe.has_permission("Plan", "read", user=user))},
+		"Capability": {"read": bool(frappe.has_permission("Capability", "read", user=user))},
 		"Subscription": {
 			"read": bool(frappe.has_permission("Subscription", "read", user=user)),
 			"create": bool(frappe.has_permission("Subscription", "create", user=user)),

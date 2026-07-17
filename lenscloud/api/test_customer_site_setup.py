@@ -22,7 +22,7 @@ def make_release_group(apps):
 	})
 	for app in apps:
 		ensure_app(app)
-		doc.append("included_apps", {"app": app})
+		doc.append("included_apps", {"app": app, "install_at_site_creation": 1})
 	doc.insert(ignore_permissions=True)
 	return doc
 
@@ -107,6 +107,17 @@ class TestCustomerSiteSetup(FrappeTestCase):
 		self.assertIn("chart_of_accounts", fields)
 		self.assertIn("fiscal_year_start_date", fields)
 		self.assertNotIn("fiscal_year_end_date", fields)
+
+	def test_schema_omits_release_group_apps_not_installed_at_site_creation(self):
+		release_group = make_release_group(["frappe", "erpnext", "brandkit"])
+		for row in release_group.included_apps:
+			if row.app == "brandkit":
+				row.install_at_site_creation = 0
+		release_group.save(ignore_permissions=True)
+		plan = make_plan(release_group)
+		schema = customer_site_setup_schema(plan.name)
+		self.assertIn("erpnext", schema["apps"])
+		self.assertNotIn("brandkit", schema["apps"])
 
 	def test_clean_setup_data_requires_only_schema_required_fields(self):
 		plan = make_plan(make_release_group(["frappe"]))
