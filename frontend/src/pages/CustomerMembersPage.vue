@@ -95,7 +95,7 @@ onMounted(load)
 
 					<div class="grid gap-4 lg:grid-cols-[1fr_1fr]">
 						<section class="rounded-2xl border border-[#EDEDED] bg-white p-5">
-							<div class="flex items-center gap-2"><UsersRound class="size-5 text-[#1D4ED8]" /><h3 class="text-lg font-semibold text-[#191c1e]">Pending Approval</h3></div>
+							<div class="flex items-center gap-2"><UsersRound class="size-5 text-primary" /><h3 class="text-lg font-semibold text-[#191c1e]">Pending Approval</h3></div>
 							<p v-if="!pendingMembers.length" class="mt-4 rounded-lg border border-dashed border-[#EDEDED] bg-[#f7f9fb] p-4 text-sm text-[#64748B]">No pending members right now.</p>
 							<div v-else class="mt-4 space-y-3">
 								<article v-for="member in pendingMembers" :key="member.name" class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-4">
@@ -112,7 +112,7 @@ onMounted(load)
 						</section>
 
 						<section class="rounded-2xl border border-[#EDEDED] bg-white p-5">
-							<div class="flex items-center gap-2"><CheckCircle2 class="size-5 text-emerald-600" /><h3 class="text-lg font-semibold text-[#191c1e]">Active Members</h3></div>
+							<div class="flex items-center gap-2"><CheckCircle2 class="size-5 text-ink-green-5" /><h3 class="text-lg font-semibold text-[#191c1e]">Active Members</h3></div>
 							<div class="mt-4 space-y-3">
 								<article v-for="member in activeMembers" :key="member.name" class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-4">
 									<div class="flex items-start justify-between gap-3"><div class="min-w-0"><p class="truncate text-sm font-semibold text-[#191c1e]">{{ member.user }}</p><p class="mt-1 text-xs text-[#64748B]">{{ member.member_role }}</p></div><Badge :class="statusTone(member.status)">{{ member.status }}</Badge></div>

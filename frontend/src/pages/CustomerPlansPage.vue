@@ -343,10 +343,22 @@ function setPlacementFilter(value) {
 
 function selectPlan(plan) {
 	selectedPlan.value = plan.name
+	// posthog analytics
+	posthog.capture('plan_selected', {
+    plan: plan.name,
+    plan_title: plan.title,
+    is_free: plan.is_free,
+    placement: plan.privacy,
+  })
 }
 
 async function continueFromPlan() {
 	if (membershipPending.value || !canCreateSubscription.value || !selectedPlanRecord.value || planDisabled(selectedPlanRecord.value)) return
+
+	posthog.capture('plan_continue_clicked', {
+        plan: selectedPlanRecord.value.name,
+    })
+
 	if (selectedPlanRecord.value.cta_mode === 'self_service') {
 		step.value = 'setup'
 		setupDialogDismissed.value = false
@@ -416,6 +428,11 @@ async function goToCheckout() {
 		await openSetupDialog()
 		return
 	}
+
+	posthog.capture('setup_completed', {
+        region: form.region,
+    })
+
 	if (setupComplete.value) step.value = 'checkout'
 }
 
@@ -471,6 +488,12 @@ function startProgressPolling() {
 
 async function startFreePlan() {
 	if (membershipPending.value || !canCreateSubscription.value || !canStartFree.value) return
+
+	posthog.capture('subscription_creation_started', {
+        plan: selectedPlanRecord.value.name,
+        region: form.region,
+    })
+
 	submitting.value = true
 	error.value = ''
 	try {
@@ -484,12 +507,23 @@ async function startFreePlan() {
 			setup_data: form.setup_defaults,
 		}, 'POST')
 		result.value = response.message || response
+
+		posthog.capture('subscription_creation_success', {
+			subscription: result.value.subscription,
+			site: result.value.site,
+		})
+
 		step.value = 'result'
 		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
 		startProgressPolling()
 	} catch (err) {
 		error.value = err?.message || 'Unable to start the Free Plan.'
+
+		posthog.capture('subscription_creation_failed', {
+        error: err.message,
+    	})
+
 	} finally {
 		submitting.value = false
 	}
@@ -497,6 +531,11 @@ async function startFreePlan() {
 
 async function requestAccess(plan) {
 	if (membershipPending.value || !canCreateSubscription.value || !plan || planDisabled(plan) || !form.region) return
+
+	posthog.capture('plan_access_requested', {
+        plan: plan.name,
+    })
+
 	submitting.value = true
 	error.value = ''
 	try {
@@ -608,7 +647,7 @@ onBeforeUnmount(() => {
 									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Select your LensCloud service</h3>
 									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a submitted Platform Plan. Start free today or request access to higher tiers.</p>
 									<div class="mt-5 inline-flex rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-1">
-										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-[#1D4ED8] shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
+										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-primary shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
 									</div>
 								</div>
 
@@ -619,7 +658,7 @@ onBeforeUnmount(() => {
 
 								<div v-else class="grid items-stretch gap-4 lg:grid-cols-3">
 									<article v-for="plan in visiblePlans" :key="plan.name" :aria-disabled="planDisabled(plan)" class="relative flex min-h-[430px] flex-col rounded-2xl border p-5 transition" :class="[plan.is_default ? 'order-first lg:order-none' : '', planDisabled(plan) ? 'cursor-not-allowed border-[#EDEDED] bg-[#f2f4f6] opacity-70' : selectedPlanRecord?.name === plan.name ? 'cursor-pointer border-[#1D4ED8] bg-white shadow-[0_12px_30px_rgba(29,78,216,0.12)] ring-2 ring-[#dce1ff] hover:-translate-y-0.5' : plan.is_default ? 'cursor-pointer border-[#1D4ED8] bg-white hover:-translate-y-0.5' : 'cursor-pointer border-[#EDEDED] bg-[#f2f4f6] hover:-translate-y-0.5']" @click="!planDisabled(plan) && selectPlan(plan)">
-										<div v-if="plan.is_default" class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[#1D4ED8] px-3 py-1 text-xs font-semibold text-white shadow-sm">Recommended</div>
+										<div v-if="plan.is_default" class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white shadow-sm">Recommended</div>
 										<div class="flex items-start justify-between gap-3">
 											<div>
 												<p class="text-lg font-semibold text-[#191c1e]">{{ plan.title }}</p>
@@ -632,9 +671,9 @@ onBeforeUnmount(() => {
 										<div v-if="planDisabled(plan)" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{{ planDisabledReason(plan) }}. Manage progress from Subscriptions.</div>
 
 										<ul class="mt-5 space-y-2 text-sm text-[#434655]">
-											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-[#0039b5]">✓</span>{{ plan.site_limit || 1 }} Site{{ Number(plan.site_limit || 1) > 1 ? 's' : '' }}</li>
-											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-[#0039b5]">✓</span>{{ plan.environments?.join(', ') || 'Configured' }}</li>
-											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-[#0039b5]">✓</span>{{ plan.privacy === 'Public' ? 'Public placement' : 'Private placement' }}</li>
+											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.site_limit || 1 }} Site{{ Number(plan.site_limit || 1) > 1 ? 's' : '' }}</li>
+											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.environments?.join(', ') || 'Configured' }}</li>
+											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.privacy === 'Public' ? 'Public placement' : 'Private placement' }}</li>
 										</ul>
 
 										<ul class="mt-5 flex-1 space-y-3">
@@ -791,7 +830,15 @@ onBeforeUnmount(() => {
 										</div>
 									</div>
 
-									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="result?.subscription ? `/customer/subscriptions?subscription=${encodeURIComponent(result.subscription)}` : '/customer/subscriptions'" variant="subtle">View Subscription</Button><Button v-if="readySiteUrl && hasReadySite" as="a" :href="readySiteUrl" target="_blank" variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
+									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="result?.subscription ? `/customer/subscriptions?subscription=${encodeURIComponent(result.subscription)}` : '/customer/subscriptions'" variant="subtle">View Subscription</Button>
+										<Button v-if="readySiteUrl && hasReadySite" 
+										as="a" :href="readySiteUrl" target="_blank" 
+										@click="posthog.capture('site_opened', {
+											site: result?.site,
+											plan: result?.plan,
+											region: result?.region,
+										})"
+										variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
 								</div>
 								<aside class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5"><div class="grid size-10 place-items-center rounded-full bg-[#dce1ff] text-[#1D4ED8]"><ShieldCheck class="size-5" /></div><h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3><p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p><a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com"><HelpCircle class="size-4" />Contact support</a></aside>
 							</div>
@@ -816,24 +863,50 @@ onBeforeUnmount(() => {
 			</div>
 			<div v-else class="space-y-4">
 				<div class="rounded-xl border border-outline-gray-2 bg-surface-white p-4">
-					<p class="text-sm font-semibold text-ink-gray-9">Launch progress</p>
+					<p class="text-sm font-semibold text-ink-gray-9">Launch Progress</p>
 					<div class="mt-4 space-y-3">
 						<div v-for="(item, index) in flowSteps" :key="item.key" class="flex gap-3">
 							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="flowStepState(index) === 'done' ? 'bg-emerald-500 text-white' : ['active', 'current'].includes(flowStepState(index)) ? 'bg-[#1D4ED8] text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
-								<CheckCircle2 v-if="flowStepState(index) === 'done'" class="size-4" />
+								<CheckCircle2 v-if="flowStepState(index) === 'done'" class="size-4 text-ink-green-5" />
 								<RefreshCcw v-else-if="flowStepState(index) === 'active'" class="size-4 animate-spin" />
 								<Clock3 v-else class="size-4" />
 							</div>
 							<div>
 								<p class="text-sm font-medium text-ink-gray-9">{{ item.label }}</p>
-								<p class="text-xs leading-5 text-ink-gray-5">{{ item.helper }}</p>
+								<p class="text-xs leading-5 text-ink-gray-5 mt-2">{{ item.helper }}</p>
 							</div>
 						</div>
 					</div>
 				</div>
-				<div class="rounded-xl border border-outline-gray-2 bg-surface-gray-1 p-3">
+				<!-- <div class="rounded-xl border border-outline-gray-2 bg-surface-gray-1 p-3">
 					<p class="text-sm font-medium text-ink-gray-9">Current selection</p>
-					<div class="mt-2 space-y-1 text-sm text-ink-gray-5"><p>Plan: {{ plans.find((plan) => plan.name === result?.plan)?.title || selectedPlanRecord?.title || result?.plan || 'Required' }}</p><p>Region: {{ result?.region || selectedRegion?.title || selectedRegion?.name || 'Required' }}</p><p class="truncate">Site: {{ selectedSiteLabel || 'Required' }}</p></div>
+					<div class="mt-2 space-y-2 text-sm text-ink-gray-5"><p>Plan: {{ plans.find((plan) => plan.name === result?.plan)?.title || selectedPlanRecord?.title || result?.plan || 'Required' }}</p><p>Region: {{ result?.region || selectedRegion?.title || selectedRegion?.name || 'Required' }}</p><p class="truncate">Site: {{ selectedSiteLabel || 'Required' }}</p></div>
+				</div> -->
+				<div class="rounded-xl border border-outline-gray-2 bg-surface-gray-1 p-4">
+					<p class="mb-3 text-sm font-semibold text-ink-gray-9">Current Selection</p>
+
+					<div class="space-y-3">
+						<div class="flex items-start justify-between gap-4">
+							<span class="text-sm text-ink-gray-5">Plan</span>
+							<span class="text-right text-sm font-medium text-ink-gray-9">
+								{{ plans.find((plan) => plan.name === result?.plan)?.title || selectedPlanRecord?.title || result?.plan || 'Required' }}
+							</span>
+						</div>
+
+						<div class="flex items-start justify-between gap-4">
+							<span class="text-sm text-ink-gray-5">Region</span>
+							<span class="text-right text-sm font-medium text-ink-gray-9">
+								{{ result?.region || selectedRegion?.title || selectedRegion?.name || 'Required' }}
+							</span>
+						</div>
+
+						<div class="flex items-start justify-between gap-4">
+							<span class="text-sm text-ink-gray-5">Site</span>
+							<span class="max-w-[60%] truncate text-right text-sm font-medium text-ink-gray-9">
+								{{ selectedSiteLabel || 'Required' }}
+							</span>
+						</div>
+					</div>
 				</div>
 			</div>
 		</template>
