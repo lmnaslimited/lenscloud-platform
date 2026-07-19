@@ -47,7 +47,6 @@ RUNNER_SUPPORTED_COMMANDS = {
 	"cors.allowlist.get",
 	"backup.status",
 	"site_setup.status",
-	"site_setup.complete",
 	"oauth.status",
 	"oauth.configure",
 }
@@ -1046,6 +1045,8 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 def run_site_setup_command_for_orchestration(site, command="site_setup.status", args=None, timeout_seconds=300, reason=None, cleanup=True):
 	if command not in {"site_setup.status", "site_setup.complete"}:
 		frappe.throw(_("Only Site setup commands can use the orchestration runner."))
+	if command == "site_setup.complete":
+		return run_site_setup_complete(site, args=args, timeout_seconds=timeout_seconds, enforce_permissions=False)
 	return _run_site_control_command(
 		site,
 		command=command,
@@ -1093,8 +1094,8 @@ def configure_site_oauth(site, timeout_seconds=300, reason=None, cleanup=True):
 	return configure_site_oauth_for_orchestration(site, timeout_seconds=timeout_seconds, reason=reason, cleanup=cleanup)
 
 
-APP_AWARE_COMMANDS = {"site_bootstrap.install_apps", "site_app.install", "bench.update"}
-APP_AWARE_FAMILIES = {"site_bootstrap", "site_app", "bench"}
+APP_AWARE_COMMANDS = {"site_bootstrap.install_apps", "site_app.install", "bench.update", "site_setup.complete"}
+APP_AWARE_FAMILIES = {"site_bootstrap", "site_app", "bench", "site_setup"}
 
 
 def app_aware_timeout_value(value):
@@ -1146,6 +1147,33 @@ def release_group_install_apps(release_group_name, site_creation=False, requeste
 	if missing:
 		frappe.throw(_("App(s) not present in Release Group {0}: {1}").format(release_group.name, ", ".join(missing)))
 	return [row["app"] for row in sorted(allowed, key=lambda item: (item.get("install_sequence") is None, item.get("install_sequence") or 0, item.get("app") or ""))]
+
+
+def site_setup_complete_script(site_name, args, summary):
+	args_json = json.dumps([args], separators=(",", ":"))
+	success_summary = json.dumps(summary, separators=(",", ":"))
+	site_arg = shlex.quote(str(site_name))
+	args_arg = shlex.quote(args_json)
+	termination = "printf '%s\\n' " + shlex.quote(success_summary) + " > /dev/termination-log"
+	commands = [
+		"set -euo pipefail",
+		"out=/tmp/site-setup-complete.out",
+		f"if bench --site {site_arg} execute frappe.desk.page.setup_wizard.setup_wizard.setup_complete --args {args_arg} >\"$out\" 2>&1; then",
+		f"  {termination}",
+		"else",
+		"  rc=$?",
+		"  python3 - \"$rc\" \"$out\" > /dev/termination-log <<'PY'",
+		"import json, re, sys",
+		"rc, path = int(sys.argv[1]), sys.argv[2]",
+		"text = open(path, 'r', errors='replace').read().splitlines()[-60:]",
+		"excerpt = '\\n'.join(text)[-2000:]",
+		"excerpt = re.sub(r'(?i)(token|password|secret|authorization)([\"\\'=:\\s]+)([^\\s,}\"]+)', r'\\1\\2[REDACTED]', excerpt)",
+		"print(json.dumps({'phase': 'Failed', 'command': 'site_setup.complete', 'summary': 'Site setup completion failed', 'exit_code': rc, 'error_excerpt': excerpt, 'redacted': True}))",
+		"PY",
+		"  exit \"$rc\"",
+		"fi",
+	]
+	return "\n".join(commands) + "\n"
 
 
 def app_install_script(site_name, apps, summary):
@@ -1330,6 +1358,18 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 		finish_action_log(log, "Failed", error=exc, message=f"App-aware command {command} failed.")
 		frappe.db.commit()
 		frappe.throw(_("{0} Action log: {1}.").format(sanitize_error(exc), log.name))
+
+
+@frappe.whitelist()
+def run_site_setup_complete(site, args=None, timeout_seconds=900, enforce_permissions=True):
+	if enforce_permissions:
+		frappe.only_for("System Manager")
+	site_doc, bench, cluster, namespace, _subscription, _policy = validate_site_target(site)
+	clean_args = command_args("site_setup.complete", args)
+	image, _release, _release_group = release_runtime_image(bench.current_release)
+	summary = {"phase": "Succeeded", "command": "site_setup.complete", "summary": "Site setup completion succeeded", "site": site_doc.name, "redacted": True}
+	script = site_setup_complete_script(site_doc.name, clean_args, summary)
+	return run_app_aware_job("site_setup.complete", cluster, namespace, bench, image, script, site_doc=site_doc, timeout_seconds=timeout_seconds, message=f"Complete setup for Site {site_doc.name} using the Release runtime image.")
 
 
 @frappe.whitelist()

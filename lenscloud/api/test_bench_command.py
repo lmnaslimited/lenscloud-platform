@@ -185,7 +185,10 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertIn("backup.status", bench_command.CONTRACTED_COMMANDS)
 		self.assertIn("backup.status", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("site_setup.status", bench_command.SUPPORTED_COMMANDS)
-		self.assertIn("site_setup.complete", bench_command.SUPPORTED_COMMANDS)
+		self.assertIn("site_setup.complete", bench_command.CONTRACTED_COMMANDS)
+		self.assertIn("site_setup.complete", bench_command.APP_AWARE_COMMANDS)
+		self.assertNotIn("site_setup.complete", bench_command.RUNNER_SUPPORTED_COMMANDS)
+		self.assertNotIn("site_setup.complete", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("oauth.status", bench_command.SUPPORTED_COMMANDS)
 		self.assertIn("oauth.configure", bench_command.SUPPORTED_COMMANDS)
 		self.assertNotIn("backup.create", bench_command.SUPPORTED_COMMANDS)
@@ -205,6 +208,25 @@ class BenchCommandContractTest(unittest.TestCase):
 
 	def test_backup_status_args_are_empty(self):
 		self.assertEqual(bench_command.command_args("backup.status", {"ignored": "value"}), {})
+
+	def test_site_setup_complete_orchestration_uses_release_runtime_job(self):
+		site = SimpleNamespace(name="site.example.test", region="EU")
+		bench = SimpleNamespace(name="bench-doc", current_release="REL-1", operator_resource_name="runtime-bench")
+		cluster = SimpleNamespace(name="cluster-doc")
+		result = {"status": "Succeeded", "action_log": "ORCH-TEST"}
+		with patch("lenscloud.api.bench_command.validate_site_target", return_value=(site, bench, cluster, "lenscloud-runtime-eu", None, None)), patch("lenscloud.api.bench_command.release_runtime_image", return_value=("registry.example/lens-pure@sha256:" + "a" * 64, SimpleNamespace(name="REL-1"), SimpleNamespace(name="RG-1"))), patch("lenscloud.api.bench_command.run_app_aware_job", return_value=result) as run_job:
+			out = bench_command.run_site_setup_command_for_orchestration(
+				"site.example.test",
+				"site_setup.complete",
+				args={"language": "English", "email": "owner@example.test", "full_name": "Owner", "country": "India", "timezone": "Asia/Kolkata", "currency": "INR"},
+			)
+		self.assertEqual(out, result)
+		run_job.assert_called_once()
+		call = run_job.call_args
+		self.assertEqual(call.args[0], "site_setup.complete")
+		self.assertEqual(call.args[4], "registry.example/lens-pure@sha256:" + "a" * 64)
+		self.assertIn("setup_complete", call.args[5])
+
 
 	def test_site_setup_status_args_are_empty(self):
 		self.assertEqual(bench_command.command_args("site_setup.status", {"ignored": "value"}), {})
@@ -252,6 +274,18 @@ class BenchCommandContractTest(unittest.TestCase):
 			bench_command.command_args("oauth.configure", {"client_secret": "nope"})
 		with self.assertRaises(frappe.ValidationError):
 			bench_command.command_args("oauth.configure", {"provider": "Nectar Space"})
+
+	def test_site_setup_complete_script_uses_native_setup_wizard(self):
+		script = bench_command.site_setup_complete_script(
+			"site.example.test",
+			{"language": "English", "email": "owner@example.test", "full_name": "Owner", "country": "India", "timezone": "Asia/Kolkata", "currency": "INR"},
+			{"phase": "Succeeded", "command": "site_setup.complete", "redacted": True},
+		)
+		self.assertIn("frappe.desk.page.setup_wizard.setup_wizard.setup_complete", script)
+		self.assertIn("--site site.example.test", script)
+		self.assertIn("/dev/termination-log", script)
+		self.assertIn("Site setup completion failed", script)
+
 
 	def test_site_setup_complete_args_are_non_secret_and_typed(self):
 		args = bench_command.command_args("site_setup.complete", {
