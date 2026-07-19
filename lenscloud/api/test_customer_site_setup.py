@@ -1,3 +1,5 @@
+from unittest.mock import patch
+
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
@@ -157,6 +159,38 @@ class TestCustomerSiteSetup(FrappeTestCase):
 			"oauth_status": "Not Checked",
 		})
 		self.assertEqual(customer_site_progress_state(site), "setup_running")
+
+	def test_setup_complete_failure_marks_site_failed(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "failed-setup.example.test",
+			"route_status": "Ready",
+			"access_url": "https://failed-setup.example.test",
+			"setup_status": "Required",
+			"setup_schema_json": '{"fields": []}',
+		})
+		args = {
+			"language": "English",
+			"email": "owner@example.test",
+			"full_name": "Owner",
+			"country": "India",
+			"timezone": "Asia/Kolkata",
+			"currency": "INR",
+		}
+		result = {"status": "Failed", "fallback_summary": "phase: Failed; code: RUNNER_FAILED"}
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=None), patch("lenscloud.api.orchestration.site_setup_args", return_value=args), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration", return_value=result):
+			orchestrate_customer_site_setup(site)
+		self.assertEqual(site.setup_status, "Failed")
+		self.assertIn("RUNNER_FAILED", site.setup_error)
+		self.assertTrue(site.saved)
 
 	def test_setup_identity_uses_logged_in_user_profile(self):
 		user = make_setup_user(f"setup-{frappe.generate_hash(length=8).lower()}@example.com", first_name="Nithu", last_name="Customer")

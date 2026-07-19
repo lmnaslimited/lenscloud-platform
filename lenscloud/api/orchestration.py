@@ -2148,7 +2148,13 @@ def orchestrate_customer_site_setup(site_doc):
 			site_doc.setup_status = "Running"
 			site_doc.setup_error = None
 			site_doc.save(ignore_permissions=True)
-			return run_site_setup_command_for_orchestration(site_doc.name, "site_setup.complete", args=args, reason="Complete first-time Site setup from customer-provided defaults")
+			result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.complete", args=args, reason="Complete first-time Site setup from customer-provided defaults")
+			if (result or {}).get("status") != "Succeeded":
+				site_doc.reload()
+				site_doc.setup_status = "Failed"
+				site_doc.setup_error = sanitize_error((result or {}).get("display_text") or (result or {}).get("fallback_summary") or (result or {}).get("message") or _("Site setup command failed."))
+				site_doc.save(ignore_permissions=True)
+			return result
 		if setup_status == "Running":
 			final_status = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup completion check")
 			site_doc.reload()
