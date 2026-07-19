@@ -99,6 +99,41 @@ class BenchCommandContractTest(unittest.TestCase):
 	def test_runner_image_uses_inf_026_digest(self):
 		self.assertIn("sha256:0ba81c0f4031d452eab71a463a562d5f07ace308ae87967725dd807e00c97570", bench_command.RUNNER_IMAGE)
 
+	def test_cluster_contract_runner_image_uses_synced_cluster_value(self):
+		image = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:" + "a" * 64
+		cluster = SimpleNamespace(name="cluster-a", bench_command_runner_image=image)
+		self.assertEqual(bench_command.bench_command_runner_image(cluster), image)
+
+	def test_cluster_contract_runner_image_rejects_mutable_tag(self):
+		cluster = SimpleNamespace(name="cluster-a", bench_command_runner_image="ghcr.io/lmnaslimited/lenscloud-bench-command-runner:latest")
+		with self.assertRaises(frappe.ValidationError):
+			bench_command.bench_command_runner_image(cluster)
+
+	def test_cluster_contract_runner_image_requires_sync(self):
+		cluster = SimpleNamespace(name="cluster-a", bench_command_runner_image=None)
+		with self.assertRaises(frappe.ValidationError):
+			bench_command.bench_command_runner_image(cluster)
+
+	def test_runner_supported_command_accepts_cluster_contract_runner(self):
+		labels = {PLATFORM_MANAGER_LABEL: "platform", RESOURCE_KIND_LABEL: "bench-command", "lenscloud.io/resource-id": "bcmd-test"}
+		annotations = bench_command.metadata_annotations("site_setup.status", "bcmd-test-request")
+		bench = SimpleNamespace(name="bench-doc", operator_resource_name="runtime-bench")
+		runner = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:" + "b" * 64
+		job = bench_command.job_manifest("bcmd-test-job", "lenscloud-runtime-eu", labels, annotations, "bcmd-test-request", "site_setup.status", bench=bench, runner_image=runner)
+		self.assertEqual(job["spec"]["template"]["spec"]["containers"][0]["image"], runner)
+
+	def test_runner_dry_run_maps_approved_image_rejection(self):
+		class Client:
+			def create_namespaced(self, *args, **kwargs):
+				self.kwargs = kwargs
+				raise bench_command.KubernetesClientError("denied: approved execution image required")
+
+		client = Client()
+		with self.assertRaises(bench_command.KubernetesClientError) as ctx:
+			bench_command.dry_run_bench_command_job(client, "runtime", {"kind": "Job"}, bench_command.RUNNER_IMAGE)
+		self.assertEqual(client.kwargs.get("dry_run"), "All")
+		self.assertIn(bench_command.RUNNER_IMAGE_REJECTED_CODE, str(ctx.exception))
+
 	def test_runner_supported_command_uses_pinned_runner_and_sites_pvc(self):
 		labels = {
 			PLATFORM_MANAGER_LABEL: "platform",

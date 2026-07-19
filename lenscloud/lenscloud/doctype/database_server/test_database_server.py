@@ -129,11 +129,22 @@ class TestDatabaseServer(FrappeTestCase):
 
 	@patch("lenscloud.api.orchestration.requests.get")
 	def test_route_requires_page_and_generated_asset(self, get):
-		page = Mock(status_code=200, text='<link rel="stylesheet" href="/assets/frappe/dist/css/website.bundle.css">', url="https://site.example/")
+		page = Mock(status_code=200, text='<link rel="stylesheet" href="/assets/frappe/dist/css/website.bundle.css"><script src="/assets/frappe/dist/js/frappe-web.bundle.js"></script>', url="https://site.example/")
 		asset = Mock(status_code=200, url="https://site.example/assets/frappe/dist/css/website.bundle.css")
-		get.side_effect = [page, asset]
+		script = Mock(status_code=200, url="https://site.example/assets/frappe/dist/js/frappe-web.bundle.js")
+		get.side_effect = [page, asset, script]
 		result = check_site_route(SimpleNamespace(access_url="https://site.example"))
 		self.assertEqual(result["asset_status_code"], 200)
+		self.assertEqual(len(result["assets"]), 2)
+
+	@patch("lenscloud.api.orchestration.requests.get")
+	def test_route_rejects_generated_asset_404(self, get):
+		page = Mock(status_code=200, text='<link rel="stylesheet" href="/assets/frappe/dist/css/website.bundle.css"><script src="/assets/frappe/dist/js/frappe-web.bundle.js"></script>', url="https://site.example/")
+		asset = Mock(status_code=404, url="https://site.example/assets/frappe/dist/css/website.bundle.css")
+		script = Mock(status_code=200, url="https://site.example/assets/frappe/dist/js/frappe-web.bundle.js")
+		get.side_effect = [page, asset, script]
+		with self.assertRaises(RuntimeError):
+			check_site_route(SimpleNamespace(access_url="https://site.example"))
 
 	@patch("lenscloud.api.orchestration.requests.get")
 	def test_route_rejects_page_without_generated_asset(self, get):

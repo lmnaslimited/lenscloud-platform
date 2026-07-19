@@ -27,6 +27,11 @@ from lenscloud.api.policy import environment_policy
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
 RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:0ba81c0f4031d452eab71a463a562d5f07ace308ae87967725dd807e00c97570"
+RUNNER_CONTRACT_NAMESPACE = "lenscloud-platform-system"
+RUNNER_CONTRACT_CONFIGMAP = "lenscloud-platform-cluster-contract"
+RUNNER_CONTRACT_KEY = "bench_command_runner_image"
+RUNNER_IMAGE_PATTERN = re.compile(r"^ghcr\.io/lmnaslimited/lenscloud-bench-command-runner@sha256:[0-9a-f]{64}$")
+RUNNER_IMAGE_REJECTED_CODE = "BENCH_COMMAND_RUNNER_IMAGE_REJECTED"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -426,6 +431,66 @@ def bench_sites_pvc_name(bench):
 	return f"{bench.operator_resource_name or bench.name}-sites"
 
 
+def validate_runner_image(image):
+	image = (image or "").strip()
+	if not RUNNER_IMAGE_PATTERN.match(image):
+		frappe.throw(_("Bench Command runner image must be the cluster contract ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:<digest>."))
+	return image
+
+
+def bench_command_runner_image(cluster=None):
+	if cluster:
+		image = getattr(cluster, "bench_command_runner_image", None)
+		if image:
+			return validate_runner_image(image)
+		frappe.throw(_("Cluster {0} has no synced Bench Command runner image. Sync the Cluster runner contract before running Bench Commands.").format(getattr(cluster, "name", "<unknown>")))
+	return RUNNER_IMAGE
+
+
+@frappe.whitelist()
+def sync_cluster_bench_command_runner_contract(cluster):
+	frappe.only_for("System Manager")
+	cluster_doc = frappe.get_doc("Cluster", cluster)
+	try:
+		with get_cluster_client(cluster_doc) as client:
+			configmap = client.get_namespaced("configmaps", RUNNER_CONTRACT_NAMESPACE, RUNNER_CONTRACT_CONFIGMAP)
+		image = validate_runner_image(((configmap.get("data") or {}).get(RUNNER_CONTRACT_KEY) or "").strip())
+		cluster_doc.bench_command_runner_image = image
+		cluster_doc.bench_command_runner_contract_status = "Synced"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = None
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"status": "Synced", "cluster": cluster_doc.name, "bench_command_runner_image": image, "checked_on": cluster_doc.bench_command_runner_contract_checked_on}
+	except Exception as exc:
+		cluster_doc.bench_command_runner_contract_status = "Failed"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = sanitize_error(exc)
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		frappe.throw(_("Bench Command runner contract sync failed for Cluster {0}: {1}").format(cluster_doc.name, sanitize_error(exc)))
+
+
+def is_runner_image_admission_error(exc):
+	text = sanitize_error(exc).lower()
+	return "approved execution image" in text or RUNNER_IMAGE_REJECTED_CODE.lower() in text
+
+
+def bench_command_runner_rejected_error(exc, runner_image):
+	return KubernetesClientError(
+		f"code: {RUNNER_IMAGE_REJECTED_CODE}; operator_message: Bench Command runner image is not admitted by this cluster.; customer_message: Site setup is waiting for cluster configuration. Please retry after support resolves it.; runner_image: {sanitize_error(runner_image)}; admission: {sanitize_error(exc)}"
+	)
+
+
+def dry_run_bench_command_job(client, namespace, job, runner_image):
+	try:
+		client.create_namespaced("jobs", namespace, job, group="batch", version="v1", dry_run="All")
+	except KubernetesClientError as exc:
+		if is_runner_image_admission_error(exc):
+			raise bench_command_runner_rejected_error(exc, runner_image) from exc
+		raise
+
+
 def verification_job_container(labels, command):
 	summary = json.dumps({
 		"phase": "Succeeded",
@@ -443,7 +508,7 @@ def verification_job_container(labels, command):
 	}
 
 
-def runner_job_container(command=None, oauth_secret_name=None):
+def runner_job_container(command=None, oauth_secret_name=None, runner_image=None):
 	read_only_sites = command in {"site_setup.status", "oauth.status"}
 	env = [
 		{"name": "BENCH_PATH", "value": "/home/frappe/frappe-bench"},
@@ -460,7 +525,7 @@ def runner_job_container(command=None, oauth_secret_name=None):
 		volume_mounts.append({"name": OAUTH_SECRET_VOLUME_NAME, "mountPath": OAUTH_SECRET_MOUNT_PATH, "readOnly": True})
 	return {
 		"name": "bench-command",
-		"image": RUNNER_IMAGE,
+		"image": runner_image or RUNNER_IMAGE,
 		"imagePullPolicy": "IfNotPresent",
 		"env": env,
 		"command": ["/usr/local/bin/lenscloud-bench-command-runner"],
@@ -468,7 +533,7 @@ def runner_job_container(command=None, oauth_secret_name=None):
 	}
 
 
-def job_manifest(name, namespace, labels, annotations, request_name, command, bench=None, oauth_secret_name=None):
+def job_manifest(name, namespace, labels, annotations, request_name, command, bench=None, oauth_secret_name=None, runner_image=None):
 	volumes = [{"name": "request", "configMap": {"name": request_name}}]
 	container = verification_job_container(labels, command)
 	if command in RUNNER_SUPPORTED_COMMANDS:
@@ -485,7 +550,7 @@ def job_manifest(name, namespace, labels, annotations, request_name, command, be
 					"items": [{"key": "client_secret", "path": "client_secret"}],
 				},
 			})
-		container = runner_job_container(command, oauth_secret_name=oauth_secret_name)
+		container = runner_job_container(command, oauth_secret_name=oauth_secret_name, runner_image=runner_image)
 	return {
 		"apiVersion": "batch/v1",
 		"kind": "Job",
@@ -887,15 +952,18 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 			secret_name = f"{safe_name(command_id_value)}-oauth-secret"
 		labels = metadata_labels(command_id_value, site_doc)
 		annotations = metadata_annotations(command, request_name)
+		runner_image = bench_command_runner_image(cluster) if command in RUNNER_SUPPORTED_COMMANDS else None
 		request = request_document(command_id_value, command, site_doc, bench, cluster, namespace, args, timeout, reason)
 		configmap = configmap_manifest(request_name, namespace, labels, annotations, request)
 		secret = secret_manifest(secret_name, namespace, labels, annotations, oauth_client_secret) if secret_name else None
-		job = job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench, oauth_secret_name=secret_name)
+		job = job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench, oauth_secret_name=secret_name, runner_image=runner_image)
 		attach_message = {
 			"request": request,
 			"configMap": {"name": request_name, "namespace": namespace, "labels": labels, "annotations": annotations},
 			"job": {"name": job_name, "namespace": namespace, "labels": labels, "annotations": annotations},
 		}
+		if runner_image:
+			attach_message["runner_image"] = runner_image
 		manifest_items = {"configMap": configmap, "job": job}
 		if secret_name:
 			attach_message["secret"] = {"name": secret_name, "namespace": namespace, "labels": labels, "annotations": annotations}
@@ -907,6 +975,8 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 		log.save(ignore_permissions=True)
 		frappe.db.commit()
 		with get_cluster_client(cluster) as client:
+			if runner_image:
+				dry_run_bench_command_job(client, namespace, job, runner_image)
 			client.create_namespaced("configmaps", namespace, configmap)
 			if secret:
 				client.create_namespaced("secrets", namespace, secret)
@@ -1125,6 +1195,46 @@ def bench_update_script(summary):
 	return "\n".join(commands) + "\n"
 
 
+def release_runtime_tag(release_group, release):
+	repository = "/".join(filter(None, [(release_group.registry_url or "").rstrip("/"), (release_group.image_repository or "").lstrip("/")]))
+	if not repository or not release.image_tag:
+		frappe.throw(_("Release {0} requires registry/repository and image_tag before Bench upgrade readiness can be checked.").format(release.name))
+	return f"{repository}:{release.image_tag}"
+
+
+def frappebench_initialized_image(resource):
+	return str(((resource.get("status") or {}).get("initializedImage") or "").strip())
+
+
+def wait_for_bench_initialized_image(cluster, namespace, bench, expected_image, timeout_seconds=300):
+	deadline = time.time() + int(timeout_seconds or 300)
+	last_image = ""
+	with get_cluster_client(cluster) as client:
+		while time.time() < deadline:
+			resource = client.get_custom_resource("FrappeBench", namespace, bench.operator_resource_name or bench.name)
+			last_image = frappebench_initialized_image(resource)
+			if last_image == expected_image:
+				return {"initialized_image": last_image, "expected_image": expected_image}
+			time.sleep(5)
+	frappe.throw(_("FrappeBench assets were not initialized for {0}. Last initializedImage: {1}").format(expected_image, last_image or "<empty>"))
+
+
+def verify_bench_site_assets(bench_name, timeout=15):
+	from lenscloud.api.orchestration import check_site_route
+	sites = frappe.get_all(
+		"Site",
+		filters={"bench": bench_name, "site_status": ["not in", ["Deleted", "Deletion Requested", "Deleting"]]},
+		fields=["name", "access_url"],
+		order_by="modified desc",
+		limit=3,
+	)
+	results = []
+	for site in sites:
+		result = check_site_route(site, timeout=timeout, strict_asset=True)
+		results.append({"site": site.name, "route": result})
+	return results
+
+
 def app_aware_job_manifest(name, namespace, labels, annotations, image, script, bench):
 	return {
 		"apiVersion": "batch/v1",
@@ -1287,19 +1397,24 @@ def run_bench_update(bench, timeout_seconds=1800):
 	namespace = default_runtime_namespace(cluster)
 	if bench_doc.kubernetes_namespace:
 		namespace = frappe.db.get_value("Runtime Namespace", bench_doc.kubernetes_namespace, "namespace") or namespace
-	image, release, _release_group = release_runtime_image(bench_doc.next_release)
+	image, release, release_group = release_runtime_image(bench_doc.next_release)
+	expected_initialized_image = release_runtime_tag(release_group, release)
 	summary = {"phase": "Succeeded", "summary": "Bench update completed", "target_release": release.name, "operation": "bench --site all maintenance/pause/migrate", "redacted": True}
 	result = run_app_aware_job("bench.update", cluster, namespace, bench_doc, image, bench_update_script(summary), timeout_seconds=timeout_seconds, message=f"Update Bench {bench_doc.name} to {release.name}.")
 	if result.get("status") == "Succeeded":
 		bench_doc.current_release = bench_doc.next_release
 		bench_doc.next_release = None
+		bench_doc.upgrade_sop_status = "Runtime Reconciling"
+		bench_doc.bench_status = "Updating"
+		bench_doc.save(ignore_permissions=True)
+		from lenscloud.api.orchestration import reconcile_bench
+		reconcile_bench(bench_doc.name, dry_run=False)
+		initialized = wait_for_bench_initialized_image(cluster, namespace, bench_doc, expected_initialized_image)
+		assets = verify_bench_site_assets(bench_doc.name)
 		bench_doc.upgrade_sop_status = "Completed"
 		bench_doc.bench_status = "Ready"
 		bench_doc.save(ignore_permissions=True)
-		try:
-			from lenscloud.api.orchestration import reconcile_bench
-			reconcile_bench(bench_doc.name, dry_run=False)
-		except Exception as exc:
-			result["runtime_reconcile_warning"] = sanitize_error(exc)
+		result["initialized_image"] = initialized
+		result["asset_checks"] = assets
 		frappe.db.commit()
 	return result

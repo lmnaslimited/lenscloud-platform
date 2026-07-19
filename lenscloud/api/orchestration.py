@@ -1061,17 +1061,36 @@ def check_site_route(doc, timeout=15, strict_asset=True):
 	response = get_route_response(url, timeout)
 	if not 200 <= response.status_code < 300:
 		raise RuntimeError(f"Route returned HTTP {response.status_code}.")
-	asset_match = re.search(r"(?:href|src)=[\"\x27]([^\"\x27]*/assets/[^\"\x27]+\.(?:css|js)(?:\?[^\"\x27]*)?)[\"\x27]", response.text or "", re.IGNORECASE)
-	if not asset_match:
+	asset_refs = re.findall(r"(?:href|src)=[\"\x27]([^\"\x27]*/assets/[^\"\x27]+\.(?:css|js)(?:\?[^\"\x27]*)?)[\"\x27]", response.text or "", re.IGNORECASE)
+	if not asset_refs:
 		raise RuntimeError("Route returned no generated static asset reference.")
-	asset_url = urljoin(response.url or url, asset_match.group(1))
-	asset_response = get_route_response(asset_url, timeout)
-	asset_ok = 200 <= asset_response.status_code < 300
-	if strict_asset and not asset_ok:
-		raise RuntimeError(f"Static asset returned HTTP {asset_response.status_code}.")
-	result = {"url": response.url or url, "status_code": response.status_code, "asset_url": asset_response.url or asset_url, "asset_status_code": asset_response.status_code}
-	if not asset_ok:
-		result["asset_warning"] = f"Static asset returned HTTP {asset_response.status_code}."
+	representative = []
+	for suffix in (".css", ".js"):
+		match = next((ref for ref in asset_refs if urlparse(ref).path.lower().endswith(suffix)), None)
+		if match:
+			representative.append(match)
+	if strict_asset and len(representative) < 2:
+		raise RuntimeError("Route returned no representative generated CSS and JS asset references.")
+	if not representative:
+		representative = [asset_refs[0]]
+	assets = []
+	warnings = []
+	for ref in representative:
+		asset_url = urljoin(response.url or url, ref)
+		asset_response = get_route_response(asset_url, timeout)
+		asset_ok = 200 <= asset_response.status_code < 300
+		asset_result = {"asset_url": asset_response.url or asset_url, "asset_status_code": asset_response.status_code}
+		assets.append(asset_result)
+		if not asset_ok:
+			warnings.append(f"Static asset {asset_response.url or asset_url} returned HTTP {asset_response.status_code}.")
+	if strict_asset and warnings:
+		raise RuntimeError(warnings[0])
+	result = {"url": response.url or url, "status_code": response.status_code, "assets": assets}
+	if assets:
+		result["asset_url"] = assets[0]["asset_url"]
+		result["asset_status_code"] = assets[0]["asset_status_code"]
+	if warnings:
+		result["asset_warning"] = " ".join(warnings)
 	return result
 
 
@@ -1085,7 +1104,7 @@ def sync_site_status(site, check_route=True):
 		doc.site_status = phase; doc.provisioning_status = "Ready" if phase.lower() == "ready" else "Running"
 		doc.access_url = f"https://{get_site_hostname(doc)}"; doc.hostname_reservation_status = "Reserved"
 		if as_bool(check_route) and phase.lower() == "ready":
-			result = check_site_route(doc, strict_asset=False); doc.route_status = "Ready"; doc.tls_status = "Ready"; doc.last_route_check = now_datetime(); doc.route_error = None
+			result = check_site_route(doc, strict_asset=True); doc.route_status = "Ready"; doc.tls_status = "Ready"; doc.last_route_check = now_datetime(); doc.route_error = None
 		else:
 			result = None; doc.route_status = "Pending"
 		doc.save(ignore_permissions=True); finish_action_log(log, "Succeeded", f"FrappeSite runtime phase: {phase}; route: {doc.route_status}.")
@@ -2343,7 +2362,7 @@ def retry_customer_site_provisioning(site):
 			site_doc.reload()
 			if site_doc.route_status != "Ready" and site_doc.access_url:
 				try:
-					check_site_route(site_doc, strict_asset=False)
+					check_site_route(site_doc, strict_asset=True)
 					site_doc.route_status = "Ready"
 					site_doc.tls_status = "Ready"
 					site_doc.last_route_check = now_datetime()
