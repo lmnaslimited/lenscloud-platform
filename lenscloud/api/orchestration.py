@@ -412,6 +412,9 @@ def finish_action_log(log, status, message=None, error=None):
 	log.error = sanitize_error(error)
 	log.last_transition_time = now_datetime()
 	log.save(ignore_permissions=True)
+	if status == "Failed":
+		from lenscloud.api.messages import emit_message
+		emit_message(log, operation=getattr(log, "operation", None), error=error or message, params={"site": getattr(log, "site", None)}, source="Runner" if getattr(log, "action_type", None) == "Bench Command" else "Platform API")
 	return log
 
 

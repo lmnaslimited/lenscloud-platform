@@ -5,3 +5,5 @@
 [post_model_sync]
 # Patches added in this section will be executed after doctypes are migrated
 lenscloud.patches.seed_self_service_plan_catalog
+lenscloud.patches.seed_lenscloud_messages
+lenscloud.patches.backfill_lenscloud_message_resolution_owner
