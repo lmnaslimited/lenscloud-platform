@@ -631,6 +631,18 @@ def phase_from_job(job):
 	return "Queued"
 
 
+def sanitize_summary_value(value, key=None):
+	if isinstance(value, dict):
+		return {item_key: sanitize_summary_value(item, key=item_key) for item_key, item in value.items()}
+	if isinstance(value, list):
+		return [sanitize_summary_value(item, key=key) for item in value]
+	if isinstance(value, str):
+		if key == "error_excerpt" and len(value) > 2000:
+			return sanitize_error(value[-2000:])
+		return sanitize_error(value)
+	return value
+
+
 def sanitized_termination_summary(pods):
 	fallback = None
 	for pod in pods:
@@ -641,10 +653,10 @@ def sanitized_termination_summary(pods):
 				continue
 			message = terminated.get("message")
 			if message:
-				text = sanitize_error(message)
 				try:
-					return json.loads(text)
+					return sanitize_summary_value(json.loads(message))
 				except ValueError:
+					text = sanitize_error(message)
 					return {"phase": "Succeeded" if terminated.get("exitCode") == 0 else "Failed", "summary": text[:500], "redacted": True}
 			exit_code = terminated.get("exitCode")
 			reason = sanitize_error(terminated.get("reason") or pod_reason or "Container terminated")
@@ -818,7 +830,7 @@ def sanitized_status_summary(summary):
 	if not isinstance(summary, dict):
 		return None
 	items = []
-	for key in ("phase", "code", "summary"):
+	for key in ("phase", "code", "summary", "failed_step", "exit_code", "error_excerpt"):
 		value = summary.get(key)
 		if value not in (None, ""):
 			items.append(f"{key}: {sanitize_error(value)}")
@@ -1201,23 +1213,34 @@ def release_group_install_apps(release_group_name, site_creation=False, requeste
 
 
 def site_setup_complete_script(site_name, args, summary):
-	args_json = json.dumps([args], separators=(",", ":"))
+	args_json = json.dumps(args, separators=(",", ":"))
 	success_summary = json.dumps(summary, separators=(",", ":"))
 	site_arg = shlex.quote(str(site_name))
-	args_arg = shlex.quote(args_json)
-	termination = "printf '%s\\n' " + shlex.quote(success_summary) + " > /dev/termination-log"
+	setup_py = "\n".join([
+		"import json",
+		"import frappe",
+		"from frappe.desk.page.setup_wizard.setup_wizard import setup_complete",
+		"frappe.flags.in_install = True",
+		f"args = json.loads({json.dumps(args_json)})",
+		"result = setup_complete(args)",
+		"print(json.dumps(result, default=str))",
+	]) + "\n"
+	execute_arg = shlex.quote("exec(open('/tmp/site-setup-complete.py').read())")
+	termination = "printf '%s\n' " + shlex.quote(success_summary) + " > /dev/termination-log"
 	commands = [
 		"set -euo pipefail",
 		"out=/tmp/site-setup-complete.out",
-		f"if bench --site {site_arg} execute frappe.desk.page.setup_wizard.setup_wizard.setup_complete --args {args_arg} >\"$out\" 2>&1; then",
+		"setup_py=/tmp/site-setup-complete.py",
+		"printf '%s\n' " + shlex.quote(setup_py) + " > \"$setup_py\"",
+		f"if bench --site {site_arg} execute {execute_arg} >\"$out\" 2>&1; then",
 		f"  {termination}",
 		"else",
 		"  rc=$?",
 		"  python3 - \"$rc\" \"$out\" > /dev/termination-log <<'PY'",
 		"import json, re, sys",
 		"rc, path = int(sys.argv[1]), sys.argv[2]",
-		"text = open(path, 'r', errors='replace').read().splitlines()[-60:]",
-		"excerpt = '\\n'.join(text)[-2000:]",
+		"text = open(path, 'r', errors='replace').read().splitlines()[-120:]",
+		"excerpt = '\\n'.join(text)[-1400:]",
 		"excerpt = re.sub(r'(?i)(token|password|secret|authorization)([\"\\'=:\\s]+)([^\\s,}\"]+)', r'\\1\\2[REDACTED]', excerpt)",
 		"print(json.dumps({'phase': 'Failed', 'command': 'site_setup.complete', 'summary': 'Site setup completion failed', 'exit_code': rc, 'error_excerpt': excerpt, 'redacted': True}))",
 		"PY",
@@ -1399,7 +1422,7 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 		status = "Succeeded" if phase == "Succeeded" else "Failed"
 		error = None if status == "Succeeded" else (sanitized_status_summary(summary) or message)
 		finish_action_log(log, status, message, error=error)
-		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message}
+		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message, "fallback_summary": error if status != "Succeeded" else None}
 	except Exception as exc:
 		if job_name:
 			try:

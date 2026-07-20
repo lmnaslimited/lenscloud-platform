@@ -293,6 +293,11 @@ class TestRuntimeLifecycle(FrappeTestCase):
 		self.assertEqual(labels[RESOURCE_KIND_LABEL], "bench")
 		self.assertEqual(labels[RESOURCE_ID_LABEL], "bench-a")
 		self.assertEqual(labels[CUSTOMER_LABEL], "customer-a")
+		autoscaling = manifest["spec"]["componentAutoscaling"]
+		self.assertEqual(autoscaling["scheduler"]["staticReplicas"], 1)
+		self.assertEqual(autoscaling["worker-default"]["staticReplicas"], 1)
+		self.assertEqual(autoscaling["worker-short"]["staticReplicas"], 1)
+		self.assertEqual(autoscaling["worker-long"]["staticReplicas"], 1)
 
 	@patch("lenscloud.api.orchestration.frappe.get_doc")
 	@patch("lenscloud.api.orchestration.get_region_cluster", return_value=cluster())

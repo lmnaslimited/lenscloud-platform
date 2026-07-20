@@ -37,9 +37,7 @@ const result = ref(null)
 const step = ref('choose')
 const placementFilter = ref('all')
 let progressPoller = null
-let visualProgressTimer = null
 const setupSchemaState = ref(null)
-const visualProvisioningIndex = ref(0)
 
 const form = reactive({
 	region: '',
@@ -85,7 +83,7 @@ const readySiteUrl = computed(() => {
 	return existingSites.value.find((site) => siteReadyForOpen(site) && site.access_url)?.access_url || ''
 })
 const provisioningMode = computed(() => result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
-const resultStarted = computed(() => ['started', 'route_pending', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
+const resultStarted = computed(() => ['started', 'route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
 const resultPaused = computed(() => provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run')
 const resultFailed = computed(() => provisioningMode.value === 'failed' || provisioningMode.value === 'bootstrap_failed' || provisioningMode.value === 'oauth_failed')
 const resultSetupRequired = computed(() => provisioningMode.value === 'setup_required')
@@ -118,7 +116,8 @@ const screenSubtitle = computed(() => {
 
 const rawProvisioningSteps = computed(() => {
 	const attempted = Boolean(result.value?.site || resultStarted.value || resultPaused.value || resultFailed.value || resultReady.value)
-	const runtimeReady = Boolean(['Ready', 'Active'].includes(result.value?.site_status) || result.value?.provisioning_status === 'Ready' || ['Ready', 'Active'].includes(resultSite.value?.site_status))
+	const runtimeProgressed = ['route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
+	const runtimeReady = Boolean(runtimeProgressed || ['Ready', 'Active'].includes(result.value?.site_status) || result.value?.provisioning_status === 'Ready' || ['Ready', 'Active'].includes(resultSite.value?.site_status))
 	const routeReady = Boolean(resultRouteReady.value)
 	const routeFailed = Boolean(result.value?.route_status === 'Failed' || resultSite.value?.route_status === 'Failed')
 	const setupStatus = result.value?.setup_status || resultSite.value?.setup_status || 'Not Checked'
@@ -127,7 +126,9 @@ const rawProvisioningSteps = computed(() => {
 	const setupDone = setupStatus === 'Complete' || resultReady.value
 	const setupBlocked = setupStatus === 'Blocked' || resultSetupRequired.value
 	const bootstrapFailed = bootstrapStatus === 'Failed' || provisioningMode.value === 'bootstrap_failed' || /bootstrap app install failed/i.test(setupError)
-	const bootstrapDone = !bootstrapFailed && (bootstrapStatus === 'Succeeded' || setupStatus === 'Complete' || ['Required', 'Running', 'Blocked'].includes(setupStatus) || ['setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
+	const bootstrapInstalling = provisioningMode.value === 'bootstrap_installing' || ['Queued', 'Running'].includes(bootstrapStatus)
+	const bootstrapAdvanced = ['setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
+	const bootstrapDone = !bootstrapFailed && !bootstrapInstalling && (bootstrapStatus === 'Succeeded' || setupStatus === 'Complete' || bootstrapAdvanced)
 	const setupFailed = !bootstrapFailed && (setupStatus === 'Failed' || (provisioningMode.value === 'failed' && routeReady))
 	const setupRunning = provisioningMode.value === 'setup_running' || setupStatus === 'Required'
 	const setupChecking = provisioningMode.value === 'setup_checking'
@@ -140,7 +141,7 @@ const rawProvisioningSteps = computed(() => {
 		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
 		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
-		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : routeReady ? 'LensCloud is installing the default apps for this Site.' : 'This starts after secure access is ready.' },
+		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : bootstrapInstalling || routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Site.' : 'This starts after secure access is ready.' },
 		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || (routeReady && bootstrapDone) ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after default apps are installed.' },
 		{ label: 'Setting site defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Site defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Site needs first-time setup.' },
 		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Site.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Site defaults are applied.' },
@@ -167,43 +168,15 @@ const provisioningSteps = computed(() => {
 	const targetIndex = targetProvisioningIndex.value
 	return steps.map((item, index) => {
 		if (!result.value?.site) return item
-		if (index < visualProvisioningIndex.value) {
+		if (index < targetIndex) {
 			if (['failed', 'paused'].includes(item.state)) return item
 			return { ...item, state: 'done' }
 		}
-		if (index > visualProvisioningIndex.value) return { ...item, state: 'pending' }
-		if (['failed', 'paused'].includes(item.state)) return item
-		if (item.state === 'done' && visualProvisioningIndex.value < targetIndex) return { ...item, state: 'active' }
+		if (index > targetIndex) return { ...item, state: 'pending' }
 		return item
 	})
 })
 
-function clearVisualProgressTimer() {
-	if (!visualProgressTimer) return
-	clearInterval(visualProgressTimer)
-	visualProgressTimer = null
-}
-
-function advanceVisualProvisioningIndex() {
-	clearVisualProgressTimer()
-	const targetIndex = targetProvisioningIndex.value
-	if (!result.value?.site) {
-		visualProvisioningIndex.value = 0
-		return
-	}
-	if (visualProvisioningIndex.value > targetIndex) {
-		visualProvisioningIndex.value = targetIndex
-		return
-	}
-	if (visualProvisioningIndex.value >= targetIndex) return
-	visualProgressTimer = setInterval(() => {
-		if (visualProvisioningIndex.value >= targetProvisioningIndex.value) {
-			clearVisualProgressTimer()
-			return
-		}
-		visualProvisioningIndex.value += 1
-	}, 850)
-}
 
 function flowStepState(index) {
 	if (hasReadySite.value && index <= currentStepIndex.value) return 'done'
@@ -240,10 +213,12 @@ function progressResultFromSite(site, subscription = null) {
 	if (site.bootstrap_status === 'Failed' || /bootstrap app install failed/i.test(site.setup_error || '')) provisioning = 'bootstrap_failed'
 	else if (site.provisioning_status === 'Failed' || site.site_status === 'Failed' || site.route_status === 'Failed' || site.setup_status === 'Failed') provisioning = 'failed'
 	else if (site.oauth_status === 'Failed') provisioning = 'oauth_failed'
+	else if (['Queued', 'Running'].includes(site.bootstrap_status)) provisioning = 'bootstrap_installing'
 	else if (site.setup_status === 'Blocked') provisioning = 'setup_required'
 	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete' && oauthConfiguredStatuses.has(site.oauth_status)) provisioning = 'ready'
 	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete') provisioning = site.oauth_status === 'Running' ? 'oauth_configuring' : 'oauth_checking'
 	else if (site.route_status === 'Ready' && site.access_url) provisioning = ['Required', 'Running'].includes(site.setup_status) ? 'setup_running' : 'setup_checking'
+	else if (site.route_status === 'Pending' && (site.access_url || ['Provisioning', 'Ready', 'Active'].includes(site.site_status) || ['Running', 'Ready'].includes(site.provisioning_status))) provisioning = 'route_pending'
 	else if (['Ready', 'Active'].includes(site.site_status) || site.provisioning_status === 'Ready') provisioning = 'route_pending'
 	else if (['Pending', 'Not Started'].includes(site.provisioning_status) || ['Requested', 'Draft'].includes(site.site_status)) provisioning = 'paused'
 	return {
@@ -265,7 +240,7 @@ function progressResultFromSite(site, subscription = null) {
 		oauth_error: site.oauth_error,
 		bootstrap_status: site.bootstrap_status,
 		provisioning,
-		retry_available: ['paused', 'failed', 'bootstrap_failed', 'oauth_failed', 'started', 'route_pending', 'setup_required', 'setup_checking', 'setup_running', 'oauth_checking', 'oauth_configuring'].includes(provisioning),
+		retry_available: ['paused', 'failed', 'bootstrap_failed', 'oauth_failed', 'started', 'route_pending', 'bootstrap_installing', 'setup_required', 'setup_checking', 'setup_running', 'oauth_checking', 'oauth_configuring'].includes(provisioning),
 	}
 }
 
@@ -281,7 +256,6 @@ function hydrateProgressFromRoute() {
 		if (nextResult.plan) selectedPlan.value = nextResult.plan
 		if (nextResult.region) form.region = nextResult.region
 		step.value = 'result'
-		advanceVisualProvisioningIndex()
 	}
 }
 
@@ -542,21 +516,14 @@ async function retrySetup() {
 	}
 }
 
-watch(targetProvisioningIndex, advanceVisualProvisioningIndex)
-watch(() => result.value?.site, () => {
-	visualProvisioningIndex.value = 0
-	advanceVisualProvisioningIndex()
-})
 watch([step, setupFields, setupDefaultsComplete, setupSchemaLoading], maybeAutoOpenSetupDialog, { flush: 'post' })
 
 onMounted(async () => {
 	await load()
 	startProgressPolling()
-	advanceVisualProvisioningIndex()
 })
 onBeforeUnmount(() => {
 	stopProgressPolling()
-	clearVisualProgressTimer()
 })
 </script>
 

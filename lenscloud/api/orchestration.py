@@ -329,10 +329,10 @@ def build_frappebench_manifest_data(bench, allow_pending_database=False):
 		"apps": release_group_apps(release_group),
 		"componentAutoscaling": {
 			"gunicorn": {"enabled": False, "staticReplicas": 1},
-			"scheduler": {"enabled": False, "staticReplicas": 0},
-			"worker-default": {"enabled": False, "staticReplicas": 0},
-			"worker-short": {"enabled": False, "staticReplicas": 0},
-			"worker-long": {"enabled": False, "staticReplicas": 0},
+			"scheduler": {"enabled": False, "staticReplicas": 1},
+			"worker-default": {"enabled": False, "staticReplicas": 1},
+			"worker-short": {"enabled": False, "staticReplicas": 1},
+			"worker-long": {"enabled": False, "staticReplicas": 1},
 		},
 		"componentResources": {
 			"nginx": {"requests": {"cpu": "25m", "memory": "64Mi"}},
@@ -2068,6 +2068,9 @@ def orchestrate_customer_site_oauth(site_doc):
 		if oauth_status in {"Configured", "Enabled"}:
 			return {"status": "Configured"}
 		if oauth_status in {"Not Checked", "Required", ""}:
+			in_progress = site_command_in_progress(site_doc, "oauth.status", _("Platform access status check is still running."))
+			if in_progress:
+				return in_progress
 			status_result = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth status check")
 			site_doc.reload()
 			set_site_oauth_state(
@@ -2077,15 +2080,23 @@ def orchestrate_customer_site_oauth(site_doc):
 			)
 			return status_result
 		if oauth_status == "Pending":
+			in_progress = site_command_in_progress(site_doc, "oauth.configure", _("Platform access configuration is still running."))
+			if in_progress:
+				return in_progress
 			site_doc.reload()
 			set_site_oauth_state(site_doc, "Running", None)
 			configure_result = configure_site_oauth_for_orchestration(site_doc.name, reason="Configure LensCloud Platform OAuth before customer Open Site")
+			if (configure_result or {}).get("status") in {"Queued", "Running"}:
+				return configure_result
 			if (configure_result or {}).get("status") != "Succeeded":
 				site_doc.reload()
 				set_site_oauth_state(site_doc, "Failed", (configure_result or {}).get("display_text") or (configure_result or {}).get("fallback_summary") or (configure_result or {}).get("message") or _("Platform access configuration failed."))
 				return configure_result
 			return configure_result
 		if oauth_status == "Running":
+			in_progress = site_command_in_progress(site_doc, "oauth.configure", _("Platform access configuration is still running.")) or site_command_in_progress(site_doc, "oauth.status", _("Platform access completion check is still running."))
+			if in_progress:
+				return in_progress
 			final_status = run_site_oauth_status_for_orchestration(site_doc.name, reason="Customer launch OAuth completion check")
 			site_doc.reload()
 			set_site_oauth_state(
@@ -2105,9 +2116,16 @@ def site_bootstrap_apps_installed(site_doc):
 	return bool(frappe.db.exists("Orchestration Action Log", {"site": site_doc.name, "operation": "site_bootstrap.install_apps", "status": "Succeeded"}))
 
 
+def site_bootstrap_apps_in_progress(site_doc):
+	return site_command_in_progress(site_doc, "site_bootstrap.install_apps", _("Default app installation is still running."))
+
+
 def orchestrate_customer_site_bootstrap(site_doc):
 	if site_bootstrap_apps_installed(site_doc):
 		return None
+	in_progress = site_bootstrap_apps_in_progress(site_doc)
+	if in_progress:
+		return in_progress
 	from lenscloud.api.bench_command import install_site_bootstrap_apps
 	return install_site_bootstrap_apps(site_doc.name, timeout_seconds=900, enforce_permissions=False)
 
@@ -2128,6 +2146,8 @@ def orchestrate_customer_site_setup(site_doc, force=False):
 		bootstrap_result = orchestrate_customer_site_bootstrap(site_doc)
 		if bootstrap_result:
 			site_doc.reload()
+			if bootstrap_result.get("status") in {"Queued", "Running"}:
+				return bootstrap_result
 			if bootstrap_result.get("status") != "Succeeded":
 				summary = bootstrap_result.get("summary") if isinstance(bootstrap_result, dict) else None
 				error = None
@@ -2140,6 +2160,9 @@ def orchestrate_customer_site_setup(site_doc, force=False):
 		if bootstrap_result:
 			return bootstrap_result
 		if setup_status in {"Not Checked", "Pending", ""}:
+			in_progress = site_command_in_progress(site_doc, "site_setup.status", _("Site setup status check is still running."))
+			if in_progress:
+				return in_progress
 			status_result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup status check")
 			site_doc.reload()
 			if command_result_failed(status_result):
@@ -2165,7 +2188,12 @@ def orchestrate_customer_site_setup(site_doc, force=False):
 			site_doc.setup_status = "Running"
 			site_doc.setup_error = None
 			site_doc.save(ignore_permissions=True)
+			in_progress = site_command_in_progress(site_doc, "site_setup.complete", _("Site setup defaults are still being applied."))
+			if in_progress:
+				return in_progress
 			result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.complete", args=args, reason="Complete first-time Site setup from customer-provided defaults")
+			if (result or {}).get("status") in {"Queued", "Running"}:
+				return result
 			if (result or {}).get("status") != "Succeeded":
 				site_doc.reload()
 				site_doc.setup_status = "Failed"
@@ -2173,6 +2201,9 @@ def orchestrate_customer_site_setup(site_doc, force=False):
 				site_doc.save(ignore_permissions=True)
 			return result
 		if setup_status == "Running":
+			in_progress = site_command_in_progress(site_doc, "site_setup.complete", _("Site setup defaults are still being applied.")) or site_command_in_progress(site_doc, "site_setup.status", _("Site setup completion check is still running."))
+			if in_progress:
+				return in_progress
 			final_status = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup completion check")
 			site_doc.reload()
 			if command_result_failed(final_status):
@@ -2246,17 +2277,33 @@ def customer_reconcile_state(reconcile):
 	return status or "failed"
 
 
-def latest_site_bootstrap_status(site_doc):
-	if not site_doc:
+def latest_site_command_status(site_doc, operation):
+	if not site_doc or not operation:
 		return None
 	rows = frappe.get_all(
 		"Orchestration Action Log",
-		filters={"site": site_doc.name, "operation": "site_bootstrap.install_apps"},
-		fields=["name", "status", "modified"],
+		filters={"site": site_doc.name, "operation": operation},
+		fields=["name", "status", "modified", "message", "error"],
 		order_by="modified desc",
 		limit=1,
 	)
 	return rows[0] if rows else None
+
+
+def site_command_in_progress(site_doc, operation, message=None):
+	command = latest_site_command_status(site_doc, operation)
+	if command and command.status in {"Queued", "Running"}:
+		return {
+			"status": command.status,
+			"command": operation,
+			"action_log": command.name,
+			"message": command.get("message") or message or _("Command is still running."),
+		}
+	return None
+
+
+def latest_site_bootstrap_status(site_doc):
+	return latest_site_command_status(site_doc, "site_bootstrap.install_apps")
 
 
 def customer_site_progress_state(site_doc):
@@ -2269,6 +2316,8 @@ def customer_site_progress_state(site_doc):
 		return "bootstrap_failed"
 	if site_doc.provisioning_status == "Failed" or site_doc.site_status == "Failed" or site_doc.route_status == "Failed" or setup_status == "Failed":
 		return "failed"
+	if bootstrap and bootstrap.status in {"Queued", "Running"}:
+		return "bootstrap_installing"
 	if oauth_status == "Failed":
 		return "oauth_failed"
 	if setup_status == "Blocked":
@@ -2279,6 +2328,8 @@ def customer_site_progress_state(site_doc):
 		return "oauth_configuring" if oauth_status == "Running" else "oauth_checking"
 	if site_doc.route_status == "Ready" and site_doc.access_url:
 		return "setup_running" if setup_status in {"Required", "Running"} else "setup_checking"
+	if site_doc.route_status == "Pending" and site_doc.access_url and (site_doc.site_status in {"Provisioning", "Ready", "Active"} or site_doc.provisioning_status in {"Running", "Ready"}):
+		return "route_pending"
 	if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
 		return "route_pending"
 	if site_doc.provisioning_status in {"Accepted", "Running"} or site_doc.site_status in {"Accepted", "Provisioning"}:
@@ -2292,12 +2343,13 @@ CUSTOMER_PROGRESS_ORDER = {
 	"paused": 0,
 	"started": 1,
 	"route_pending": 2,
-	"setup_checking": 3,
-	"setup_running": 4,
-	"setup_required": 5,
-	"oauth_checking": 6,
-	"oauth_configuring": 7,
-	"ready": 8,
+	"bootstrap_installing": 3,
+	"setup_checking": 4,
+	"setup_running": 5,
+	"setup_required": 6,
+	"oauth_checking": 7,
+	"oauth_configuring": 8,
+	"ready": 9,
 }
 
 
@@ -2332,7 +2384,7 @@ def customer_site_progress_payload(site_doc, subscription=None, plan_doc=None, r
 		"setup_schema": parse_setup_data(getattr(site_doc, "setup_schema_json", None)),
 		"reconcile": reconcile,
 		"provisioning": provisioning,
-		"retry_available": provisioning in {"paused", "failed", "bootstrap_failed", "oauth_failed", "started", "route_pending", "setup_required", "setup_checking", "setup_running", "oauth_checking", "oauth_configuring"},
+		"retry_available": provisioning in {"paused", "failed", "bootstrap_failed", "oauth_failed", "started", "route_pending", "bootstrap_installing", "setup_required", "setup_checking", "setup_running", "oauth_checking", "oauth_configuring"},
 		"message": message or getattr(site_doc, "setup_error", None) or getattr(site_doc, "oauth_error", None) or (reconcile or {}).get("message"),
 		"next_actions": (reconcile or {}).get("next_actions") or [],
 	}
