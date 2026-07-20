@@ -566,7 +566,7 @@ def runner_job_container(command=None, oauth_secret_name=None, runner_image=None
 	]
 	volume_mounts = [
 		{"name": "request", "mountPath": "/lenscloud/request", "readOnly": True},
-		{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": read_only_sites},
+		{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": read_only_sites},
 	]
 	if command == "oauth.configure":
 		if not oauth_secret_name:

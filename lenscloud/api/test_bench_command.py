@@ -203,7 +203,7 @@ class BenchCommandContractTest(unittest.TestCase):
 		container = spec["containers"][0]
 		self.assertEqual(container["image"], bench_command.RUNNER_IMAGE)
 		self.assertIn({"name": "BENCH_COMMAND_REQUEST", "value": "/lenscloud/request/request.json"}, container["env"])
-		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": False}, container["volumeMounts"])
+		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": False}, container["volumeMounts"])
 		self.assertIn({"name": "sites", "persistentVolumeClaim": {"claimName": "runtime-bench-sites"}}, spec["volumes"])
 
 	def test_site_setup_status_mounts_sites_pvc_read_only(self):
@@ -212,7 +212,8 @@ class BenchCommandContractTest(unittest.TestCase):
 		bench = SimpleNamespace(name="bench-doc", operator_resource_name="runtime-bench")
 		job = bench_command.job_manifest("bcmd-test-job", "lenscloud-runtime-eu", labels, annotations, "bcmd-test-request", "site_setup.status", bench=bench)
 		container = job["spec"]["template"]["spec"]["containers"][0]
-		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": True}, container["volumeMounts"])
+		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": True}, container["volumeMounts"])
+		self.assertNotIn("sites-assets", [mount["name"] for mount in container["volumeMounts"]])
 
 	def test_oauth_status_mounts_sites_pvc_read_only(self):
 		labels = {PLATFORM_MANAGER_LABEL: "platform", RESOURCE_KIND_LABEL: "bench-command", "lenscloud.io/resource-id": "bcmd-test"}
@@ -220,7 +221,7 @@ class BenchCommandContractTest(unittest.TestCase):
 		bench = SimpleNamespace(name="bench-doc", operator_resource_name="runtime-bench")
 		job = bench_command.job_manifest("bcmd-test-job", "lenscloud-runtime-eu", labels, annotations, "bcmd-test-request", "oauth.status", bench=bench)
 		container = job["spec"]["template"]["spec"]["containers"][0]
-		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": True}, container["volumeMounts"])
+		self.assertIn({"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": True}, container["volumeMounts"])
 		self.assertNotIn("oauth-client-secret", [mount["name"] for mount in container["volumeMounts"]])
 
 	def test_oauth_configure_mounts_only_contract_secret(self):

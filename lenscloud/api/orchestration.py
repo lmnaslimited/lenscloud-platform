@@ -10,7 +10,7 @@ import frappe
 import requests
 import yaml
 from frappe import _
-from frappe.utils import add_months, getdate, now_datetime, nowdate
+from frappe.utils import add_months, cint, getdate, now_datetime, nowdate
 
 from lenscloud.api.kubernetes_client import KubernetesClient, KubernetesClientError, RESOURCE_PATHS, kubeconfig_path, sanitize_error
 from lenscloud.api.customer_identity import can_create_subscription, can_manage_customer_members, can_read_customer_doctype, customer_doctype_permissions, customer_membership_for_user, ensure_customer_access_for_user, provision_customer_for_user, require_active_customer_membership, require_subscription_create_permission
@@ -1983,6 +1983,16 @@ def setup_is_complete(result):
 	return False
 
 
+def command_result_failed(result):
+	return isinstance(result, dict) and result.get("status") not in {None, "Succeeded"}
+
+
+def command_failure_message(result, default):
+	if not isinstance(result, dict):
+		return default
+	return sanitize_error(result.get("display_text") or result.get("fallback_summary") or result.get("message") or default)
+
+
 def oauth_display_value(result):
 	for value in command_result_text_values(result):
 		if value:
@@ -2102,11 +2112,19 @@ def orchestrate_customer_site_bootstrap(site_doc):
 	return install_site_bootstrap_apps(site_doc.name, timeout_seconds=900, enforce_permissions=False)
 
 
-def orchestrate_customer_site_setup(site_doc):
+def orchestrate_customer_site_setup(site_doc, force=False):
 	if site_doc.route_status != "Ready" or not site_doc.access_url:
 		return None
 	from lenscloud.api.bench_command import run_site_setup_command_for_orchestration
 	try:
+		setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
+		if setup_status == "Failed":
+			if not force:
+				return {"status": "Failed", "message": getattr(site_doc, "setup_error", None) or _("Site setup previously failed. Retry after remediation.")}
+			setup_status = "Pending"
+			site_doc.setup_status = "Pending"
+			site_doc.setup_error = None
+			site_doc.save(ignore_permissions=True)
 		bootstrap_result = orchestrate_customer_site_bootstrap(site_doc)
 		if bootstrap_result:
 			site_doc.reload()
@@ -2119,16 +2137,15 @@ def orchestrate_customer_site_setup(site_doc):
 				site_doc.setup_error = sanitize_error(error or "Default app install failed before site setup.")
 				site_doc.save(ignore_permissions=True)
 				return bootstrap_result
-		setup_status = getattr(site_doc, "setup_status", None) or "Not Checked"
-		if setup_status == "Failed":
-			setup_status = "Pending"
-			site_doc.setup_status = "Pending"
-			site_doc.setup_error = None
-			site_doc.save(ignore_permissions=True)
+		if bootstrap_result:
+			return bootstrap_result
 		if setup_status in {"Not Checked", "Pending", ""}:
 			status_result = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup status check")
 			site_doc.reload()
-			if setup_is_complete(status_result):
+			if command_result_failed(status_result):
+				site_doc.setup_status = "Failed"
+				site_doc.setup_error = command_failure_message(status_result, _("Site setup status check failed."))
+			elif setup_is_complete(status_result):
 				site_doc.setup_status = "Complete"
 				site_doc.setup_error = None
 			else:
@@ -2152,14 +2169,18 @@ def orchestrate_customer_site_setup(site_doc):
 			if (result or {}).get("status") != "Succeeded":
 				site_doc.reload()
 				site_doc.setup_status = "Failed"
-				site_doc.setup_error = sanitize_error((result or {}).get("display_text") or (result or {}).get("fallback_summary") or (result or {}).get("message") or _("Site setup command failed."))
+				site_doc.setup_error = command_failure_message(result, _("Site setup command failed."))
 				site_doc.save(ignore_permissions=True)
 			return result
 		if setup_status == "Running":
 			final_status = run_site_setup_command_for_orchestration(site_doc.name, "site_setup.status", reason="Customer launch setup completion check")
 			site_doc.reload()
-			site_doc.setup_status = "Complete" if setup_is_complete(final_status) else "Required"
-			site_doc.setup_error = None if site_doc.setup_status == "Complete" else _("Site setup still reports pending after setup completion.")
+			if command_result_failed(final_status):
+				site_doc.setup_status = "Failed"
+				site_doc.setup_error = command_failure_message(final_status, _("Site setup status check failed."))
+			else:
+				site_doc.setup_status = "Complete" if setup_is_complete(final_status) else "Required"
+				site_doc.setup_error = None if site_doc.setup_status == "Complete" else _("Site setup still reports pending after setup completion.")
 			site_doc.save(ignore_permissions=True)
 			return final_status
 		if setup_status == "Complete":
@@ -2267,6 +2288,27 @@ def customer_site_progress_state(site_doc):
 	return "started"
 
 
+CUSTOMER_PROGRESS_ORDER = {
+	"paused": 0,
+	"started": 1,
+	"route_pending": 2,
+	"setup_checking": 3,
+	"setup_running": 4,
+	"setup_required": 5,
+	"oauth_checking": 6,
+	"oauth_configuring": 7,
+	"ready": 8,
+}
+
+
+def customer_progress_advanced_past_runtime_gate(before, after):
+	if before not in {"started", "route_pending"}:
+		return False
+	if after in {"failed", "bootstrap_failed", "oauth_failed", "paused"}:
+		return False
+	return CUSTOMER_PROGRESS_ORDER.get(after, -1) > CUSTOMER_PROGRESS_ORDER.get(before, -1)
+
+
 def customer_site_progress_payload(site_doc, subscription=None, plan_doc=None, reconcile=None, created_subscription=False, message=None):
 	provisioning = customer_site_progress_state(site_doc)
 	return {
@@ -2339,7 +2381,7 @@ def provision_free_plan_site(customer, plan_doc, region, site_name=None, company
 
 
 @frappe.whitelist(methods=["POST"])
-def retry_customer_site_provisioning(site):
+def retry_customer_site_provisioning(site, force=False):
 	if frappe.session.user == "Guest":
 		frappe.throw(_("Authentication is required."), frappe.PermissionError)
 	membership = require_active_customer_membership(frappe.session.user)
@@ -2354,6 +2396,7 @@ def retry_customer_site_provisioning(site):
 	cluster = get_region_cluster(site_doc.region)
 	settings = get_platform_settings()
 	try:
+		initial_progress = customer_site_progress_state(site_doc)
 		if site_doc.provisioning_status in {"Accepted", "Running", "Ready"} or site_doc.site_status in {"Accepted", "Provisioning", "Ready", "Active"}:
 			inventory = inspect_runtime(site_doc, "FrappeSite", "site", "site_status")
 			if not inventory.get("owner_present"):
@@ -2378,11 +2421,13 @@ def retry_customer_site_provisioning(site):
 					if site_doc.site_status in {"Ready", "Active"} or site_doc.provisioning_status == "Ready":
 						raise
 			site_doc.reload()
+			if customer_progress_advanced_past_runtime_gate(initial_progress, customer_site_progress_state(site_doc)):
+				return customer_site_progress_payload(site_doc, subscription, plan_doc, message=_("Site status was refreshed."))
 			if site_doc.route_status == "Ready" and site_doc.access_url:
 				if getattr(site_doc, "setup_status", None) in {"Complete"}:
 					orchestrate_customer_site_oauth(site_doc)
 				else:
-					orchestrate_customer_site_setup(site_doc)
+					orchestrate_customer_site_setup(site_doc, force=cint(force))
 				site_doc.reload()
 			return customer_site_progress_payload(site_doc, subscription, plan_doc, message=_("Site status was refreshed."))
 		reconcile = reconcile_site(site_doc.name, dry_run=not bool(settings.kubernetes_apply_enabled))

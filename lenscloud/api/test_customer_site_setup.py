@@ -3,7 +3,7 @@ from unittest.mock import patch
 import frappe
 from frappe.tests.utils import FrappeTestCase
 
-from lenscloud.api.orchestration import clean_setup_data, customer_site_progress_state, customer_site_setup_schema, setup_identity_args, setup_is_complete
+from lenscloud.api.orchestration import clean_setup_data, customer_progress_advanced_past_runtime_gate, customer_site_progress_state, customer_site_setup_schema, setup_identity_args, setup_is_complete
 
 
 def ensure_app(name):
@@ -160,6 +160,12 @@ class TestCustomerSiteSetup(FrappeTestCase):
 		})
 		self.assertEqual(customer_site_progress_state(site), "setup_running")
 
+	def test_customer_retry_pauses_after_runtime_stage_advances(self):
+		self.assertTrue(customer_progress_advanced_past_runtime_gate("started", "route_pending"))
+		self.assertTrue(customer_progress_advanced_past_runtime_gate("route_pending", "setup_checking"))
+		self.assertFalse(customer_progress_advanced_past_runtime_gate("setup_checking", "setup_running"))
+		self.assertFalse(customer_progress_advanced_past_runtime_gate("started", "failed"))
+
 	def test_setup_complete_failure_marks_site_failed(self):
 		from lenscloud.api.orchestration import orchestrate_customer_site_setup
 
@@ -191,6 +197,120 @@ class TestCustomerSiteSetup(FrappeTestCase):
 		self.assertEqual(site.setup_status, "Failed")
 		self.assertIn("RUNNER_FAILED", site.setup_error)
 		self.assertTrue(site.saved)
+
+	def test_setup_status_failure_marks_site_failed(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "status-failed.example.test",
+			"route_status": "Ready",
+			"access_url": "https://status-failed.example.test",
+			"setup_status": "Pending",
+		})
+		result = {"status": "Failed", "fallback_summary": "phase: Failed; summary: containerd mount failed"}
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=None), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration", return_value=result):
+			orchestrate_customer_site_setup(site)
+		self.assertEqual(site.setup_status, "Failed")
+		self.assertIn("containerd mount failed", site.setup_error)
+		self.assertTrue(site.saved)
+
+	def test_final_setup_status_failure_marks_site_failed(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "final-status-failed.example.test",
+			"route_status": "Ready",
+			"access_url": "https://final-status-failed.example.test",
+			"setup_status": "Running",
+		})
+		result = {"status": "Failed", "message": "Bench Command site_setup.status finished with phase Failed"}
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=None), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration", return_value=result):
+			orchestrate_customer_site_setup(site)
+		self.assertEqual(site.setup_status, "Failed")
+		self.assertIn("phase Failed", site.setup_error)
+		self.assertTrue(site.saved)
+
+	def test_bootstrap_success_returns_before_setup_status_poll(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "bootstrap-split.example.test",
+			"route_status": "Ready",
+			"access_url": "https://bootstrap-split.example.test",
+			"setup_status": "Pending",
+		})
+		bootstrap_result = {"status": "Succeeded", "message": "Default apps installed"}
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=bootstrap_result), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration") as setup_status:
+			result = orchestrate_customer_site_setup(site)
+		self.assertEqual(result, bootstrap_result)
+		setup_status.assert_not_called()
+
+	def test_setup_failed_does_not_reset_without_force(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "failed-terminal.example.test",
+			"route_status": "Ready",
+			"access_url": "https://failed-terminal.example.test",
+			"setup_status": "Failed",
+			"setup_error": "containerd mount failed",
+		})
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=None), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration") as setup_status:
+			result = orchestrate_customer_site_setup(site)
+		self.assertEqual(result["status"], "Failed")
+		self.assertEqual(site.setup_status, "Failed")
+		setup_status.assert_not_called()
+
+	def test_setup_failed_resets_with_force(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "failed-force.example.test",
+			"route_status": "Ready",
+			"access_url": "https://failed-force.example.test",
+			"setup_status": "Failed",
+			"setup_error": "containerd mount failed",
+		})
+		result = {"status": "Succeeded", "display_text": "Setup wizard: Required"}
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=None), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration", return_value=result):
+			orchestrate_customer_site_setup(site, force=True)
+		self.assertEqual(site.setup_status, "Required")
+		self.assertIsNone(site.setup_error)
 
 	def test_setup_identity_uses_logged_in_user_profile(self):
 		user = make_setup_user(f"setup-{frappe.generate_hash(length=8).lower()}@example.com", first_name="Nithu", last_name="Customer")

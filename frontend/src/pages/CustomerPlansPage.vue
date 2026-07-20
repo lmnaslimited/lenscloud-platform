@@ -529,7 +529,7 @@ async function retrySetup() {
 	submitting.value = true
 	error.value = ''
 	try {
-		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site }, 'POST')
+		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site, force: true }, 'POST')
 		result.value = response.message || response
 		step.value = 'result'
 		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
