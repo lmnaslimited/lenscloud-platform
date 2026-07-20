@@ -122,6 +122,62 @@ class BenchCommandContractTest(unittest.TestCase):
 		job = bench_command.job_manifest("bcmd-test-job", "lenscloud-runtime-eu", labels, annotations, "bcmd-test-request", "site_setup.status", bench=bench, runner_image=runner)
 		self.assertEqual(job["spec"]["template"]["spec"]["containers"][0]["image"], runner)
 
+	def test_validate_cluster_runner_contract_dry_runs_synced_image(self):
+		image = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:" + "c" * 64
+
+		class FakeCluster(SimpleNamespace):
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		class FakeClient:
+			def __enter__(self):
+				return self
+
+			def __exit__(self, *_args):
+				return False
+
+			def create_namespaced(self, resource, namespace, body, **kwargs):
+				self.resource = resource
+				self.namespace = namespace
+				self.body = body
+				self.kwargs = kwargs
+				return {}
+
+		cluster = FakeCluster(name="cluster-a", default_runtime_namespace="runtime-a", bench_command_runner_image=image)
+		client = FakeClient()
+		with patch("lenscloud.api.bench_command.frappe.only_for"), patch("lenscloud.api.bench_command.frappe.get_doc", return_value=cluster), patch("lenscloud.api.bench_command.get_cluster_client", return_value=client), patch("lenscloud.api.bench_command.now_datetime", return_value="2026-07-20 00:00:00"), patch("lenscloud.api.bench_command.frappe.db.commit"):
+			result = bench_command.validate_cluster_bench_command_runner_contract("cluster-a")
+		self.assertEqual(result["status"], "Accepted")
+		self.assertEqual(result["bench_command_runner_image"], image)
+		self.assertEqual(client.kwargs.get("dry_run"), "All")
+		self.assertEqual(client.body["spec"]["template"]["spec"]["containers"][0]["image"], image)
+		self.assertEqual(cluster.bench_command_runner_contract_status, "Synced")
+		self.assertIsNone(cluster.bench_command_runner_contract_error)
+
+	def test_validate_cluster_runner_contract_records_admission_failure(self):
+		image = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:" + "d" * 64
+
+		class FakeCluster(SimpleNamespace):
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		class FakeClient:
+			def __enter__(self):
+				return self
+
+			def __exit__(self, *_args):
+				return False
+
+			def create_namespaced(self, *_args, **_kwargs):
+				raise bench_command.KubernetesClientError("denied: approved execution image required")
+
+		cluster = FakeCluster(name="cluster-a", default_runtime_namespace="runtime-a", bench_command_runner_image=image)
+		with patch("lenscloud.api.bench_command.frappe.only_for"), patch("lenscloud.api.bench_command.frappe.get_doc", return_value=cluster), patch("lenscloud.api.bench_command.get_cluster_client", return_value=FakeClient()), patch("lenscloud.api.bench_command.now_datetime", return_value="2026-07-20 00:00:00"), patch("lenscloud.api.bench_command.frappe.db.commit"):
+			with self.assertRaises(frappe.ValidationError):
+				bench_command.validate_cluster_bench_command_runner_contract("cluster-a")
+		self.assertEqual(cluster.bench_command_runner_contract_status, "Failed")
+		self.assertIn(bench_command.RUNNER_IMAGE_REJECTED_CODE, cluster.bench_command_runner_contract_error)
+
 	def test_runner_dry_run_maps_approved_image_rejection(self):
 		class Client:
 			def create_namespaced(self, *args, **kwargs):

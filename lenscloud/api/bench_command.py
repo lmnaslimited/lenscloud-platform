@@ -490,6 +490,57 @@ def dry_run_bench_command_job(client, namespace, job, runner_image):
 		raise
 
 
+def runner_contract_validation_job(cluster, namespace, runner_image):
+	command = "site_setup.status"
+	request_name = f"{safe_name(cluster.name)}-runner-contract-validate-request"
+	job_name = f"{safe_name(cluster.name)}-runner-contract-validate-job"
+	command_id_value = f"{safe_name(cluster.name)}-runner-contract-validate"
+	labels = {
+		PLATFORM_MANAGER_LABEL: PLATFORM_MANAGER_VALUE,
+		RESOURCE_KIND_LABEL: BENCH_COMMAND_RESOURCE_KIND,
+		RESOURCE_ID_LABEL: label_value(command_id_value),
+	}
+	annotations = metadata_annotations(command, request_name)
+	bench = frappe._dict({"name": "runner-contract-validate", "operator_resource_name": "runner-contract-validate"})
+	return job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench, runner_image=runner_image)
+
+
+@frappe.whitelist()
+def validate_cluster_bench_command_runner_contract(cluster):
+	frappe.only_for("System Manager")
+	cluster_doc = frappe.get_doc("Cluster", cluster)
+	namespace = default_runtime_namespace(cluster_doc)
+	try:
+		runner_image = bench_command_runner_image(cluster_doc)
+		job = runner_contract_validation_job(cluster_doc, namespace, runner_image)
+		with get_cluster_client(cluster_doc) as client:
+			dry_run_bench_command_job(client, namespace, job, runner_image)
+		cluster_doc.bench_command_runner_contract_status = "Synced"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = None
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {
+			"status": "Accepted",
+			"cluster": cluster_doc.name,
+			"runtime_namespace": namespace,
+			"command": "site_setup.status",
+			"bench_command_runner_image": runner_image,
+			"message": "Cluster admission accepted the synced Bench Command runner image for generic runner commands.",
+			"next_actions": [
+				"Run customer Site setup/status, OAuth, or other generic Bench Commands normally.",
+				"If Infra changes the accepted runner digest later, run Sync Bench Runner Contract and then validate again.",
+			],
+		}
+	except Exception as exc:
+		cluster_doc.bench_command_runner_contract_status = "Failed"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = sanitize_error(exc)
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		frappe.throw(_("Bench Command runner contract validation failed for Cluster {0}: {1}").format(cluster_doc.name, sanitize_error(exc)))
+
+
 def verification_job_container(labels, command):
 	summary = json.dumps({
 		"phase": "Succeeded",
