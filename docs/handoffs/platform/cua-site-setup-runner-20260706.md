@@ -39,8 +39,13 @@ Current runner for new Platform work is published at:
 ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:e003d3f49a1225ccc37df1147bc7f2d1ca704518b90575fc5ad4c4af4ffc7741
 ```
 
-Platform may now run these setup commands through the existing Bench Command
-Python Kubernetes API path during the controlled Free Plan live E2E.
+2026-07-19 update: `site_setup.status` remains on the synced generic runner,
+but `site_setup.complete` must use the digest-pinned Release Group runtime
+image because setup completion can execute installed-app setup hooks. This
+supersedes the original all-setup-commands-through-generic-runner wording.
+
+Platform may run `site_setup.status` through the existing Bench Command Python
+Kubernetes API path during the controlled Free Plan live E2E.
 Customer-facing automation may use OAuth after consuming the dedicated INF-022
 handoff. User sync and Site access commands remain Unsupported until INF-023 is
 implemented and live-verified.
@@ -69,13 +74,15 @@ Platform should:
 2. Read `lenscloud-infra/docs/infra-workitems.md`.
 3. Read `lenscloud-infra/docs/platform-bench-command-handoff.md`.
 4. Read `lenscloud-infra/docs/handoffs/platform/cua-site-setup-runner-handoff-20260706.md`.
-5. Wire `site_setup.status` and `site_setup.complete` through the existing
-   Bench Command Python Kubernetes API path.
-6. Keep request args non-secret.
-7. Use the dedicated `INF-022` OAuth handoff for OAuth integration; keep
+5. Wire `site_setup.status` through the existing Bench Command Python
+   Kubernetes API path with the generic runner digest.
+6. Wire `site_setup.complete` as an app-aware Job with the Release Group
+   runtime image digest.
+7. Keep request args non-secret.
+8. Use the dedicated `INF-022` OAuth handoff for OAuth integration; keep
    user/site access commands disabled or shown as unsupported.
-8. Parse only sanitized termination summaries.
-9. Update Platform workitems, action logs, UI states, and evidence.
+9. Parse only sanitized termination summaries.
+10. Update Platform workitems, action logs, UI states, and evidence.
 
 Evidence reference:
 

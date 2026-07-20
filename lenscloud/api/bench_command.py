@@ -26,7 +26,12 @@ from lenscloud.api.policy import environment_policy
 
 
 BENCH_COMMAND_RESOURCE_KIND = "bench-command"
-RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:3e7867ff7cb0285395aafd380232496f854c6d014c237b8790cbcbfd1bd577ef"
+RUNNER_IMAGE = "ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:0ba81c0f4031d452eab71a463a562d5f07ace308ae87967725dd807e00c97570"
+RUNNER_CONTRACT_NAMESPACE = "lenscloud-platform-system"
+RUNNER_CONTRACT_CONFIGMAP = "lenscloud-platform-cluster-contract"
+RUNNER_CONTRACT_KEY = "bench_command_runner_image"
+RUNNER_IMAGE_PATTERN = re.compile(r"^ghcr\.io/lmnaslimited/lenscloud-bench-command-runner@sha256:[0-9a-f]{64}$")
+RUNNER_IMAGE_REJECTED_CODE = "BENCH_COMMAND_RUNNER_IMAGE_REJECTED"
 VERIFICATION_COMMANDS = {"bench_test.status"}
 RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
@@ -42,7 +47,6 @@ RUNNER_SUPPORTED_COMMANDS = {
 	"cors.allowlist.get",
 	"backup.status",
 	"site_setup.status",
-	"site_setup.complete",
 	"oauth.status",
 	"oauth.configure",
 }
@@ -426,6 +430,117 @@ def bench_sites_pvc_name(bench):
 	return f"{bench.operator_resource_name or bench.name}-sites"
 
 
+def validate_runner_image(image):
+	image = (image or "").strip()
+	if not RUNNER_IMAGE_PATTERN.match(image):
+		frappe.throw(_("Bench Command runner image must be the cluster contract ghcr.io/lmnaslimited/lenscloud-bench-command-runner@sha256:<digest>."))
+	return image
+
+
+def bench_command_runner_image(cluster=None):
+	if cluster:
+		image = getattr(cluster, "bench_command_runner_image", None)
+		if image:
+			return validate_runner_image(image)
+		frappe.throw(_("Cluster {0} has no synced Bench Command runner image. Sync the Cluster runner contract before running Bench Commands.").format(getattr(cluster, "name", "<unknown>")))
+	return RUNNER_IMAGE
+
+
+@frappe.whitelist()
+def sync_cluster_bench_command_runner_contract(cluster):
+	frappe.only_for("System Manager")
+	cluster_doc = frappe.get_doc("Cluster", cluster)
+	try:
+		with get_cluster_client(cluster_doc) as client:
+			configmap = client.get_namespaced("configmaps", RUNNER_CONTRACT_NAMESPACE, RUNNER_CONTRACT_CONFIGMAP)
+		image = validate_runner_image(((configmap.get("data") or {}).get(RUNNER_CONTRACT_KEY) or "").strip())
+		cluster_doc.bench_command_runner_image = image
+		cluster_doc.bench_command_runner_contract_status = "Synced"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = None
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {"status": "Synced", "cluster": cluster_doc.name, "bench_command_runner_image": image, "checked_on": cluster_doc.bench_command_runner_contract_checked_on}
+	except Exception as exc:
+		cluster_doc.bench_command_runner_contract_status = "Failed"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = sanitize_error(exc)
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		frappe.throw(_("Bench Command runner contract sync failed for Cluster {0}: {1}").format(cluster_doc.name, sanitize_error(exc)))
+
+
+def is_runner_image_admission_error(exc):
+	text = sanitize_error(exc).lower()
+	return "approved execution image" in text or RUNNER_IMAGE_REJECTED_CODE.lower() in text
+
+
+def bench_command_runner_rejected_error(exc, runner_image):
+	return KubernetesClientError(
+		f"code: {RUNNER_IMAGE_REJECTED_CODE}; operator_message: Bench Command runner image is not admitted by this cluster.; customer_message: Site setup is waiting for cluster configuration. Please retry after support resolves it.; runner_image: {sanitize_error(runner_image)}; admission: {sanitize_error(exc)}"
+	)
+
+
+def dry_run_bench_command_job(client, namespace, job, runner_image):
+	try:
+		client.create_namespaced("jobs", namespace, job, group="batch", version="v1", dry_run="All")
+	except KubernetesClientError as exc:
+		if is_runner_image_admission_error(exc):
+			raise bench_command_runner_rejected_error(exc, runner_image) from exc
+		raise
+
+
+def runner_contract_validation_job(cluster, namespace, runner_image):
+	command = "site_setup.status"
+	request_name = f"{safe_name(cluster.name)}-runner-contract-validate-request"
+	job_name = f"{safe_name(cluster.name)}-runner-contract-validate-job"
+	command_id_value = f"{safe_name(cluster.name)}-runner-contract-validate"
+	labels = {
+		PLATFORM_MANAGER_LABEL: PLATFORM_MANAGER_VALUE,
+		RESOURCE_KIND_LABEL: BENCH_COMMAND_RESOURCE_KIND,
+		RESOURCE_ID_LABEL: label_value(command_id_value),
+	}
+	annotations = metadata_annotations(command, request_name)
+	bench = frappe._dict({"name": "runner-contract-validate", "operator_resource_name": "runner-contract-validate"})
+	return job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench, runner_image=runner_image)
+
+
+@frappe.whitelist()
+def validate_cluster_bench_command_runner_contract(cluster):
+	frappe.only_for("System Manager")
+	cluster_doc = frappe.get_doc("Cluster", cluster)
+	namespace = default_runtime_namespace(cluster_doc)
+	try:
+		runner_image = bench_command_runner_image(cluster_doc)
+		job = runner_contract_validation_job(cluster_doc, namespace, runner_image)
+		with get_cluster_client(cluster_doc) as client:
+			dry_run_bench_command_job(client, namespace, job, runner_image)
+		cluster_doc.bench_command_runner_contract_status = "Synced"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = None
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		return {
+			"status": "Accepted",
+			"cluster": cluster_doc.name,
+			"runtime_namespace": namespace,
+			"command": "site_setup.status",
+			"bench_command_runner_image": runner_image,
+			"message": "Cluster admission accepted the synced Bench Command runner image for generic runner commands.",
+			"next_actions": [
+				"Run customer Site setup/status, OAuth, or other generic Bench Commands normally.",
+				"If Infra changes the accepted runner digest later, run Sync Bench Runner Contract and then validate again.",
+			],
+		}
+	except Exception as exc:
+		cluster_doc.bench_command_runner_contract_status = "Failed"
+		cluster_doc.bench_command_runner_contract_checked_on = now_datetime()
+		cluster_doc.bench_command_runner_contract_error = sanitize_error(exc)
+		cluster_doc.save(ignore_permissions=True)
+		frappe.db.commit()
+		frappe.throw(_("Bench Command runner contract validation failed for Cluster {0}: {1}").format(cluster_doc.name, sanitize_error(exc)))
+
+
 def verification_job_container(labels, command):
 	summary = json.dumps({
 		"phase": "Succeeded",
@@ -443,7 +558,7 @@ def verification_job_container(labels, command):
 	}
 
 
-def runner_job_container(command=None, oauth_secret_name=None):
+def runner_job_container(command=None, oauth_secret_name=None, runner_image=None):
 	read_only_sites = command in {"site_setup.status", "oauth.status"}
 	env = [
 		{"name": "BENCH_PATH", "value": "/home/frappe/frappe-bench"},
@@ -451,7 +566,7 @@ def runner_job_container(command=None, oauth_secret_name=None):
 	]
 	volume_mounts = [
 		{"name": "request", "mountPath": "/lenscloud/request", "readOnly": True},
-		{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "readOnly": read_only_sites},
+		{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": read_only_sites},
 	]
 	if command == "oauth.configure":
 		if not oauth_secret_name:
@@ -460,7 +575,7 @@ def runner_job_container(command=None, oauth_secret_name=None):
 		volume_mounts.append({"name": OAUTH_SECRET_VOLUME_NAME, "mountPath": OAUTH_SECRET_MOUNT_PATH, "readOnly": True})
 	return {
 		"name": "bench-command",
-		"image": RUNNER_IMAGE,
+		"image": runner_image or RUNNER_IMAGE,
 		"imagePullPolicy": "IfNotPresent",
 		"env": env,
 		"command": ["/usr/local/bin/lenscloud-bench-command-runner"],
@@ -468,7 +583,7 @@ def runner_job_container(command=None, oauth_secret_name=None):
 	}
 
 
-def job_manifest(name, namespace, labels, annotations, request_name, command, bench=None, oauth_secret_name=None):
+def job_manifest(name, namespace, labels, annotations, request_name, command, bench=None, oauth_secret_name=None, runner_image=None):
 	volumes = [{"name": "request", "configMap": {"name": request_name}}]
 	container = verification_job_container(labels, command)
 	if command in RUNNER_SUPPORTED_COMMANDS:
@@ -485,7 +600,7 @@ def job_manifest(name, namespace, labels, annotations, request_name, command, be
 					"items": [{"key": "client_secret", "path": "client_secret"}],
 				},
 			})
-		container = runner_job_container(command, oauth_secret_name=oauth_secret_name)
+		container = runner_job_container(command, oauth_secret_name=oauth_secret_name, runner_image=runner_image)
 	return {
 		"apiVersion": "batch/v1",
 		"kind": "Job",
@@ -517,18 +632,24 @@ def phase_from_job(job):
 
 
 def sanitized_termination_summary(pods):
+	fallback = None
 	for pod in pods:
+		pod_reason = sanitize_error(((pod.get("status") or {}).get("reason") or "").strip())
 		for container in (pod.get("status") or {}).get("containerStatuses") or []:
 			terminated = ((container.get("state") or {}).get("terminated") or {})
-			message = terminated.get("message")
-			if not message:
+			if not terminated:
 				continue
-			text = sanitize_error(message)
-			try:
-				return json.loads(text)
-			except ValueError:
-				return {"phase": "Succeeded" if terminated.get("exitCode") == 0 else "Failed", "summary": text[:500], "redacted": True}
-	return None
+			message = terminated.get("message")
+			if message:
+				text = sanitize_error(message)
+				try:
+					return json.loads(text)
+				except ValueError:
+					return {"phase": "Succeeded" if terminated.get("exitCode") == 0 else "Failed", "summary": text[:500], "redacted": True}
+			exit_code = terminated.get("exitCode")
+			reason = sanitize_error(terminated.get("reason") or pod_reason or "Container terminated")
+			fallback = {"phase": "Succeeded" if exit_code == 0 else "Failed", "summary": reason, "exitCode": exit_code, "redacted": True}
+	return fallback
 
 
 def pod_phase(pod):
@@ -881,15 +1002,18 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 			secret_name = f"{safe_name(command_id_value)}-oauth-secret"
 		labels = metadata_labels(command_id_value, site_doc)
 		annotations = metadata_annotations(command, request_name)
+		runner_image = bench_command_runner_image(cluster) if command in RUNNER_SUPPORTED_COMMANDS else None
 		request = request_document(command_id_value, command, site_doc, bench, cluster, namespace, args, timeout, reason)
 		configmap = configmap_manifest(request_name, namespace, labels, annotations, request)
 		secret = secret_manifest(secret_name, namespace, labels, annotations, oauth_client_secret) if secret_name else None
-		job = job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench, oauth_secret_name=secret_name)
+		job = job_manifest(job_name, namespace, labels, annotations, request_name, command, bench=bench, oauth_secret_name=secret_name, runner_image=runner_image)
 		attach_message = {
 			"request": request,
 			"configMap": {"name": request_name, "namespace": namespace, "labels": labels, "annotations": annotations},
 			"job": {"name": job_name, "namespace": namespace, "labels": labels, "annotations": annotations},
 		}
+		if runner_image:
+			attach_message["runner_image"] = runner_image
 		manifest_items = {"configMap": configmap, "job": job}
 		if secret_name:
 			attach_message["secret"] = {"name": secret_name, "namespace": namespace, "labels": labels, "annotations": annotations}
@@ -901,6 +1025,8 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 		log.save(ignore_permissions=True)
 		frappe.db.commit()
 		with get_cluster_client(cluster) as client:
+			if runner_image:
+				dry_run_bench_command_job(client, namespace, job, runner_image)
 			client.create_namespaced("configmaps", namespace, configmap)
 			if secret:
 				client.create_namespaced("secrets", namespace, secret)
@@ -970,6 +1096,8 @@ def run_site_control_command(site, command="bench_test.status", args=None, timeo
 def run_site_setup_command_for_orchestration(site, command="site_setup.status", args=None, timeout_seconds=300, reason=None, cleanup=True):
 	if command not in {"site_setup.status", "site_setup.complete"}:
 		frappe.throw(_("Only Site setup commands can use the orchestration runner."))
+	if command == "site_setup.complete":
+		return run_site_setup_complete(site, args=args, timeout_seconds=timeout_seconds, enforce_permissions=False)
 	return _run_site_control_command(
 		site,
 		command=command,
@@ -1017,8 +1145,18 @@ def configure_site_oauth(site, timeout_seconds=300, reason=None, cleanup=True):
 	return configure_site_oauth_for_orchestration(site, timeout_seconds=timeout_seconds, reason=reason, cleanup=cleanup)
 
 
-APP_AWARE_COMMANDS = {"site_bootstrap.install_apps", "site_app.install", "bench.update"}
-APP_AWARE_FAMILIES = {"site_bootstrap", "site_app", "bench"}
+APP_AWARE_COMMANDS = {"site_bootstrap.install_apps", "site_app.install", "bench.update", "site_setup.complete"}
+APP_AWARE_FAMILIES = {"site_bootstrap", "site_app", "bench", "site_setup"}
+
+
+def app_aware_timeout_value(value):
+	try:
+		value = int(value or 900)
+	except Exception:
+		frappe.throw(_("Timeout must be a number of seconds."))
+	if value < 10 or value > 1800:
+		frappe.throw(_("App-aware timeout must be between 10 and 1800 seconds."))
+	return value
 
 
 def release_runtime_image(release_name):
@@ -1062,15 +1200,63 @@ def release_group_install_apps(release_group_name, site_creation=False, requeste
 	return [row["app"] for row in sorted(allowed, key=lambda item: (item.get("install_sequence") is None, item.get("install_sequence") or 0, item.get("app") or ""))]
 
 
+def site_setup_complete_script(site_name, args, summary):
+	args_json = json.dumps([args], separators=(",", ":"))
+	success_summary = json.dumps(summary, separators=(",", ":"))
+	site_arg = shlex.quote(str(site_name))
+	args_arg = shlex.quote(args_json)
+	termination = "printf '%s\\n' " + shlex.quote(success_summary) + " > /dev/termination-log"
+	commands = [
+		"set -euo pipefail",
+		"out=/tmp/site-setup-complete.out",
+		f"if bench --site {site_arg} execute frappe.desk.page.setup_wizard.setup_wizard.setup_complete --args {args_arg} >\"$out\" 2>&1; then",
+		f"  {termination}",
+		"else",
+		"  rc=$?",
+		"  python3 - \"$rc\" \"$out\" > /dev/termination-log <<'PY'",
+		"import json, re, sys",
+		"rc, path = int(sys.argv[1]), sys.argv[2]",
+		"text = open(path, 'r', errors='replace').read().splitlines()[-60:]",
+		"excerpt = '\\n'.join(text)[-2000:]",
+		"excerpt = re.sub(r'(?i)(token|password|secret|authorization)([\"\\'=:\\s]+)([^\\s,}\"]+)', r'\\1\\2[REDACTED]', excerpt)",
+		"print(json.dumps({'phase': 'Failed', 'command': 'site_setup.complete', 'summary': 'Site setup completion failed', 'exit_code': rc, 'error_excerpt': excerpt, 'redacted': True}))",
+		"PY",
+		"  exit \"$rc\"",
+		"fi",
+	]
+	return "\n".join(commands) + "\n"
+
+
 def app_install_script(site_name, apps, summary):
-	termination = "printf '%s\\n' '" + json.dumps(summary, separators=(",", ":")) + "' > /dev/termination-log"
+	success_summary = json.dumps(summary, separators=(",", ":"))
+	termination = "printf '%s\\n' " + shlex.quote(success_summary) + " > /dev/termination-log"
 	if not apps:
 		return "set -euo pipefail\n" + termination + "\n"
-	commands = ["set -euo pipefail"]
+	commands = [
+		"set -euo pipefail",
+		"run_step() {",
+		"  step=\"$1\"",
+		"  shift",
+		"  out=\"/tmp/${step}.out\"",
+		"  if \"$@\" >\"$out\" 2>&1; then",
+		"    return 0",
+		"  fi",
+		"  rc=$?",
+		"  python3 - \"$step\" \"$rc\" \"$out\" > /dev/termination-log <<'PY'",
+		"import json, re, sys",
+		"step, rc, path = sys.argv[1], int(sys.argv[2]), sys.argv[3]",
+		"text = open(path, 'r', errors='replace').read().splitlines()[-40:]",
+		"excerpt = '\\n'.join(text)[-2000:]",
+		"excerpt = re.sub(r'(?i)(token|password|secret|authorization)([\"\'=:\\s]+)([^\\s,}\"]+)', r'\\1\\2[REDACTED]', excerpt)",
+		"print(json.dumps({'phase': 'Failed', 'summary': 'Site bootstrap app install failed', 'failed_step': step, 'exit_code': rc, 'error_excerpt': excerpt, 'redacted': True}))",
+		"PY",
+		"  exit \"$rc\"",
+		"}",
+	]
 	site_arg = shlex.quote(str(site_name))
 	for app in apps:
 		app_arg = shlex.quote(str(app))
-		commands.append(f"if bench --site {site_arg} list-apps | grep -qx {app_arg}; then echo 'Skipping already installed app {app}'; else bench --site {site_arg} install-app {app_arg}; fi")
+		commands.append(f"if bench --site {site_arg} list-apps | awk '{{print $1}}' | grep -Fxq {app_arg}; then echo 'Skipping already installed app {app}'; else run_step install-app-{app} bench --site {site_arg} install-app {app_arg}; fi")
 	commands.append(termination)
 	return "\n".join(commands) + "\n"
 
@@ -1086,6 +1272,46 @@ def bench_update_script(summary):
 		"printf '%s\n' '" + json.dumps(summary, separators=(",", ":")) + "' > /dev/termination-log",
 	]
 	return "\n".join(commands) + "\n"
+
+
+def release_runtime_tag(release_group, release):
+	repository = "/".join(filter(None, [(release_group.registry_url or "").rstrip("/"), (release_group.image_repository or "").lstrip("/")]))
+	if not repository or not release.image_tag:
+		frappe.throw(_("Release {0} requires registry/repository and image_tag before Bench upgrade readiness can be checked.").format(release.name))
+	return f"{repository}:{release.image_tag}"
+
+
+def frappebench_initialized_image(resource):
+	return str(((resource.get("status") or {}).get("initializedImage") or "").strip())
+
+
+def wait_for_bench_initialized_image(cluster, namespace, bench, expected_image, timeout_seconds=300):
+	deadline = time.time() + int(timeout_seconds or 300)
+	last_image = ""
+	with get_cluster_client(cluster) as client:
+		while time.time() < deadline:
+			resource = client.get_custom_resource("FrappeBench", namespace, bench.operator_resource_name or bench.name)
+			last_image = frappebench_initialized_image(resource)
+			if last_image == expected_image:
+				return {"initialized_image": last_image, "expected_image": expected_image}
+			time.sleep(5)
+	frappe.throw(_("FrappeBench assets were not initialized for {0}. Last initializedImage: {1}").format(expected_image, last_image or "<empty>"))
+
+
+def verify_bench_site_assets(bench_name, timeout=15):
+	from lenscloud.api.orchestration import check_site_route
+	sites = frappe.get_all(
+		"Site",
+		filters={"bench": bench_name, "site_status": ["not in", ["Deleted", "Deletion Requested", "Deleting"]]},
+		fields=["name", "access_url"],
+		order_by="modified desc",
+		limit=3,
+	)
+	results = []
+	for site in sites:
+		result = check_site_route(site, timeout=timeout, strict_asset=True)
+		results.append({"site": site.name, "route": result})
+	return results
 
 
 def app_aware_job_manifest(name, namespace, labels, annotations, image, script, bench):
@@ -1138,7 +1364,7 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 	if command not in APP_AWARE_COMMANDS:
 		frappe.throw(_("Unsupported app-aware command {0}.").format(command))
 	log = create_action_log(
-		"Bench App Command",
+		"Bench Command",
 		"Pending",
 		site=getattr(site_doc, "name", None),
 		bench=bench.name,
@@ -1166,11 +1392,13 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 		frappe.db.commit()
 		with get_cluster_client(cluster) as client:
 			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
-		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, timeout_value(timeout_seconds))
+		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, app_aware_timeout_value(timeout_seconds))
 		summary = sanitized_termination_summary(pods) or {"phase": phase, "summary": f"{command} finished with {phase}", "redacted": True}
 		deleted = cleanup_command_resources(cluster, namespace, job_name, None)
 		message = f"App-aware command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
-		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message)
+		status = "Succeeded" if phase == "Succeeded" else "Failed"
+		error = None if status == "Succeeded" else (sanitized_status_summary(summary) or message)
+		finish_action_log(log, status, message, error=error)
 		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message}
 	except Exception as exc:
 		if job_name:
@@ -1181,6 +1409,18 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 		finish_action_log(log, "Failed", error=exc, message=f"App-aware command {command} failed.")
 		frappe.db.commit()
 		frappe.throw(_("{0} Action log: {1}.").format(sanitize_error(exc), log.name))
+
+
+@frappe.whitelist()
+def run_site_setup_complete(site, args=None, timeout_seconds=900, enforce_permissions=True):
+	if enforce_permissions:
+		frappe.only_for("System Manager")
+	site_doc, bench, cluster, namespace, _subscription, _policy = validate_site_target(site)
+	clean_args = command_args("site_setup.complete", args)
+	image, _release, _release_group = release_runtime_image(bench.current_release)
+	summary = {"phase": "Succeeded", "command": "site_setup.complete", "summary": "Site setup completion succeeded", "site": site_doc.name, "redacted": True}
+	script = site_setup_complete_script(site_doc.name, clean_args, summary)
+	return run_app_aware_job("site_setup.complete", cluster, namespace, bench, image, script, site_doc=site_doc, timeout_seconds=timeout_seconds, message=f"Complete setup for Site {site_doc.name} using the Release runtime image.")
 
 
 @frappe.whitelist()
@@ -1248,19 +1488,24 @@ def run_bench_update(bench, timeout_seconds=1800):
 	namespace = default_runtime_namespace(cluster)
 	if bench_doc.kubernetes_namespace:
 		namespace = frappe.db.get_value("Runtime Namespace", bench_doc.kubernetes_namespace, "namespace") or namespace
-	image, release, _release_group = release_runtime_image(bench_doc.next_release)
+	image, release, release_group = release_runtime_image(bench_doc.next_release)
+	expected_initialized_image = release_runtime_tag(release_group, release)
 	summary = {"phase": "Succeeded", "summary": "Bench update completed", "target_release": release.name, "operation": "bench --site all maintenance/pause/migrate", "redacted": True}
 	result = run_app_aware_job("bench.update", cluster, namespace, bench_doc, image, bench_update_script(summary), timeout_seconds=timeout_seconds, message=f"Update Bench {bench_doc.name} to {release.name}.")
 	if result.get("status") == "Succeeded":
 		bench_doc.current_release = bench_doc.next_release
 		bench_doc.next_release = None
+		bench_doc.upgrade_sop_status = "Runtime Reconciling"
+		bench_doc.bench_status = "Updating"
+		bench_doc.save(ignore_permissions=True)
+		from lenscloud.api.orchestration import reconcile_bench
+		reconcile_bench(bench_doc.name, dry_run=False)
+		initialized = wait_for_bench_initialized_image(cluster, namespace, bench_doc, expected_initialized_image)
+		assets = verify_bench_site_assets(bench_doc.name)
 		bench_doc.upgrade_sop_status = "Completed"
 		bench_doc.bench_status = "Ready"
 		bench_doc.save(ignore_permissions=True)
-		try:
-			from lenscloud.api.orchestration import reconcile_bench
-			reconcile_bench(bench_doc.name, dry_run=False)
-		except Exception as exc:
-			result["runtime_reconcile_warning"] = sanitize_error(exc)
+		result["initialized_image"] = initialized
+		result["asset_checks"] = assets
 		frappe.db.commit()
 	return result

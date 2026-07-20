@@ -248,12 +248,15 @@ Run this only after the common preflight and both UI segments pass.
 4. Watch Platform action logs and customer progress until the Site reaches a terminal ready or failed state.
 5. Verify the ready Site:
 
-5a. Verify bootstrap app install:
+5a. Verify bootstrap app install and customer-visible stage cadence:
    - before site setup completion, Platform creates a `site_bootstrap.install_apps` action when Release Group apps are marked Install At Site Creation;
    - the action excludes `frappe`;
    - apps are rendered in install sequence;
    - retry skips already-installed apps and fails on real install errors;
-   - Site setup (`site_setup.status` / `site_setup.complete`) runs only after bootstrap install has succeeded or there are no bootstrap apps.
+   - a customer progress poll advances at most one major backend gate: workspace/route, bootstrap install, setup status, setup completion, final setup status, OAuth status/configure;
+   - Site setup (`site_setup.status` / `site_setup.complete`) runs only after bootstrap install has succeeded or there are no bootstrap apps;
+   - failed `site_setup.status` leaves Site setup in a terminal Failed state until an explicit Retry, and background/status polling must not loop;
+   - generic runner commands such as `site_setup.status` mount only the Bench `sites` PVC at `/home/frappe/frappe-bench/sites` with `subPath: frappe-sites`; they must not mount `/home/frappe/frappe-bench/sites/assets`.
 5b. Verify Site Capability State remains read-only and reflects Capability fulfillment/sync evidence only.
    - HTTPS route responds;
    - static asset returns HTTP 200;

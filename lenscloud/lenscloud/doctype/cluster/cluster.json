@@ -43,7 +43,13 @@
   "health_status",
   "last_sync_time",
   "column_break_tvwl",
-  "last_error"
+  "last_error",
+  "bench_command_runner_section",
+  "bench_command_runner_image",
+  "bench_command_runner_contract_status",
+  "bench_command_runner_contract_checked_on",
+  "column_break_runner_contract",
+  "bench_command_runner_contract_error"
  ],
  "fields": [
   {
@@ -258,6 +264,41 @@
   {
    "fieldname": "column_break_tvwl",
    "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bench_command_runner_section",
+   "fieldtype": "Section Break",
+   "label": "Bench Command Runner Contract"
+  },
+  {
+   "fieldname": "bench_command_runner_image",
+   "fieldtype": "Data",
+   "label": "Bench Command Runner Image",
+   "read_only": 1
+  },
+  {
+   "default": "Unknown",
+   "fieldname": "bench_command_runner_contract_status",
+   "fieldtype": "Select",
+   "label": "Runner Contract Status",
+   "options": "Unknown\nSynced\nFailed",
+   "read_only": 1
+  },
+  {
+   "fieldname": "bench_command_runner_contract_checked_on",
+   "fieldtype": "Datetime",
+   "label": "Runner Contract Checked On",
+   "read_only": 1
+  },
+  {
+   "fieldname": "column_break_runner_contract",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "bench_command_runner_contract_error",
+   "fieldtype": "Small Text",
+   "label": "Runner Contract Error",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
@@ -289,7 +330,7 @@
    "link_fieldname": "cluster"
   }
  ],
- "modified": "2026-06-23 12:44:31.366099",
+ "modified": "2026-07-19 00:00:00.000000",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Cluster",

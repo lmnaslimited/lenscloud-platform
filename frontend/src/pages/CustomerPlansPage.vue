@@ -88,8 +88,9 @@ const readySiteUrl = computed(() => {
 const provisioningMode = computed(() => result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
 const resultStarted = computed(() => ['started', 'route_pending', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
 const resultPaused = computed(() => provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run')
-const resultFailed = computed(() => provisioningMode.value === 'failed' || provisioningMode.value === 'oauth_failed')
+const resultFailed = computed(() => provisioningMode.value === 'failed' || provisioningMode.value === 'bootstrap_failed' || provisioningMode.value === 'oauth_failed')
 const resultSetupRequired = computed(() => provisioningMode.value === 'setup_required')
+const resultBootstrapStatus = computed(() => result.value?.bootstrap_status || resultSite.value?.bootstrap_status || '')
 const resultReady = computed(() => provisioningMode.value === 'ready')
 const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value)))
 const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && resultStarted.value && !resultReady.value && !resultFailed.value && !resultSetupRequired.value))
@@ -122,9 +123,13 @@ const rawProvisioningSteps = computed(() => {
 	const routeReady = Boolean(resultRouteReady.value)
 	const routeFailed = Boolean(result.value?.route_status === 'Failed' || resultSite.value?.route_status === 'Failed')
 	const setupStatus = result.value?.setup_status || resultSite.value?.setup_status || 'Not Checked'
+	const setupError = result.value?.setup_error || resultSite.value?.setup_error || ''
+	const bootstrapStatus = resultBootstrapStatus.value
 	const setupDone = setupStatus === 'Complete' || resultReady.value
 	const setupBlocked = setupStatus === 'Blocked' || resultSetupRequired.value
-	const setupFailed = setupStatus === 'Failed' || (provisioningMode.value === 'failed' && routeReady)
+	const bootstrapFailed = bootstrapStatus === 'Failed' || provisioningMode.value === 'bootstrap_failed' || /bootstrap app install failed/i.test(setupError)
+	const bootstrapDone = !bootstrapFailed && (bootstrapStatus === 'Succeeded' || setupStatus === 'Complete' || ['Required', 'Running', 'Blocked'].includes(setupStatus) || ['setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
+	const setupFailed = !bootstrapFailed && (setupStatus === 'Failed' || (provisioningMode.value === 'failed' && routeReady))
 	const setupRunning = provisioningMode.value === 'setup_running' || setupStatus === 'Required'
 	const setupChecking = provisioningMode.value === 'setup_checking'
 	const oauthStatus = resultOauthStatus.value
@@ -136,7 +141,8 @@ const rawProvisioningSteps = computed(() => {
 		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
 		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
-		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || routeReady ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after secure access is ready.' },
+		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : routeReady ? 'LensCloud is installing the default apps for this Site.' : 'This starts after secure access is ready.' },
+		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || (routeReady && bootstrapDone) ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after default apps are installed.' },
 		{ label: 'Setting site defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Site defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Site needs first-time setup.' },
 		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Site.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Site defaults are applied.' },
 		{ label: 'Ready to open', state: resultReady.value ? 'done' : oauthDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Site is ready to open.' : oauthDone ? 'LensCloud is publishing the Open Site action.' : 'We will show the Open Site action when access is verified.' },
@@ -162,7 +168,10 @@ const provisioningSteps = computed(() => {
 	const targetIndex = targetProvisioningIndex.value
 	return steps.map((item, index) => {
 		if (!result.value?.site) return item
-		if (index < visualProvisioningIndex.value) return { ...item, state: 'done' }
+		if (index < visualProvisioningIndex.value) {
+			if (['failed', 'paused'].includes(item.state)) return item
+			return { ...item, state: 'done' }
+		}
 		if (index > visualProvisioningIndex.value) return { ...item, state: 'pending' }
 		if (['failed', 'paused'].includes(item.state)) return item
 		if (item.state === 'done' && visualProvisioningIndex.value < targetIndex) return { ...item, state: 'active' }
@@ -229,7 +238,8 @@ function dismissSetupDialog() {
 function progressResultFromSite(site, subscription = null) {
 	if (!site) return null
 	let provisioning = 'started'
-	if (site.provisioning_status === 'Failed' || site.site_status === 'Failed' || site.route_status === 'Failed' || site.setup_status === 'Failed') provisioning = 'failed'
+	if (site.bootstrap_status === 'Failed' || /bootstrap app install failed/i.test(site.setup_error || '')) provisioning = 'bootstrap_failed'
+	else if (site.provisioning_status === 'Failed' || site.site_status === 'Failed' || site.route_status === 'Failed' || site.setup_status === 'Failed') provisioning = 'failed'
 	else if (site.oauth_status === 'Failed') provisioning = 'oauth_failed'
 	else if (site.setup_status === 'Blocked') provisioning = 'setup_required'
 	else if (site.route_status === 'Ready' && site.access_url && site.setup_status === 'Complete' && oauthConfiguredStatuses.has(site.oauth_status)) provisioning = 'ready'
@@ -254,8 +264,9 @@ function progressResultFromSite(site, subscription = null) {
 		setup_error: site.setup_error,
 		oauth_status: site.oauth_status,
 		oauth_error: site.oauth_error,
+		bootstrap_status: site.bootstrap_status,
 		provisioning,
-		retry_available: ['paused', 'failed', 'oauth_failed', 'started', 'route_pending', 'setup_required', 'setup_checking', 'setup_running', 'oauth_checking', 'oauth_configuring'].includes(provisioning),
+		retry_available: ['paused', 'failed', 'bootstrap_failed', 'oauth_failed', 'started', 'route_pending', 'setup_required', 'setup_checking', 'setup_running', 'oauth_checking', 'oauth_configuring'].includes(provisioning),
 	}
 }
 
@@ -558,7 +569,7 @@ async function retrySetup() {
 	submitting.value = true
 	error.value = ''
 	try {
-		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site }, 'POST')
+		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site, force: true }, 'POST')
 		result.value = response.message || response
 		step.value = 'result'
 		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
