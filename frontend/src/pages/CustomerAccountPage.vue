@@ -155,19 +155,19 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 					<div class="rounded-2xl border border-[#EDEDED] bg-white p-6 lg:p-8">
 						<div class="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-center">
 							<div>
-								<div class="inline-flex items-center gap-2 rounded-full border border-[#cad3ff] bg-[#dce1ff] px-3 py-1 text-xs font-semibold text-[#0039b5]">
+								<div class="inline-flex items-center gap-2 rounded-full border border-primary bg-surface-gray-4 px-3 py-1 text-xs font-semibold text-primary">
 									<ShieldCheck class="size-3.5" />
 									Your LensCloud Identity
 								</div>
 								<h2 class="mt-5 text-[28px] font-bold leading-9 text-[#191c1e] lg:text-[34px] lg:leading-[42px]">This is where your team learns to trust the platform.</h2>
 								<p class="mt-4 max-w-2xl text-sm leading-6 text-[#505f76]">Account keeps identity, organization, and access clear. Dashboard stays focused on your service journey; Subscriptions carries setup progress.</p>
 								<div class="mt-6 flex flex-wrap gap-3">
-									<RouterLink to="/customer/subscriptions" class="inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0037b0]"><span>View Subscriptions</span><ExternalLink class="size-4 shrink-0" /></RouterLink>
+									<RouterLink to="/customer/subscriptions" class="inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-secondary"><span>View Subscriptions</span><ExternalLink class="size-4 shrink-0" /></RouterLink>
 									<RouterLink to="/customer/plans" class="inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#f2f4f6] px-4 py-2 text-sm font-semibold text-[#434655] transition hover:bg-[#e8ecf1]"><span>Add New Subscription</span></RouterLink>
 								</div>
 							</div>
 							<div class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5 text-center">
-								<div class="mx-auto grid size-16 place-items-center rounded-2xl bg-[#1D4ED8] text-2xl font-bold text-white">{{ accountInitial }}</div>
+								<div class="mx-auto grid size-16 place-items-center rounded-2xl bg-primary text-2xl font-bold text-white">{{ accountInitial }}</div>
 								<h3 class="mt-4 text-lg font-semibold text-[#191c1e]">{{ displayName }}</h3>
 								<p class="mt-1 break-all text-sm text-[#64748B]">{{ session.user }}</p>
 								<Badge class="mt-4" :class="membershipPending ? 'bg-amber-50 text-amber-700' : customer ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700'">{{ accountStatus }}</Badge>
@@ -176,10 +176,10 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 					</div>
 
 					<div class="grid gap-3 md:grid-cols-4">
-						<component :is="card.route ? RouterLink : 'div'" v-for="card in trustCards" :key="card.label" :to="card.route" class="rounded-xl border border-[#EDEDED] bg-white p-4 transition" :class="card.route ? 'hover:border-[#1D4ED8] hover:bg-[#f7f9fb]' : ''">
+						<component :is="card.route ? RouterLink : 'div'" v-for="card in trustCards" :key="card.label" :to="card.route" class="rounded-xl border border-[#EDEDED] bg-white p-4 transition" :class="card.route ? 'hover:border-primary hover:bg-[#f7f9fb]' : ''">
 							<div class="flex items-center justify-between gap-3">
 								<p class="text-xs font-semibold text-[#64748B]">{{ card.label }}</p>
-								<component :is="card.icon" class="size-4" :class="card.tone === 'green' ? 'text-emerald-600' : card.tone === 'amber' ? 'text-amber-600' : 'text-[#1D4ED8]'" />
+								<component :is="card.icon" class="size-4" :class="card.tone === 'green' ? 'text-emerald-600' : card.tone === 'amber' ? 'text-amber-600' : 'text-primary'" />
 							</div>
 							<p class="mt-3 truncate text-sm font-semibold text-[#191c1e]">{{ card.value }}</p>
 						</component>
@@ -208,9 +208,9 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 							<h3 class="mt-2 text-lg font-semibold text-[#191c1e]">Central User Access</h3>
 							<p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud Platform will be the access home for your team. You will sign in here, invite users here, and reach Sites through platform-governed access.</p>
 							<div class="mt-5 space-y-3">
-								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LockKeyhole class="mt-0.5 size-4 text-[#1D4ED8]" /><div><p class="text-sm font-semibold text-[#191c1e]">Site Access Is Platform-Managed</p><p class="text-xs leading-5 text-[#64748B]">Customers should not manage users independently inside each Site.</p></div></div>
-								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><UsersRound class="mt-0.5 size-4 text-[#1D4ED8]" /><div><p class="text-sm font-semibold text-[#191c1e]">Team Invites</p><p class="text-xs leading-5 text-[#64748B]">Coming soon: invite users, assign customer roles, and audit access.</p></div></div>
-								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LifeBuoy class="mt-0.5 size-4 text-[#1D4ED8]" /><div><p class="text-sm font-semibold text-[#191c1e]">Support And Billing Contacts</p><p class="text-xs leading-5 text-[#64748B]">{{ settings.support_system || 'Support' }} and {{ settings.billing_system || 'billing' }} details will connect here as external systems mature.</p></div></div>
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LockKeyhole class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Site Access Is Platform-Managed</p><p class="text-xs leading-5 text-[#64748B]">Customers should not manage users independently inside each Site.</p></div></div>
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><UsersRound class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Team Invites</p><p class="text-xs leading-5 text-[#64748B]">Coming soon: invite users, assign customer roles, and audit access.</p></div></div>
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LifeBuoy class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Support And Billing Contacts</p><p class="text-xs leading-5 text-[#64748B]">{{ settings.support_system || 'Support' }} and {{ settings.billing_system || 'billing' }} details will connect here as external systems mature.</p></div></div>
 							</div>
 						</section>
 					</div>

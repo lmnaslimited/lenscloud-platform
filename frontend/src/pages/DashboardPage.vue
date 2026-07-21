@@ -6,6 +6,7 @@ import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLi
 import { callMethod } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
+import posthog from 'posthog-js'
 
 const props = defineProps({ scope: { type: String, required: true } })
 const session = useSessionStore()
@@ -28,7 +29,13 @@ async function loadCustomer() {
 
 async function load() {
 	loading.value = true; error.value = ''
-	try { await (props.scope === 'platform' ? loadPlatform() : loadCustomer()) }
+	try { await (props.scope === 'platform' ? loadPlatform() : loadCustomer()) 
+	posthog.capture('dashboard_viewed', {
+            scope: props.scope,
+            has_subscription: hasSubscription.value,
+            onboarding_step: onboardingStep.value,
+        })
+	}
 	catch (err) { error.value = err?.message || 'Unable to load dashboard.' }
 	finally { loading.value = false }
 }
@@ -108,7 +115,12 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 						<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
 							<h2 class="text-base font-semibold text-ink-gray-9">Action required</h2>
 							<div class="mt-3 divide-y divide-outline-gray-1">
-								<RouterLink v-for="item in actionItems" :key="item.label" :to="item.route" class="flex items-center justify-between py-2 text-sm hover:text-ink-gray-9"><span class="text-ink-gray-6">{{ item.label }}</span><Badge :class="item.value ? 'bg-red-50 text-red-700' : 'bg-surface-gray-1 text-ink-gray-6'">{{ item.value }}</Badge></RouterLink>
+								<RouterLink v-for="item in actionItems" :key="item.label" :to="item.route" class="flex items-center justify-between py-2 text-sm hover:text-ink-gray-9"
+								@click="posthog.capture('platform_action_opened', {
+									action_type: item.label,
+									count: item.value
+								})">
+								<span class="text-ink-gray-6">{{ item.label }}</span><Badge :class="item.value ? 'bg-red-50 text-red-700' : 'bg-surface-gray-1 text-ink-gray-6'">{{ item.value }}</Badge></RouterLink>
 							</div>
 						</div>
 						<div class="rounded border border-outline-gray-2 bg-surface-white p-4">
@@ -123,17 +135,20 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 						<div class="grid gap-8 lg:grid-cols-[1fr_340px] lg:items-center">
 							<div>
 								<div class="mb-8 flex items-center gap-3">
-									<div class="grid size-9 place-items-center rounded-lg bg-[#1D4ED8] text-white"><Sparkles class="size-4" /></div>
-									<span class="text-lg font-bold text-[#1D4ED8]">LensCloud</span>
+									<div class="grid size-9 place-items-center rounded-lg bg-primary text-white"><Sparkles class="size-4" /></div>
+									<span class="text-lg font-bold text-primary">LensCloud</span>
 								</div>
-								<div class="inline-flex items-center gap-2 rounded-full border border-[#cad3ff] bg-[#dce1ff] px-3 py-1 text-xs font-semibold text-[#0039b5]">
+								<div class="inline-flex items-center gap-2 rounded-full border border-[#cad3ff] bg-surface-gray-4 px-3 py-1 text-xs font-semibold text-primary">
 									<CheckCircle2 class="size-3.5" />
 									Account ready
 								</div>
 								<h2 class="mt-5 max-w-2xl text-[28px] font-bold leading-[36px] text-[#191c1e] lg:text-[36px] lg:leading-[44px]">Launch your first LensCloud workspace in a guided flow</h2>
 								<p class="mt-4 max-w-xl text-base leading-6 text-[#505f76]">Choose the Free Plan, confirm your ₹0 subscription, and LensCloud will prepare your Site. You will always know the next step.</p>
 								<div class="mt-7 flex flex-col gap-3 sm:flex-row">
-									<RouterLink to="/customer/plans" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2 active:scale-[0.99]">
+									<RouterLink to="/customer/plans" class="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-secondary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 active:scale-[0.99]"
+									@click="posthog.capture('first_plan_selection_started', {
+										source: 'dashboard'
+									})">
 										Choose a Plan
 										<ArrowRight class="size-4" />
 									</RouterLink>
@@ -149,7 +164,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 										{ label: 'Prepare Site', detail: 'Track setup progress here' },
 										{ label: 'Open Site', detail: 'Access when ready' },
 									]" :key="item.label" class="flex gap-3 rounded-lg border border-[#EDEDED] bg-white p-3">
-										<div class="grid size-8 shrink-0 place-items-center rounded-full" :class="index === 0 ? 'bg-[#1D4ED8] text-white' : 'bg-[#dce1ff] text-[#0039b5]'">{{ index + 1 }}</div>
+										<div class="grid size-8 shrink-0 place-items-center rounded-full" :class="index === 0 ? 'bg-primary text-white' : 'bg-surface-gray-4 text-primary'">{{ index + 1 }}</div>
 										<div><p class="text-sm font-semibold text-[#191c1e]">{{ item.label }}</p><p class="text-xs leading-5 text-[#64748B]">{{ item.detail }}</p></div>
 									</div>
 								</div>
@@ -165,19 +180,35 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 									<h2 class="mt-4 text-[24px] font-semibold leading-8 text-[#191c1e]">{{ activeSite ? 'Your LensCloud Site is on its way' : 'Your subscription is active' }}</h2>
 									<p class="mt-3 max-w-xl text-sm leading-6 text-[#505f76]">{{ activeSite ? 'Follow setup progress and open your Site as soon as it is ready.' : 'Your service subscription is ready. Start or review your Site setup from here.' }}</p>
 									<div class="mt-6 flex flex-col gap-3 sm:flex-row">
-										<a v-if="activeSite && ['Ready','Active'].includes(activeSite.site_status) && activeSite.access_url" :href="activeSite.access_url" target="_blank" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/2 focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+										<a v-if="activeSite && ['Ready','Active'].includes(activeSite.site_status) && activeSite.access_url" :href="activeSite.access_url" target="_blank" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary/2 focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2"
+										@click="posthog.capture('workspace_opened', {
+											site_name: activeSite.name,
+											site_status: activeSite.site_status,
+											plan: selectedSubscription?.plan
+										})">
 											Open Site
 											<ExternalLink class="size-4" />
 										</a>
-										<RouterLink v-else-if="activeSite" :to="`/customer/plans?site=${encodeURIComponent(activeSite.name)}&subscription=${encodeURIComponent(activeSite.subscription || '')}`" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+										<RouterLink v-else-if="activeSite" :to="`/customer/plans?site=${encodeURIComponent(activeSite.name)}&subscription=${encodeURIComponent(activeSite.subscription || '')}`" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2"
+										@click="posthog.capture('provisioning_progress_viewed', {
+											site_name: activeSite.name,
+											site_status: activeSite.site_status
+										})">
 											View provisioning progress
 											<ArrowRight class="size-4" />
 										</RouterLink>
-										<RouterLink v-else to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2">
+										<RouterLink v-else to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2"
+										@click="posthog.capture('onboarding_continued', {
+											onboarding_step,
+											subscription_status: selectedSubscription?.status
+										})">
 											Continue setup
 											<ArrowRight class="size-4" />
 										</RouterLink>
-										<RouterLink to="/customer/plans" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-5 py-3 text-sm font-semibold text-[#505f76] transition hover:bg-[#f2f4f6]">Add New Subscription</RouterLink>
+										<RouterLink to="/customer/plans" class="inline-flex min-h-11 items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-5 py-3 text-sm font-semibold text-[#505f76] transition hover:bg-[#f2f4f6]"
+										@click="posthog.capture('additional_subscription_started', {
+											current_subscription_count: customerUsage.subscriptions
+										})">Add New Subscription</RouterLink>
 									</div>
 								</div>
 								<div class="grid grid-cols-3 gap-2 text-center">

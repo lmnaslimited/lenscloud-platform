@@ -20,7 +20,7 @@ import {
 } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
- import posthog from 'posthog-js'
+import posthog from 'posthog-js'
 
 const route = useRoute()
 const router = useRouter()
@@ -593,6 +593,7 @@ onMounted(async () => {
 	await load()
 	startProgressPolling()
 	advanceVisualProvisioningIndex()
+	posthog.capture('plans_viewed')
 })
 onBeforeUnmount(() => {
 	stopProgressPolling()
@@ -669,7 +670,7 @@ onBeforeUnmount(() => {
 								</div>
 
 								<div v-else class="grid items-stretch gap-4 lg:grid-cols-3">
-									<article v-for="plan in visiblePlans" :key="plan.name" :aria-disabled="planDisabled(plan)" class="relative flex min-h-[430px] flex-col rounded-2xl border p-5 transition" :class="[plan.is_default ? 'order-first lg:order-none' : '', planDisabled(plan) ? 'cursor-not-allowed border-[#EDEDED] bg-[#f2f4f6] opacity-70' : selectedPlanRecord?.name === plan.name ? 'cursor-pointer border-[#1D4ED8] bg-white shadow-[0_12px_30px_rgba(29,78,216,0.12)] ring-2 ring-[#dce1ff] hover:-translate-y-0.5' : plan.is_default ? 'cursor-pointer border-[#1D4ED8] bg-white hover:-translate-y-0.5' : 'cursor-pointer border-[#EDEDED] bg-[#f2f4f6] hover:-translate-y-0.5']" @click="!planDisabled(plan) && selectPlan(plan)">
+									<article v-for="plan in visiblePlans" :key="plan.name" :aria-disabled="planDisabled(plan)" class="relative flex min-h-[430px] flex-col rounded-2xl border p-5 transition" :class="[plan.is_default ? 'order-first lg:order-none' : '', planDisabled(plan) ? 'cursor-not-allowed border-[#EDEDED] bg-[#f2f4f6] opacity-70' : selectedPlanRecord?.name === plan.name ? 'cursor-pointer border-primary bg-white shadow-[0_12px_30px_rgba(29,78,216,0.12)] hover:-translate-y-0.5' : plan.is_default ? 'cursor-pointer border-primary bg-white hover:-translate-y-0.5' : 'cursor-pointer border-[#EDEDED] bg-[#f2f4f6] hover:-translate-y-0.5']" @click="!planDisabled(plan) && selectPlan(plan)">
 										<div v-if="plan.is_default" class="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-primary px-3 py-1 text-xs font-semibold text-white shadow-sm">Recommended</div>
 										<div class="flex items-start justify-between gap-3">
 											<div>
@@ -695,7 +696,14 @@ onBeforeUnmount(() => {
 											</li>
 										</ul>
 
-										<button class="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2" :disabled="planDisabled(plan)" :class="selectedPlanRecord?.name === plan.name && !planDisabled(plan) ? 'bg-[#1D4ED8] text-white hover:bg-[#0037b0]' : 'border border-[#EDEDED] bg-white text-[#505f76] hover:bg-white'" @click.stop="selectedPlanRecord?.name === plan.name ? continueFromPlan() : selectPlan(plan)">
+										<button class="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" :disabled="planDisabled(plan)" :class="selectedPlanRecord?.name === plan.name && !planDisabled(plan) ? 'bg-primary text-white hover:bg-peimary' : 'border border-[#EDEDED] bg-white text-[#505f76] hover:bg-white'" @click.stop="selectedPlanRecord?.name === plan.name ? continueFromPlan() : selectPlan(plan)"
+										@click="
+											posthog.capture('plan_selected', {
+												plan: plan.name,
+												billing_cycle
+											});
+											selectPlan(plan);
+    ">
 											{{ selectedPlanRecord?.name === plan.name ? planCtaLabel(plan) : 'Choose Plan' }}
 											<Send v-if="selectedPlanRecord?.name === plan.name && plan.cta_mode === 'request_access'" class="size-4" />
 											<CheckCircle2 v-else-if="selectedPlanRecord?.name === plan.name" class="size-4" />
@@ -758,7 +766,7 @@ onBeforeUnmount(() => {
 
 									<div class="flex flex-col items-center justify-between gap-4 bg-gray-50 px-8 py-6 sm:flex-row">
 										<button class="w-full rounded-md border border-gray-300 bg-white px-16 py-2.5 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 sm:w-auto" @click="step = 'choose'">Back</button>
-										<button class="w-full rounded-md border border-transparent bg-blue-500 px-16 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-blue-600 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto" :disabled="!setupComplete" @click="goToCheckout">Continue to Review</button>
+										<button class="w-full rounded-md border border-transparent bg-secondary px-16 py-2.5 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto" :disabled="!setupComplete" @click="goToCheckout">Continue to Review</button>
 									</div>
 								</div>
 							</div>
@@ -878,7 +886,7 @@ onBeforeUnmount(() => {
 					<p class="text-sm font-semibold text-ink-gray-9">Launch Progress</p>
 					<div class="mt-4 space-y-3">
 						<div v-for="(item, index) in flowSteps" :key="item.key" class="flex gap-3">
-							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="flowStepState(index) === 'done' ? 'bg-emerald-500 text-white' : ['active', 'current'].includes(flowStepState(index)) ? 'bg-[#1D4ED8] text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
+							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="flowStepState(index) === 'done' ? 'bg-emerald-500 text-white' : ['active', 'current'].includes(flowStepState(index)) ? 'bg-primary text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
 								<CheckCircle2 v-if="flowStepState(index) === 'done'" class="size-4 text-ink-green-5" />
 								<RefreshCcw v-else-if="flowStepState(index) === 'active'" class="size-4 animate-spin text-ink-green-5" />
 								<Clock3 v-else class="size-4" />
