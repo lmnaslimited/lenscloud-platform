@@ -1,0 +1,168 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "field:message_id",
+ "creation": "2026-07-20 00:00:00",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "message_id",
+  "message_type",
+  "status",
+  "revision",
+  "source",
+  "destination",
+  "action_type",
+  "operation",
+  "short_text",
+  "message_template",
+  "long_text",
+  "cause",
+  "customer_resolution",
+  "platform_resolution",
+  "infra_resolution",
+  "retryability",
+  "resolution_owner",
+  "sanitization_level"
+ ],
+ "fields": [
+  {
+   "fieldname": "message_id",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Message ID",
+   "reqd": 1,
+   "unique": 1
+  },
+  {
+   "fieldname": "message_type",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Message Type",
+   "options": "Success\nInfo\nWarning\nError\nCritical",
+   "reqd": 1
+  },
+  {
+   "default": "Draft",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Status",
+   "options": "Draft\nActive\nRetired",
+   "reqd": 1
+  },
+  {
+   "default": "1",
+   "fieldname": "revision",
+   "fieldtype": "Int",
+   "label": "Revision",
+   "reqd": 1
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "Platform API\nPlatform UI\nInfra\nOperator\nRunner\nKubernetes\nCustomer",
+   "reqd": 1
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Data",
+   "label": "Destination",
+   "reqd": 1
+  },
+  {
+   "fieldname": "action_type",
+   "fieldtype": "Data",
+   "label": "Action Type"
+  },
+  {
+   "fieldname": "operation",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Operation"
+  },
+  {
+   "fieldname": "short_text",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Short Text",
+   "reqd": 1
+  },
+  {
+   "fieldname": "message_template",
+   "fieldtype": "Text",
+   "label": "Message Template",
+   "reqd": 1
+  },
+  {
+   "fieldname": "long_text",
+   "fieldtype": "Text",
+   "label": "Long Text"
+  },
+  {
+   "fieldname": "cause",
+   "fieldtype": "Text",
+   "label": "Cause"
+  },
+  {
+   "fieldname": "customer_resolution",
+   "fieldtype": "Text",
+   "label": "Customer Resolution"
+  },
+  {
+   "fieldname": "platform_resolution",
+   "fieldtype": "Text",
+   "label": "Platform Resolution"
+  },
+  {
+   "fieldname": "infra_resolution",
+   "fieldtype": "Text",
+   "label": "Infra Resolution"
+  },
+  {
+   "fieldname": "retryability",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Retryability",
+   "options": "Retryable\nRetry After Delay\nRetry After Platform Action\nRetry After Infra Action\nCustomer Action Required\nNot Retryable",
+   "reqd": 1
+  },
+  {
+   "fieldname": "resolution_owner",
+   "fieldtype": "Select",
+   "in_list_view": 1,
+   "label": "Resolution Owner",
+   "options": "Customer\nPlatform\nInfra",
+   "reqd": 1
+  },
+  {
+   "fieldname": "sanitization_level",
+   "fieldtype": "Select",
+   "label": "Sanitization Level",
+   "options": "Customer Safe\nOperator Safe\nRestricted",
+   "reqd": 1
+  }
+ ],
+ "modified": "2026-07-20 00:00:00",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "LensCloud Message",
+ "naming_rule": "By fieldname",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "write": 1
+  }
+ ],
+ "sort_field": "message_id",
+ "sort_order": "ASC",
+ "states": []
+}

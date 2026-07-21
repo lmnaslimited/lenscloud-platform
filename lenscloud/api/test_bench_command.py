@@ -338,8 +338,11 @@ class BenchCommandContractTest(unittest.TestCase):
 			{"language": "English", "email": "owner@example.test", "full_name": "Owner", "country": "India", "timezone": "Asia/Kolkata", "currency": "INR"},
 			{"phase": "Succeeded", "command": "site_setup.complete", "redacted": True},
 		)
-		self.assertIn("frappe.desk.page.setup_wizard.setup_wizard.setup_complete", script)
+		self.assertIn("from frappe.desk.page.setup_wizard.setup_wizard import setup_complete", script)
 		self.assertIn("--site site.example.test", script)
+		self.assertIn("frappe.flags.in_install = True", script)
+		self.assertIn("/tmp/site-setup-complete.py", script)
+		self.assertIn("execute", script)
 		self.assertIn("/dev/termination-log", script)
 		self.assertIn("Site setup completion failed", script)
 
@@ -395,6 +398,21 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertIsNone(bench_command.safe_command_display({"display": {"label": "Token", "value": "secret", "safe": False}}))
 		self.assertIsNone(bench_command.safe_command_display({"details": {"key": "maintenance_mode", "value": 1}}))
 		self.assertIn("code: COMMAND_UNSUPPORTED", bench_command.sanitized_status_summary({"phase": "Unsupported", "code": "COMMAND_UNSUPPORTED", "summary": "No runner"}))
+
+	def test_termination_summary_parses_json_before_sanitizing(self):
+		message = json.dumps({
+			"phase": "Failed",
+			"summary": "Site setup completion failed",
+			"error_excerpt": "line one\n" + ("x" * 2400) + " password: supersecret final cause",
+			"redacted": True,
+		})
+		pods = [{"status": {"containerStatuses": [{"state": {"terminated": {"exitCode": 1, "message": message}}}]}}]
+		summary = bench_command.sanitized_termination_summary(pods)
+		self.assertEqual(summary["phase"], "Failed")
+		self.assertIn("error_excerpt", summary)
+		self.assertIn("[REDACTED]", summary["error_excerpt"])
+		self.assertIn("final cause", summary["error_excerpt"])
+		self.assertLessEqual(len(summary["error_excerpt"]), 2000)
 
 	def test_remaining_families_stay_unsupported(self):
 		for command in ("backup.create", "restore.preview", "restore.execute", "restore.status", "bench_test.trigger", "latp.trigger", "latp.status", "user.ensure", "user.disable", "user.roles.set", "site_access.status"):

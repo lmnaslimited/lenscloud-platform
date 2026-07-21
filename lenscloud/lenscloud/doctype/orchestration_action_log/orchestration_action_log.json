@@ -19,6 +19,18 @@
   "resource_kind",
   "operation",
   "last_transition_time",
+  "message_id",
+  "message_type",
+  "source",
+  "destination",
+  "message_params_json",
+  "normalized_signature",
+  "matched_by",
+  "match_confidence",
+  "customer_message",
+  "operator_message",
+  "resolution_owner",
+  "retryability",
   "operator_namespace",
   "operator_resource_name",
   "manifest",
@@ -128,6 +140,73 @@
    "fieldname": "last_transition_time",
    "fieldtype": "Datetime",
    "label": "Last Transition Time"
+  },
+  {
+   "fieldname": "message_id",
+   "fieldtype": "Link",
+   "label": "Message ID",
+   "options": "LensCloud Message",
+   "in_list_view": 1
+  },
+  {
+   "fieldname": "message_type",
+   "fieldtype": "Select",
+   "label": "Message Type",
+   "options": "Success\nInfo\nWarning\nError\nCritical"
+  },
+  {
+   "fieldname": "source",
+   "fieldtype": "Data",
+   "label": "Message Source"
+  },
+  {
+   "fieldname": "destination",
+   "fieldtype": "Data",
+   "label": "Message Destination"
+  },
+  {
+   "fieldname": "message_params_json",
+   "fieldtype": "Code",
+   "label": "Message Params JSON",
+   "options": "JSON"
+  },
+  {
+   "fieldname": "normalized_signature",
+   "fieldtype": "Data",
+   "label": "Normalized Signature"
+  },
+  {
+   "fieldname": "matched_by",
+   "fieldtype": "Select",
+   "label": "Matched By",
+   "options": "Infra Supplied\nPlatform Exact Match\nPlatform Pattern Match\nFallback Unknown"
+  },
+  {
+   "fieldname": "match_confidence",
+   "fieldtype": "Float",
+   "label": "Match Confidence"
+  },
+  {
+   "fieldname": "customer_message",
+   "fieldtype": "Text",
+   "label": "Customer Message"
+  },
+  {
+   "fieldname": "operator_message",
+   "fieldtype": "Text",
+   "label": "Operator Message"
+  },
+  {
+   "fieldname": "resolution_owner",
+   "fieldtype": "Select",
+   "label": "Resolution Owner",
+   "options": "Customer\nPlatform\nInfra"
+  },
+  {
+   "fieldname": "retryability",
+   "fieldtype": "Select",
+   "label": "Retryability",
+   "options": "Retryable\nRetry After Delay\nRetry After Platform Action\nRetry After Infra Action\nCustomer Action Required\nNot Retryable"
   }
  ],
  "grid_page_length": 50,

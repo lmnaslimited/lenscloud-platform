@@ -160,8 +160,47 @@ class TestCustomerSiteSetup(FrappeTestCase):
 		})
 		self.assertEqual(customer_site_progress_state(site), "setup_running")
 
+	def test_progress_moves_to_route_pending_when_runtime_reports_route_pending(self):
+		site = frappe._dict({
+			"site_status": "Provisioning",
+			"provisioning_status": "Running",
+			"route_status": "Pending",
+			"access_url": "https://example.test",
+			"setup_status": "Pending",
+			"oauth_status": "Not Checked",
+		})
+		self.assertEqual(customer_site_progress_state(site), "route_pending")
+
+	def test_progress_stays_on_bootstrap_while_install_apps_is_queued(self):
+		site = frappe._dict({
+			"name": "bootstrap-running.example.test",
+			"site_status": "Ready",
+			"provisioning_status": "Ready",
+			"route_status": "Ready",
+			"access_url": "https://bootstrap-running.example.test",
+			"setup_status": "Pending",
+			"oauth_status": "Not Checked",
+		})
+		for status in ("Queued", "Running"):
+			with patch("lenscloud.api.orchestration.latest_site_bootstrap_status", return_value=frappe._dict({"status": status})):
+				self.assertEqual(customer_site_progress_state(site), "bootstrap_installing")
+
+	def test_bootstrap_in_progress_wins_over_stale_setup_state(self):
+		site = frappe._dict({
+			"name": "bootstrap-stale-setup.example.test",
+			"site_status": "Ready",
+			"provisioning_status": "Ready",
+			"route_status": "Ready",
+			"access_url": "https://bootstrap-stale-setup.example.test",
+			"setup_status": "Complete",
+			"oauth_status": "Configured",
+		})
+		with patch("lenscloud.api.orchestration.latest_site_bootstrap_status", return_value=frappe._dict({"status": "Queued"})):
+			self.assertEqual(customer_site_progress_state(site), "bootstrap_installing")
+
 	def test_customer_retry_pauses_after_runtime_stage_advances(self):
 		self.assertTrue(customer_progress_advanced_past_runtime_gate("started", "route_pending"))
+		self.assertTrue(customer_progress_advanced_past_runtime_gate("route_pending", "bootstrap_installing"))
 		self.assertTrue(customer_progress_advanced_past_runtime_gate("route_pending", "setup_checking"))
 		self.assertFalse(customer_progress_advanced_past_runtime_gate("setup_checking", "setup_running"))
 		self.assertFalse(customer_progress_advanced_past_runtime_gate("started", "failed"))
@@ -265,6 +304,98 @@ class TestCustomerSiteSetup(FrappeTestCase):
 			result = orchestrate_customer_site_setup(site)
 		self.assertEqual(result, bootstrap_result)
 		setup_status.assert_not_called()
+
+	def test_bootstrap_running_returns_before_setup_status_poll(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "bootstrap-running.example.test",
+			"route_status": "Ready",
+			"access_url": "https://bootstrap-running.example.test",
+			"setup_status": "Pending",
+		})
+		bootstrap_result = {"status": "Queued", "action_log": "ORCH-TEST"}
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=bootstrap_result), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration") as setup_status:
+			result = orchestrate_customer_site_setup(site)
+		self.assertEqual(result, bootstrap_result)
+		self.assertEqual(site.setup_status, "Pending")
+		setup_status.assert_not_called()
+
+	def test_setup_status_in_progress_does_not_enqueue_duplicate_status(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+		site = FakeSite({
+			"name": "setup-status-running.example.test",
+			"route_status": "Ready",
+			"access_url": "https://setup-status-running.example.test",
+			"setup_status": "Pending",
+		})
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=None), patch("lenscloud.api.orchestration.site_command_in_progress", return_value={"status": "Queued", "command": "site_setup.status", "action_log": "ORCH-TEST"}), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration") as setup_status:
+			result = orchestrate_customer_site_setup(site)
+		self.assertEqual(result["command"], "site_setup.status")
+		setup_status.assert_not_called()
+
+	def test_setup_complete_in_progress_does_not_enqueue_duplicate_complete(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_setup
+
+		class FakeSite(frappe._dict):
+			def reload(self):
+				return None
+
+			def save(self, ignore_permissions=False):
+				self.saved = True
+
+		site = FakeSite({
+			"name": "setup-complete-running.example.test",
+			"route_status": "Ready",
+			"access_url": "https://setup-complete-running.example.test",
+			"setup_status": "Required",
+			"setup_schema_json": '{"fields": []}',
+		})
+		args = {"language": "English", "email": "owner@example.test", "full_name": "Owner", "country": "India", "timezone": "Asia/Kolkata", "currency": "INR"}
+		with patch("lenscloud.api.orchestration.orchestrate_customer_site_bootstrap", return_value=None), patch("lenscloud.api.orchestration.site_setup_args", return_value=args), patch("lenscloud.api.orchestration.site_command_in_progress", return_value={"status": "Running", "command": "site_setup.complete", "action_log": "ORCH-TEST"}), patch("lenscloud.api.bench_command.run_site_setup_command_for_orchestration") as runner:
+			result = orchestrate_customer_site_setup(site)
+		self.assertEqual(result["command"], "site_setup.complete")
+		runner.assert_not_called()
+
+	def test_bootstrap_in_progress_does_not_enqueue_duplicate_install(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_bootstrap
+
+		site = frappe._dict({"name": "bootstrap-queued.example.test"})
+		with patch("lenscloud.api.orchestration.site_command_in_progress", return_value={"status": "Running", "action_log": "ORCH-TEST", "message": "already running"}), patch("lenscloud.api.bench_command.install_site_bootstrap_apps") as install:
+			result = orchestrate_customer_site_bootstrap(site)
+		self.assertEqual(result["status"], "Running")
+		self.assertEqual(result["action_log"], "ORCH-TEST")
+		install.assert_not_called()
+
+	def test_oauth_status_in_progress_does_not_enqueue_duplicate_status(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_oauth
+
+		site = frappe._dict({"name": "oauth-status.example.test", "setup_status": "Complete", "oauth_status": "Not Checked"})
+		with patch("lenscloud.api.orchestration.site_command_in_progress", return_value={"status": "Queued", "command": "oauth.status", "action_log": "ORCH-TEST"}), patch("lenscloud.api.bench_command.run_site_oauth_status_for_orchestration") as status:
+			result = orchestrate_customer_site_oauth(site)
+		self.assertEqual(result["command"], "oauth.status")
+		status.assert_not_called()
+
+	def test_oauth_configure_in_progress_does_not_enqueue_duplicate_configure(self):
+		from lenscloud.api.orchestration import orchestrate_customer_site_oauth
+
+		site = frappe._dict({"name": "oauth-configure.example.test", "setup_status": "Complete", "oauth_status": "Pending"})
+		with patch("lenscloud.api.orchestration.site_command_in_progress", return_value={"status": "Running", "command": "oauth.configure", "action_log": "ORCH-TEST"}), patch("lenscloud.api.bench_command.configure_site_oauth_for_orchestration") as configure:
+			result = orchestrate_customer_site_oauth(site)
+		self.assertEqual(result["command"], "oauth.configure")
+		configure.assert_not_called()
 
 	def test_setup_failed_does_not_reset_without_force(self):
 		from lenscloud.api.orchestration import orchestrate_customer_site_setup
