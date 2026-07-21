@@ -272,7 +272,7 @@ onMounted(load)
 							<span class="text-xs font-medium text-ink-gray-5">Notes</span>
 							<Textarea v-model="form.notes" variant="subtle" placeholder="Launch timing, DNS notes, migration context" />
 						</label>
-						<Button class="mt-4 inline-flex items-center gap-2" :disabled="!canSubmit" @click="submitRequest">
+						<Button class="mt-4 !inline-flex !items-center gap-2" :disabled="!canSubmit" @click="submitRequest">
 							<Send class="size-4" />
 							<span>Submit site request </span>
 						</Button>

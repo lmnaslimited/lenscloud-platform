@@ -130,9 +130,10 @@ watch(() => route.fullPath, () => {
 			</div>
 			<div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
 				<nav v-for="group in primaryNavGroups" :key="group.heading" class="mb-1">
-					<button type="button" class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-1" @click="group.collapsible && toggleGroup(group)">
-						<span>{{ group.heading }}</span><component v-if="group.collapsible" :is="groupOpen(group) ? ChevronDown : ChevronRight" class="size-3.5" />
-					</button>
+					<!-- <button type="button" class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-1" @click="group.collapsible && toggleGroup(group)">
+						<span>{{ group.heading }}</span>
+						<component v-if="group.collapsible" :is="groupOpen(group) ? ChevronDown : ChevronRight" class="size-3.5" />
+					</button> -->
 					<div v-show="groupOpen(group)" class="mt-2 space-y-1">
 						<RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-3 py-3 text-sm text-ink-gray-7" :class="{ 'bg-surface-gray-3 font-medium text-ink-gray-9': route.path === item.route || route.path.startsWith(`${item.route}/`) }" @click="closeMobileNav">
 							<component :is="item.icon || Circle" class="size-4 shrink-0 text-primary" /><span class="truncate">{{ item.label }}</span>
@@ -148,7 +149,7 @@ watch(() => route.fullPath, () => {
 				</nav>
 				<div v-if="accountMenuOpen" data-testid="account-menu" class="absolute inset-x-2 bottom-full z-40 mb-2 overflow-hidden rounded-2xl border border-outline-gray-2 bg-white p-2 shadow-xl">
 					<div class="flex items-center gap-3 border-b border-outline-gray-2 px-3 py-3">
-						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-[#1D4ED8] text-sm font-semibold text-white">{{ accountInitials }}</div>
+						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">{{ accountInitials }}</div>
 						<div class="min-w-0"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ accountName }}</p><p class="truncate text-xs text-ink-gray-5">{{ session.user }}</p></div>
 					</div>
 					<RouterLink :to="accountRoute()" class="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-gray-8 hover:bg-surface-gray-1" @click="accountMenuOpen = false"><UserRound class="size-4 shrink-0" /><span>Profile</span></RouterLink>

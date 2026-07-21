@@ -40,10 +40,12 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 			</div>
 			<div class="flex shrink-0 items-center gap-2">
 				<slot name="actions" />
-				<Button variant="subtle" :tooltip="assistantOpen ? 'Hide assistant' : assistantLabel" @click="assistantOpen = !assistantOpen">
+				<Button variant="subtle" :tooltip="assistantOpen ? 'Hide assistant' : assistantLabel" @click="assistantOpen = !assistantOpen"
+				class="bg-violet-50 text-violet-700 hover:bg-violet-100 border border-violet-200">
 					<span class="flex items-center gap-2">
-						<component :is="assistantIcon" class="size-4" />
-						<span>Assistant</span>
+						<!-- <component :is="assistantIcon" class="size-4" /> -->
+						 <Sparkles class="size-4" />
+						<span>lumi</span>
 					</span>
 					</Button>
 			</div>

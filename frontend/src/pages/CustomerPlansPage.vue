@@ -96,23 +96,23 @@ const selectedSiteLabel = computed(() => result.value?.hostname || result.value?
 
 const flowSteps = computed(() => [
 	{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
-	{ key: 'setup', label: 'Setup Site', helper: 'Pick Region and Site details.' },
+	{ key: 'setup', label: 'Setup Workspace', helper: 'Pick Region and Workspace details.' },
 	{ key: 'checkout', label: 'Free Checkout', helper: 'Confirm ₹0 due today.' },
-	{ key: 'result', label: resultStarted.value || resultReady.value ? 'Launch Site' : 'Approval', helper: 'Track setup and open when ready.' },
+	{ key: 'result', label: resultStarted.value || resultReady.value ? 'Launch Workspace' : 'Approval', helper: 'Track setup and open when ready.' },
 ])
 
 const currentStepIndex = computed(() => Math.max(0, flowSteps.value.findIndex((item) => item.key === step.value)))
 const screenTitle = computed(() => {
 	if (step.value === 'choose') return 'Select your LensCloud service'
-	if (step.value === 'setup') return 'Set up your first Site'
+	if (step.value === 'setup') return 'Set up your first Workspace'
 	if (step.value === 'checkout') return 'Review Subscription'
-	return resultStarted.value || resultReady.value ? 'Your Site launch has started' : 'Your request is received'
+	return resultStarted.value || resultReady.value ? 'Your Workspace launch has started' : 'Your request is received'
 })
 const screenSubtitle = computed(() => {
 	if (step.value === 'choose') return 'Pick a submitted Platform Plan to continue.'
-	if (step.value === 'setup') return 'These details reserve your customer-facing Site. LensCloud chooses compatible capacity for you.'
+	if (step.value === 'setup') return 'These details reserve your customer-facing Workspace. LensCloud chooses compatible capacity for you.'
 	if (step.value === 'checkout') return 'The Free Plan has no payment method requirement. Review once and start the subscription.'
-	return resultStarted.value || resultReady.value ? 'Follow setup progress here, then open the Site when it is ready.' : 'The LensCloud team will review this before setup starts.'
+	return resultStarted.value || resultReady.value ? 'Follow setup progress here, then open the Workspace when it is ready.' : 'The LensCloud team will review this before setup starts.'
 })
 
 const rawProvisioningSteps = computed(() => {
@@ -139,14 +139,14 @@ const rawProvisioningSteps = computed(() => {
 	const oauthRunning = ['Running', 'Pending'].includes(oauthStatus) || ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
 	return [
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
-		{ label: 'Site reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Site address is reserved for you.' : 'Waiting for Site reservation.' },
+		{ label: 'Workspace reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Workspace address is reserved for you.' : 'Waiting for Workspace reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
 		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
-		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : bootstrapInstalling || routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Site.' : 'This starts after secure access is ready.' },
-		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || (routeReady && bootstrapDone) ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Site needs first-time setup.' : 'This starts after default apps are installed.' },
-		{ label: 'Setting site defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Site defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Site needs first-time setup.' },
-		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Site.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Site defaults are applied.' },
-		{ label: 'Ready to open', state: resultReady.value ? 'done' : oauthDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Site is ready to open.' : oauthDone ? 'LensCloud is publishing the Open Site action.' : 'We will show the Open Site action when access is verified.' },
+		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : bootstrapInstalling || routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
+		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || (routeReady && bootstrapDone) ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Workspace needs first-time setup.' : 'This starts after default apps are installed.' },
+		{ label: 'Setting Workspace defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Workspace defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Workspace needs first-time setup.' },
+		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Workspace.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Workspace defaults are applied.' },
+		{ label: 'Ready to open', state: resultReady.value ? 'done' : oauthDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Workspace is ready to open.' : oauthDone ? 'LensCloud is publishing the Open Workspace action.' : 'We will show the Open Workspace action when access is verified.' },
 	]
 })
 
@@ -180,6 +180,11 @@ const provisioningSteps = computed(() => {
 
 
 function flowStepState(index) {
+	console.log({
+    index,
+    current: currentStepIndex.value,
+    step: step.value,
+  })
 	if (hasReadySite.value && index <= currentStepIndex.value) return 'done'
 	if (index < currentStepIndex.value) return 'done'
 	if (index === currentStepIndex.value && progressActive.value) return 'active'
@@ -269,7 +274,7 @@ function planBadge(plan) {
 }
 
 function priceLabel(plan) {
-	if (plan.is_free) return '₹0 / month'
+	if (plan.is_free) return '$0 / month'
 	if (plan.cta_mode === 'request_access') return 'Request access'
 	if (!Number(plan.monthly_price)) return 'Custom pricing'
 	return `₹${Number(plan.monthly_price).toLocaleString('en-IN')} / month`
@@ -349,7 +354,7 @@ async function continueFromPlan() {
 		step.value = 'setup'
 		setupDialogDismissed.value = false
 		await loadSetupSchema()
-		maybeAutoOpenSetupDialog()
+		// maybeAutoOpenSetupDialog() //commented because it open even before giving site name
 		return
 	}
 	if (selectedPlanRecord.value.cta_mode === 'request_access') requestAccess(selectedPlanRecord.value)
@@ -556,7 +561,8 @@ async function retrySetup() {
 	}
 }
 
-watch([step, setupFields, setupDefaultsComplete, setupSchemaLoading], maybeAutoOpenSetupDialog, { flush: 'post' })
+// commented out to stop the modal from opening befor giveing site details
+// watch([step, setupFields, setupDefaultsComplete, setupSchemaLoading], maybeAutoOpenSetupDialog, { flush: 'post' })
 
 onMounted(async () => {
 	await load()
@@ -571,7 +577,7 @@ onBeforeUnmount(() => {
 <template>
 	<WorkspaceLayout
 		title="Plans"
-		subtitle="A guided activity from Plan choice to Free checkout and Site launch."
+		subtitle="A guided activity from Plan choice to Free checkout and Workspace launch."
 		inspector-kicker="Launch guide"
 		inspector-title="Launch checklist"
 		:inspector-subtitle="screenSubtitle"
@@ -651,7 +657,7 @@ onBeforeUnmount(() => {
 										<div v-if="planDisabled(plan)" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{{ planDisabledReason(plan) }}. Manage progress from Subscriptions.</div>
 
 										<ul class="mt-5 space-y-2 text-sm text-[#434655]">
-											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.site_limit || 1 }} Site{{ Number(plan.site_limit || 1) > 1 ? 's' : '' }}</li>
+											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.site_limit || 1 }} Workspace{{ Number(plan.site_limit || 1) > 1 ? 's' : '' }}</li>
 											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.environments?.join(', ') || 'Configured' }}</li>
 											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.privacy === 'Public' ? 'Public placement' : 'Private placement' }}</li>
 										</ul>
@@ -682,14 +688,14 @@ onBeforeUnmount(() => {
 							<div v-else-if="step === 'setup'" class="flex items-start justify-center p-0 md:p-6 lg:p-10">
 								<div class="w-full max-w-3xl overflow-hidden rounded-xl border border-gray-200 bg-white shadow-md" data-purpose="setup-card">
 									<div class="border-b border-gray-100 p-8">
-										<h3 class="text-2xl font-bold text-gray-900">Setup Your Site</h3>
+										<h3 class="text-2xl font-bold text-gray-900">Setup Your Workspace</h3>
 										<p class="mt-1 text-sm text-gray-500">Step 3: Region &amp; Domain</p>
 									</div>
 
 									<div class="space-y-12 p-8 md:p-10">
 										<section data-purpose="region-selection">
 											<h4 class="mb-1 text-base font-semibold text-gray-900">1. Choose Region</h4>
-											<p class="mb-4 text-sm text-gray-500">Select the geographic region for your site's data hosting. This cannot be changed later.</p>
+											<p class="mb-4 text-sm text-gray-500">Select the geographic region for your Workspace's data hosting. This cannot be changed later.</p>
 											<div class="relative w-full sm:w-80">
 												<select v-model="form.region" aria-label="Region" class="block w-full rounded-md border border-gray-300 bg-white py-2 pl-3 pr-10 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
 													<option v-for="region in selectableRegions" :key="region.name" :value="region.name">{{ region.title || region.name }}</option>
@@ -698,8 +704,8 @@ onBeforeUnmount(() => {
 										</section>
 
 										<section data-purpose="site-address">
-											<h4 class="mb-1 text-base font-semibold text-gray-900">2. Your Site Address</h4>
-											<p class="mb-4 text-sm text-gray-500">Create a unique subdomain for your site. It will end in {{ domainSuffix }}.</p>
+											<h4 class="mb-1 text-base font-semibold text-gray-900">2. Your Workspace Address</h4>
+											<p class="mb-4 text-sm text-gray-500">Create a unique subdomain for your Workspace. It will end in {{ domainSuffix }}.</p>
 											<div class="flex flex-wrap items-center gap-4">
 												<div class="flex rounded-md shadow-sm">
 													<span class="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-4 text-sm font-medium text-gray-600">https://</span>
@@ -714,8 +720,8 @@ onBeforeUnmount(() => {
 										</section>
 
 										<section data-purpose="site-name">
-											<h4 class="mb-1 text-base font-semibold text-gray-900">3. Site Name</h4>
-											<p class="mb-4 text-sm text-gray-500">Give your site a friendly name for internal reference.</p>
+											<h4 class="mb-1 text-base font-semibold text-gray-900">3. Workspace Name</h4>
+											<p class="mb-4 text-sm text-gray-500">Give your Workspace a friendly name for internal reference.</p>
 											<div class="w-full sm:w-80">
 												<input v-model="form.site_name" aria-label="Site Name" class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" type="text" placeholder="My Awesome App" />
 											</div>
@@ -725,7 +731,7 @@ onBeforeUnmount(() => {
 											<h4 class="mb-1 text-base font-semibold text-gray-900">4. Setup Defaults</h4>
 											<p class="mb-4 text-sm text-gray-500">Only fields required by the installed apps are requested.</p>
 											<div class="flex flex-wrap items-center gap-3">
-												<button class="rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50" type="button" @click="openSetupDialog">{{ setupDefaultsComplete ? 'Edit setup defaults' : 'Complete setup defaults' }}</button>
+												<button class="rounded-md border border-gray-50 bg-secondary px-4 py-2 text-sm font-semibold text-white hover:bg-primary" type="button" @click="openSetupDialog">{{ setupDefaultsComplete ? 'Edit setup defaults' : 'Complete setup defaults' }}</button>
 												<span class="rounded-full px-3 py-1 text-sm font-medium" :class="setupDefaultsComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'">{{ setupDefaultsComplete ? 'Ready' : setupSchemaLoading ? 'Loading' : 'Required' }}</span>
 											</div>
 										</section>
@@ -766,11 +772,11 @@ onBeforeUnmount(() => {
 										<div class="p-8">
 											<h4 class="mb-6 text-xl font-bold text-[#1a1a1a]">Price breakdown</h4>
 											<div class="mb-8 space-y-4">
-												<div class="flex items-center justify-between text-gray-600"><span class="text-lg">Plan price</span><span class="text-lg font-medium text-black">₹0</span></div>
-												<div class="flex items-center justify-between text-gray-600"><span class="text-lg">Taxes</span><span class="text-lg font-medium text-black">₹0</span></div>
+												<div class="flex items-center justify-between text-gray-600"><span class="text-lg">Plan price</span><span class="text-lg font-medium text-black">$0</span></div>
+												<div class="flex items-center justify-between text-gray-600"><span class="text-lg">Taxes</span><span class="text-lg font-medium text-black">$0</span></div>
 											</div>
 											<hr class="mb-6 border-gray-100" />
-											<div class="mb-8 flex items-center justify-between"><span class="text-xl font-bold">Total due today</span><span class="text-xl font-bold">₹0</span></div>
+											<div class="mb-8 flex items-center justify-between"><span class="text-xl font-bold">Total due today</span><span class="text-xl font-bold">$0</span></div>
 										</div>
 										<div class="border-y border-gray-200 bg-gray-50 p-6"><p class="text-sm text-gray-500">No payment method required for Free Plan</p></div>
 										<div class="flex flex-col items-center gap-3 p-6">
@@ -784,8 +790,8 @@ onBeforeUnmount(() => {
 							<div v-else class="grid gap-5 xl:grid-cols-[1fr_340px]">
 								<div class="rounded-xl border border-[#EDEDED] bg-white p-6">
 									<Badge :class="resultFailed ? 'bg-red-50 text-red-700' : resultPaused ? 'bg-amber-50 text-amber-800' : resultStarted ? 'bg-blue-50 text-blue-700' : 'bg-amber-50 text-amber-700'">{{ resultFailed ? 'Setup needs retry' : resultPaused ? 'Setup paused' : resultReady ? 'Ready' : resultStarted ? 'Provisioning' : 'Approval pending' }}</Badge>
-									<h3 class="mt-3 text-xl font-semibold text-[#191c1e]">{{ resultFailed ? 'Workspace setup needs attention' : resultPaused ? 'Workspace setup is paused' : resultReady ? 'Your Site is ready to open' : resultStarted ? 'Setting up your Site' : 'Subscription request received' }}</h3>
-									<p class="mt-2 text-sm leading-6 text-[#64748B]">{{ resultFailed ? (provisioningMode === 'oauth_failed' ? 'Platform sign-on did not complete. Retry after Platform readiness is restored, or contact support and we will continue from the Platform side.' : 'Setup did not complete. You can retry after Platform readiness is restored, or contact support and we will continue from the Platform side.') : resultPaused ? 'Your Subscription and Site reservation are saved. Live setup needs the controlled Platform apply window before it can create the actual Site.' : resultReady ? 'Secure access and Platform sign-on are verified. You can open the Site from here.' : resultStarted ? 'We are preparing your workspace. You can follow progress from here or refresh status without losing this view.' : 'The LensCloud team will review this request before setup starts.' }}</p>
+									<h3 class="mt-3 text-xl font-semibold text-[#191c1e]">{{ resultFailed ? 'Workspace setup needs attention' : resultPaused ? 'Workspace setup is paused' : resultReady ? 'Your Workspace is ready to open' : resultStarted ? 'Setting up your Workspace' : 'Subscription request received' }}</h3>
+									<p class="mt-2 text-sm leading-6 text-[#64748B]">{{ resultFailed ? (provisioningMode === 'oauth_failed' ? 'Platform sign-on did not complete. Retry after Platform readiness is restored, or contact support and we will continue from the Platform side.' : 'Setup did not complete. You can retry after Platform readiness is restored, or contact support and we will continue from the Platform side.') : resultPaused ? 'Your Subscription and Workspace reservation are saved. Live setup needs the controlled Platform apply window before it can create the actual Workspace.' : resultReady ? 'Secure access and Platform sign-on are verified. You can open the Workspace from here.' : resultStarted ? 'We are preparing your workspace. You can follow progress from here or refresh status without losing this view.' : 'The LensCloud team will review this request before setup starts.' }}</p>
 
 									<div class="mt-8 space-y-0">
 										<div v-for="(item, index) in provisioningSteps" :key="item.label" class="relative flex items-start pb-7 last:pb-0">
@@ -825,7 +831,7 @@ onBeforeUnmount(() => {
 											plan: result?.plan,
 											region: result?.region,
 										})"
-										variant="subtle"><ExternalLink class="size-4" />Open Site</Button></div>
+										variant="subtle"><ExternalLink class="size-4" />Open Workspace</Button></div>
 								</div>
 								<aside class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5"><div class="grid size-10 place-items-center rounded-full bg-[#dce1ff] text-[#1D4ED8]"><ShieldCheck class="size-5" /></div><h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3><p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p><a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com"><HelpCircle class="size-4" />Contact support</a></aside>
 							</div>
@@ -888,7 +894,7 @@ onBeforeUnmount(() => {
 						</div>
 
 						<div class="flex items-start justify-between gap-4">
-							<span class="text-sm text-ink-gray-5">Site</span>
+							<span class="text-sm text-ink-gray-5">Workspace</span>
 							<span class="max-w-[60%] truncate text-right text-sm font-medium text-ink-gray-9">
 								{{ selectedSiteLabel || 'Required' }}
 							</span>
