@@ -277,3 +277,21 @@ Gate disposition:
 - Under-five-minute performance: failed.
 - Realtime delivery within two seconds: backend scoping is unit-tested, but live socket latency was not isolated from the one-second evidence polling and remains unproven.
 - Next bottleneck work: reduce Release-runtime bootstrap startup/execution and especially final OAuth verification latency, then run a new fresh customer journey with a single monotonic timer from submission.
+
+## Infra Performance Return And Platform Retest Preparation — 2026-07-21
+
+Infra commit `1697eae` delivered image prewarm and direct command timing evidence. Warm-image status/OAuth commands completed in approximately 10–14 seconds, and Job terminal state was observable within 1.443 seconds. Infra identified the separate 201-second post-ready bootstrap as avoidable duplication for default creation apps.
+
+Platform now emits Release Group creation apps through `FrappeSite.spec.apps`, consumes operator app installation status, and skips the separate bootstrap Job only after explicit operator confirmation. Focused validation passed 36 tests. A new fresh customer run is required to determine the final gate result.
+
+## Fresh Operator-Native Retest — 2026-07-21
+
+Fresh Site `iron-monkey-0721113731.cloud.lmnaslens.com` requested `erpnext` and `brandkit` in `FrappeSite.spec.apps`. No separate post-ready bootstrap Job was created. The browser's monotonic five-minute assertion failed at canonical stage `route_pending`.
+
+The FrappeSite resource took 329 seconds from creation to operator Ready, exceeding the entire gate by 29 seconds before setup or OAuth began. Recovery from the ready resource through route, setup, and OAuth took another 197.678 seconds. The resulting minimum uninterrupted estimate is 526.678 seconds.
+
+Post-ready command durations remained above Infra's idempotent probe timings: setup complete 68.720s, setup verification 36.779s, OAuth configure 42.140s, and OAuth verification 36.907s.
+
+The run found and fixed unchanged status-sync action-log noise, an invalid synthetic bootstrap action type, and missing failed-run harness persistence. Final Site state is Ready/Complete/Configured, but the under-five-minute gate remains failed.
+
+Evidence: `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721113731-failed-gate.json`.

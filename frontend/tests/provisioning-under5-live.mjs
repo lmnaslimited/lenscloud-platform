@@ -69,6 +69,7 @@ const context = await browser.newContext({ viewport: { width: 1440, height: 900 
 const page = await context.newPage()
 const browserErrors = []
 const network = []
+let activeRun = null
 page.on('pageerror', (error) => browserErrors.push(error.message))
 page.on('console', (message) => {
 	if (message.type() === 'error' && !message.text().startsWith('Failed to load resource:')) browserErrors.push(message.text())
@@ -87,7 +88,8 @@ try {
 	await startFree.click()
 	await page.getByRole('heading', { name: 'Setup Your Site', exact: true }).waitFor()
 	const setupForm = page.locator('form').filter({ hasText: 'Setup defaults' })
-	if (!(await setupForm.isVisible().catch(() => false))) {
+	const autoOpened = await setupForm.waitFor({ state: 'visible', timeout: 3000 }).then(() => true).catch(() => false)
+	if (!autoOpened) {
 		const defaultsButton = page.getByRole('button', { name: /Complete setup defaults|Edit setup defaults/ })
 		await defaultsButton.waitFor()
 		await defaultsButton.click()
@@ -110,9 +112,11 @@ try {
 	let lastStage = ''
 	let refreshEvidence = null
 	let finalSnapshot = null
+	activeRun = { run_id: runId, customer: user, site, started_at: new Date(startedAt).toISOString(), transitions }
 	while (Date.now() - startedAt < 300000) {
 		const snapshot = await progressSnapshot(page, site)
 		finalSnapshot = snapshot
+		activeRun.final_snapshot = snapshot
 		if (snapshot.stage !== lastStage) {
 			transitions.push({ elapsed_ms: Date.now() - startedAt, ...snapshot })
 			lastStage = snapshot.stage
@@ -150,6 +154,19 @@ try {
 	}
 	writeFileSync(resolve(outputDir, `${runId}.json`), JSON.stringify(evidence, null, 2))
 	console.log(JSON.stringify({ site, elapsed_ms: elapsedMs, transitions: transitions.map((row) => [row.stage, row.elapsed_ms]), refresh: refreshEvidence, browser_errors: browserErrors }))
+} catch (error) {
+	if (activeRun) {
+		writeFileSync(resolve(outputDir, `${runId}-failed.json`), JSON.stringify({
+			...activeRun,
+			failed_at: new Date().toISOString(),
+			elapsed_ms: Date.now() - Date.parse(activeRun.started_at),
+			under_5_minutes: false,
+			error: error.message,
+			progress_api_calls: network,
+			browser_errors: browserErrors,
+		}, null, 2))
+	}
+	throw error
 } finally {
 	await context.close()
 	await browser.close()

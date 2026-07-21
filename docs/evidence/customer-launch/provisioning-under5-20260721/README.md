@@ -15,3 +15,11 @@ Observed command sequence:
 5. `oauth.status` — `ORCH-2026-00901` — succeeded
 
 No message ID is expected on these successful actions. Failure-envelope proof remains part of the separate app-aware failure/recovery gate.
+
+## Run `iron-monkey-0721113731`
+
+The fresh timed run correctly requested `erpnext` and `brandkit` through `FrappeSite.spec.apps`, but failed the five-minute gate at `route_pending`. The operator Site resource was created at `11:37:35Z` and became Ready at `11:43:04Z`: 329 seconds for initial creation/app installation, already 29 seconds over the complete gate.
+
+After live defect fixes, the same Site recovered from route observation through setup and OAuth to Ready in 197.678 seconds. No separate bootstrap Job was created; `ORCH-2026-01142` records operator confirmation. The minimum uninterrupted estimate is therefore about 526.678 seconds.
+
+Machine evidence: `iron-monkey-0721113731-failed-gate.json` and `iron-monkey-0721113731-recovery.json`.

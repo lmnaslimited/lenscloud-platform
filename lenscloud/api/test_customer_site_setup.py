@@ -450,3 +450,38 @@ class TestCustomerSiteSetup(FrappeTestCase):
 		identity = setup_identity_args(frappe._dict({"customer": customer.name, "owner": "Administrator"}))
 		self.assertEqual(identity["email"], user.email)
 		self.assertEqual(identity["full_name"], "Nithu Customer")
+
+	def test_frappesite_manifest_requests_release_group_creation_apps(self):
+		from lenscloud.api.orchestration import build_frappesite_manifest_data
+
+		site = frappe._dict(name="apps.example.test", title="apps.example.test", subdomain="apps", domain="example.test", region="EU", bench="BENCH", operator_resource_name="apps", admin_password_secret_reference="apps-admin")
+		bench = frappe._dict(name="BENCH", region="EU", cluster="CLUSTER", operator_resource_name="bench", kubernetes_namespace="runtime", current_release="REL")
+		cluster = frappe._dict(name="CLUSTER", ingress_class="traefik")
+		with patch("lenscloud.api.orchestration.get_region_cluster", return_value=cluster), patch("lenscloud.api.orchestration.ensure_operator_fields"), patch("lenscloud.api.orchestration.frappe.get_doc", return_value=bench), patch("lenscloud.api.orchestration.site_creation_apps_for_bench", return_value=["erpnext", "brandkit"]):
+			manifest = build_frappesite_manifest_data(site)
+		self.assertEqual(manifest["spec"]["apps"], ["erpnext", "brandkit"])
+
+	def test_operator_installed_apps_records_bootstrap_success(self):
+		from lenscloud.api.orchestration import record_operator_site_creation_apps
+
+		site = frappe._dict(name="apps.example.test", region="EU")
+		bench = frappe._dict(name="BENCH")
+		cluster = frappe._dict(name="CLUSTER")
+		resource = {"status": {"phase": "Ready", "installedApps": ["erpnext"], "appInstallationStatus": "Apps installed"}}
+		log = frappe._dict(name="ORCH-TEST")
+		with patch("lenscloud.api.orchestration.frappe.db.exists", return_value=False), patch("lenscloud.api.orchestration.site_creation_apps_for_bench", return_value=["erpnext"]), patch("lenscloud.api.orchestration.phase_from_resource", return_value="Ready"), patch("lenscloud.api.orchestration.create_action_log", return_value=log) as create, patch("lenscloud.api.orchestration.finish_action_log") as finish:
+			record_operator_site_creation_apps(site, bench, cluster, resource)
+		self.assertEqual(create.call_args.args[0], "Bench Command")
+		self.assertEqual(create.call_args.kwargs["operation"], "site_bootstrap.install_apps")
+		finish.assert_called_once_with(log, "Succeeded", "Operator confirmed Site creation apps installed: erpnext.")
+
+	def test_operator_missing_requested_app_does_not_skip_bootstrap(self):
+		from lenscloud.api.orchestration import record_operator_site_creation_apps
+
+		site = frappe._dict(name="apps.example.test", region="EU")
+		bench = frappe._dict(name="BENCH")
+		cluster = frappe._dict(name="CLUSTER")
+		resource = {"status": {"phase": "Ready", "installedApps": [], "appInstallationStatus": "Pending"}}
+		with patch("lenscloud.api.orchestration.frappe.db.exists", return_value=False), patch("lenscloud.api.orchestration.site_creation_apps_for_bench", return_value=["erpnext"]), patch("lenscloud.api.orchestration.phase_from_resource", return_value="Ready"), patch("lenscloud.api.orchestration.create_action_log") as create:
+			record_operator_site_creation_apps(site, bench, cluster, resource)
+		create.assert_not_called()
