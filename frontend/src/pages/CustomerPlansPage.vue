@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
@@ -23,10 +23,13 @@ import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 
 const route = useRoute()
 const router = useRouter()
+const socket = getCurrentInstance()?.appContext.config.globalProperties.$socket
 
 const loading = ref(true)
 const submitting = ref(false)
 const polling = ref(false)
+const advancing = ref(false)
+const canonicalProgress = ref(null)
 const setupSchemaLoading = ref(false)
 const setupDialogOpen = ref(false)
 const setupDialogDismissed = ref(false)
@@ -37,6 +40,7 @@ const result = ref(null)
 const step = ref('choose')
 const placementFilter = ref('all')
 let progressPoller = null
+let advanceTimer = null
 const setupSchemaState = ref(null)
 
 const form = reactive({
@@ -82,15 +86,21 @@ const readySiteUrl = computed(() => {
 	if (provisioningMode.value === 'ready' && resultOauthConfigured.value) return result.value?.access_url || resultSite.value?.access_url || ''
 	return existingSites.value.find((site) => siteReadyForOpen(site) && site.access_url)?.access_url || ''
 })
-const provisioningMode = computed(() => result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
+const canonicalMode = computed(() => ({
+	requested: 'started', runtime_reconciling: 'started', route_pending: 'route_pending',
+	bootstrap_installing: 'bootstrap_installing', setup_completing: 'setup_running', setup_verifying: 'setup_checking',
+	oauth_configuring: 'oauth_configuring', oauth_verifying: 'oauth_checking', ready: 'ready',
+	blocked_customer_input: 'setup_required', blocked_platform_action: 'failed', blocked_infra_action: 'failed', failed: 'failed',
+}[canonicalProgress.value?.stage] || ''))
+const provisioningMode = computed(() => canonicalMode.value || result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
 const resultStarted = computed(() => ['started', 'route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
-const resultPaused = computed(() => provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run')
-const resultFailed = computed(() => provisioningMode.value === 'failed' || provisioningMode.value === 'bootstrap_failed' || provisioningMode.value === 'oauth_failed')
-const resultSetupRequired = computed(() => provisioningMode.value === 'setup_required')
+const resultPaused = computed(() => !canonicalProgress.value && (provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run'))
+const resultFailed = computed(() => canonicalProgress.value ? ['failed', 'blocked'].includes(canonicalProgress.value.stage_status) : ['failed', 'bootstrap_failed', 'oauth_failed'].includes(provisioningMode.value))
+const resultSetupRequired = computed(() => canonicalProgress.value?.stage === 'blocked_customer_input' || provisioningMode.value === 'setup_required')
 const resultBootstrapStatus = computed(() => result.value?.bootstrap_status || resultSite.value?.bootstrap_status || '')
 const resultReady = computed(() => provisioningMode.value === 'ready')
-const resultRetryable = computed(() => Boolean(result.value?.site && (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value)))
-const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && resultStarted.value && !resultReady.value && !resultFailed.value && !resultSetupRequired.value))
+const resultRetryable = computed(() => Boolean(result.value?.site && (canonicalProgress.value ? canonicalProgress.value.can_retry : (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value))))
+const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && !resultReady.value && !resultFailed.value && !resultSetupRequired.value))
 const selectedSiteLabel = computed(() => result.value?.hostname || result.value?.access_url?.replace(/^https?:\/\//, '') || resultSite.value?.title || resultSite.value?.name || hostnamePreview.value || '')
 
 const flowSteps = computed(() => [
@@ -421,16 +431,20 @@ async function load() {
 }
 
 
+function applyCanonicalProgress(snapshot) {
+	if (!snapshot?.site || (result.value?.site && snapshot.site !== result.value.site)) return
+	canonicalProgress.value = snapshot
+	result.value = { ...(result.value || {}), site: snapshot.site, canonical_progress: snapshot }
+	if (snapshot.can_continue) scheduleAdvance()
+}
+
 async function refreshProgress({ silent = false } = {}) {
-	if (!result.value?.site || polling.value || submitting.value) return
+	if (!result.value?.site || polling.value) return
 	polling.value = true
 	if (!silent) error.value = ''
 	try {
-		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site }, 'POST')
-		result.value = response.message || response
-		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
-		await load()
-		startProgressPolling()
+		const response = await callMethod('lenscloud.api.provisioning_progress.get_customer_site_progress', { site: result.value.site })
+		applyCanonicalProgress(response.message || response)
 	} catch (err) {
 		if (!silent) error.value = err?.message || 'Unable to refresh setup progress.'
 	} finally {
@@ -438,20 +452,43 @@ async function refreshProgress({ silent = false } = {}) {
 	}
 }
 
-function stopProgressPolling() {
-	if (progressPoller) {
-		clearInterval(progressPoller)
-		progressPoller = null
+async function advanceProgress({ force = false } = {}) {
+	if (!result.value?.site || advancing.value || resultReady.value || resultFailed.value) return
+	advancing.value = true
+	try {
+		const response = await callMethod('lenscloud.api.provisioning_progress.advance_customer_site_provisioning', { site: result.value.site, force }, 'POST')
+		applyCanonicalProgress(response.message || response)
+	} catch (err) {
+		error.value = err?.message || 'Unable to continue Site provisioning.'
+	} finally {
+		advancing.value = false
+		if (canonicalProgress.value?.can_continue) scheduleAdvance()
 	}
+}
+
+function scheduleAdvance(delay = 1500) {
+	if (advanceTimer || advancing.value || !canonicalProgress.value?.can_continue) return
+	advanceTimer = setTimeout(async () => {
+		advanceTimer = null
+		await advanceProgress()
+	}, delay)
+}
+
+function stopProgressPolling() {
+	if (progressPoller) clearInterval(progressPoller)
+	progressPoller = null
+	if (advanceTimer) clearTimeout(advanceTimer)
+	advanceTimer = null
 }
 
 function startProgressPolling() {
 	stopProgressPolling()
 	if (!progressActive.value) return
-	progressPoller = setInterval(() => {
-		if (progressActive.value) refreshProgress({ silent: true })
-		else stopProgressPolling()
-	}, 30000)
+	progressPoller = setInterval(() => refreshProgress({ silent: true }), 30000)
+}
+
+function onSiteProgress(snapshot) {
+	applyCanonicalProgress(snapshot)
 }
 
 async function startFreePlan() {
@@ -472,7 +509,9 @@ async function startFreePlan() {
 		step.value = 'result'
 		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
 		await load()
+		await refreshProgress({ silent: true })
 		startProgressPolling()
+		scheduleAdvance(0)
 	} catch (err) {
 		error.value = err?.message || 'Unable to start the Free Plan.'
 	} finally {
@@ -500,29 +539,22 @@ async function requestAccess(plan) {
 
 async function retrySetup() {
 	if (!result.value?.site) return
-	submitting.value = true
 	error.value = ''
-	try {
-		const response = await callMethod('lenscloud.api.orchestration.retry_customer_site_provisioning', { site: result.value.site, force: true }, 'POST')
-		result.value = response.message || response
-		step.value = 'result'
-		if (result.value?.site) await router.replace(progressRouteFor(result.value.site, result.value.subscription))
-		await load()
-		startProgressPolling()
-	} catch (err) {
-		error.value = err?.message || 'Unable to retry setup.'
-	} finally {
-		submitting.value = false
-	}
+	await advanceProgress({ force: true })
+	startProgressPolling()
 }
 
 watch([step, setupFields, setupDefaultsComplete, setupSchemaLoading], maybeAutoOpenSetupDialog, { flush: 'post' })
 
 onMounted(async () => {
+	socket?.on('lenscloud_site_progress', onSiteProgress)
 	await load()
+	if (result.value?.site) await refreshProgress({ silent: true })
 	startProgressPolling()
+	scheduleAdvance(0)
 })
 onBeforeUnmount(() => {
+	socket?.off('lenscloud_site_progress', onSiteProgress)
 	stopProgressPolling()
 })
 </script>

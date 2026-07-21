@@ -67,6 +67,17 @@ class BenchCommandContractTest(unittest.TestCase):
 			with self.assertRaises(frappe.ValidationError):
 				bench_command.app_aware_timeout_value(value)
 
+	def test_app_aware_scripts_emit_canonical_nested_failure_messages(self):
+		bootstrap = bench_command.app_install_script("site.example.test", ["erpnext"], {"phase": "Succeeded"})
+		setup = bench_command.site_setup_complete_script("site.example.test", {"language": "English"}, {"phase": "Succeeded"})
+		self.assertIn("LC-INFRA-BOOTSTRAP-0001", bootstrap)
+		self.assertIn("APP_INSTALL_FAILED", bootstrap)
+		self.assertIn("'message': message", bootstrap)
+		self.assertIn("LC-INFRA-QUEUE-0001", setup)
+		self.assertIn("QUEUE_OVERLOADED", setup)
+		self.assertIn("LC-INFRA-UNKNOWN-0001", setup)
+		self.assertIn("'message': message", setup)
+
 	def test_job_manifest_uses_secret_safe_shape(self):
 		labels = {
 			PLATFORM_MANAGER_LABEL: "platform",
@@ -466,6 +477,22 @@ class BenchCommandContractTest(unittest.TestCase):
 				bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
 		self.assertNotIn(("pods", "lenscloud-runtime-eu", "bcmd-test-job-unsafe", ""), client.deleted)
 
+	def test_app_aware_acceptance_fault_uses_annotation_and_downward_api(self):
+		labels = bench_command.app_aware_labels("BCMD-TEST")
+		annotations = {"lenscloud.io/bench-command": "site_bootstrap.install_apps", "lenscloud.io/acceptance-fault": "APP_INSTALL_FAILED"}
+		bench = SimpleNamespace(operator_resource_name="runtime-bench", name="bench-doc")
+		job = bench_command.app_aware_job_manifest("test-job", "runtime", labels, annotations, "image@sha256:" + "a" * 64, "exit 1", bench, acceptance_fault="APP_INSTALL_FAILED")
+		container = job["spec"]["template"]["spec"]["containers"][0]
+		self.assertEqual(job["metadata"]["annotations"]["lenscloud.io/acceptance-fault"], "APP_INSTALL_FAILED")
+		self.assertEqual(container["env"][0]["name"], "LENS_INFRA_ACCEPTANCE_FAULT")
+		self.assertEqual(container["env"][0]["valueFrom"]["fieldRef"]["fieldPath"], "metadata.annotations['lenscloud.io/acceptance-fault']")
+
+	def test_app_aware_normal_job_has_no_acceptance_fault_env(self):
+		labels = bench_command.app_aware_labels("BCMD-TEST")
+		bench = SimpleNamespace(operator_resource_name="runtime-bench", name="bench-doc")
+		job = bench_command.app_aware_job_manifest("test-job", "runtime", labels, {}, "image@sha256:" + "a" * 64, "echo ok", bench)
+		self.assertNotIn("env", job["spec"]["template"]["spec"]["containers"][0])
+
 	def test_app_aware_job_uses_bench_command_action_type(self):
 		created = {}
 
@@ -509,3 +536,36 @@ class BenchCommandContractTest(unittest.TestCase):
 		self.assertEqual(created["action_type"], "Bench Command")
 		self.assertEqual(created["operation"], "site_bootstrap.install_apps")
 		self.assertEqual(result["status"], "Succeeded")
+
+	def test_app_aware_failure_passes_nested_message_to_action_log(self):
+		result_message = {
+			"message_id": "LC-INFRA-BOOTSTRAP-0001", "source": "Release Runtime", "destination": "Platform",
+			"params": {"operation": "site_bootstrap.install_apps", "reason": "APP_INSTALL_FAILED", "app": "erpnext", "exit_code": 1},
+			"safe_summary": "A required Site application could not be installed.",
+		}
+		log = SimpleNamespace(name="ORCH-APP-AWARE-FAILED", manifest="", message="", status="Pending", save=lambda **_kwargs: None)
+
+		class FakeClient:
+			def __enter__(self):
+				return self
+
+			def __exit__(self, *_args):
+				return False
+
+			def create_namespaced(self, *_args, **_kwargs):
+				return {}
+
+		cluster = SimpleNamespace(name="cluster")
+		bench = SimpleNamespace(name="bench-doc", region="EU", operator_resource_name="runtime-bench")
+		site = SimpleNamespace(name="site.example.com", customer="CUST001", region="EU")
+		with (
+			patch("lenscloud.api.bench_command.create_action_log", return_value=log),
+			patch("lenscloud.api.bench_command.get_cluster_client", return_value=FakeClient()),
+			patch("lenscloud.api.bench_command.wait_for_job", return_value=("Failed", {}, [{}])),
+			patch("lenscloud.api.bench_command.sanitized_termination_summary", return_value={"phase": "Failed", "message": result_message, "redacted": True}),
+			patch("lenscloud.api.bench_command.cleanup_command_resources", return_value=[]),
+			patch("lenscloud.api.bench_command.finish_action_log") as finish,
+		):
+			result = bench_command.run_app_aware_job("site_bootstrap.install_apps", cluster, "runtime", bench, "image@sha256:" + "a" * 64, "exit 1", site_doc=site)
+		self.assertEqual(result["status"], "Failed")
+		self.assertEqual(finish.call_args.kwargs["result_message"], result_message)

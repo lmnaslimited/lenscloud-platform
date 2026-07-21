@@ -29,6 +29,7 @@
   "matched_by",
   "match_confidence",
   "section_break_cygt",
+  "message",
   "operator_message",
   "manifest",
   "customer_message",
@@ -40,11 +41,11 @@
   "column_break_dyre",
   "message_type",
   "source",
-  "message",
   "column_break_frtm",
+  "details_ref",
+  "section_break_fcqo",
   "message_params_json",
-  "safe_summary",
-  "details_ref"
+  "safe_summary"
  ],
  "fields": [
   {
@@ -256,12 +257,16 @@
   {
    "fieldname": "section_break_cygt",
    "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_fcqo",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-21 06:29:12.291667",
+ "modified": "2026-07-21 11:46:18.234915",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Orchestration Action Log",

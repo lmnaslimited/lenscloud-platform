@@ -1,7 +1,7 @@
 # Stage Gate: Customer Site Provisioning Under 5 Minutes
 
 Date: 2026-07-20
-Status: Proposed
+Status: In progress — canonical flow implemented; first live acceptance exceeded budget
 Canonical workitem: `Customer Site provisioning under 5 minutes`
 
 ## Problem
@@ -227,3 +227,53 @@ Minimum live E2E coverage:
 - Can Infra expose app-aware command `Running` transitions, or only Queued/Succeeded/Failed through Platform action logs?
 - Should the under-5-minute target include OAuth final verification, or stop at first usable admin/SSO handoff?
 - Should customer UI show elapsed time and current action log ID during beta testing?
+
+## Implementation And Live Evidence — 2026-07-21
+
+Implemented:
+
+- canonical read-only `get_customer_site_progress(site)` endpoint
+- one-stage-only `advance_customer_site_provisioning(site, force=False)` endpoint
+- duplicate queued/running operation guard and strict bootstrap/setup/OAuth ordering
+- direct setup and OAuth mutation followed by one verification each
+- customer-scoped `lenscloud_site_progress` realtime publication with 30-second read-only polling fallback
+- Vue rendering from the canonical backend snapshot, including refresh rehydration
+- read-only membership authorization; the first live request exposed and fixed an unintended User-role-profile write
+
+Live recovery run:
+
+- Customer: `iron_monkey_private@example.com`
+- Site: `iron-monkey-0721081416.cloud.lmnaslens.com`
+- Subscription: `SUB-00007`
+- Result: `ready`
+- Trustworthy recovery elapsed: `492,885 ms` (`8m 12.885s`)
+- Under five minutes: **No**
+- Refresh: `bootstrap_installing` before and after reload
+- Command order: `site_bootstrap.install_apps` → `site_setup.complete` → `site_setup.status` → `oauth.configure` → `oauth.status`
+- Duplicate app-aware commands: none
+
+Measured canonical transition intervals:
+
+| Stage interval | Elapsed |
+| --- | ---: |
+| Resume to route ready/bootstrap start | 6.952s |
+| Bootstrap install | 201.197s |
+| Setup complete | 71.437s |
+| Setup verification | 36.685s |
+| OAuth configure | 41.781s |
+| OAuth verification | 134.733s |
+| Total recovery | 492.885s |
+
+The original submission-to-ready duration is intentionally not reported: the browser used UTC while Frappe creation timestamps were rendered in the site timezone, producing an invalid negative comparison. The monotonic recovery duration above is valid and independently sufficient to fail the 300-second gate.
+
+Evidence:
+
+- `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721081416-recovery.json`
+- `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721081416-recovery-final.png`
+
+Gate disposition:
+
+- Reliability/order/refresh behavior: passed for this run.
+- Under-five-minute performance: failed.
+- Realtime delivery within two seconds: backend scoping is unit-tested, but live socket latency was not isolated from the one-second evidence polling and remains unproven.
+- Next bottleneck work: reduce Release-runtime bootstrap startup/execution and especially final OAuth verification latency, then run a new fresh customer journey with a single monotonic timer from submission.

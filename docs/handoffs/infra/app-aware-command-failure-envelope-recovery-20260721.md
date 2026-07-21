@@ -137,3 +137,26 @@ Platform will finalize envelope changes and tests, enforce retry policy in
 `advance_customer_site_provisioning`, expose recovery through
 `get_customer_site_progress`, prove no duplicate advancement, and run a fresh
 customer provisioning E2E.
+
+## Platform Review Follow-Up - 2026-07-21
+
+Infra return commit `4b56ce2` and the direct Release-runtime Job evidence are
+accepted. Platform also passed 82 focused tests proving nested message emission,
+`run_app_aware_job` forwarding, `finish_action_log` persistence, canonical
+customer progress, strict stage ordering, and duplicate-command prevention.
+
+Before Platform can run the remaining live acceptance, Infra must document the
+exact controlled-fault invocation contract used by a Platform-created Job:
+
+- the exact annotation, argument, mounted file, or other input name;
+- the allowlisted value for `APP_INSTALL_FAILED` and `QUEUE_OVERLOADED`;
+- the exact authorization/environment gate;
+- whether the input is admitted by the currently deployed policy at `4b56ce2`;
+- how Platform proves an unauthorized/missing value becomes
+  `LC-INFRA-UNKNOWN-0001` with `FAULT_NOT_AUTHORIZED`; and
+- how the test input is removed or disabled after proof.
+
+Do not ask Platform to add a customer-facing fault parameter, arbitrary command,
+generic-runner fallback, mutable image, or secret-bearing environment value.
+Infra may amend the existing return handoff in place. After that amendment,
+Platform will run the two retained live Action Log and recovery scenarios.

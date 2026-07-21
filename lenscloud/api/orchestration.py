@@ -417,6 +417,8 @@ def finish_action_log(log, status, message=None, error=None, result_message=None
 		from lenscloud.api.messages import emit_message
 		if not attach_infra_message(log, result_message, operation=getattr(log, "operation", None)):
 			emit_message(log, operation=getattr(log, "operation", None), error=error or message, params={"site": getattr(log, "site", None)}, source="Runner" if getattr(log, "action_type", None) == "Bench Command" else "Platform API")
+	from lenscloud.api.provisioning_realtime import publish_action_log_progress
+	publish_action_log_progress(log)
 	return log
 
 

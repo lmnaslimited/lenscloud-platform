@@ -1,6 +1,11 @@
 import json
 
+import frappe
 from frappe.tests.utils import FrappeTestCase
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from lenscloud.api import bench_command
 
 from lenscloud.api.infra_messages import resolve_infra_message
 from lenscloud.api.orchestration import create_action_log, finish_action_log
@@ -47,6 +52,48 @@ class TestInfraMessageEnvelope(FrappeTestCase):
 		self.assertEqual(log.safe_summary, INFRA_RESULT_MESSAGE["safe_summary"])
 		self.assertEqual(log.resolution_owner, "Infra")
 		self.assertEqual(log.retryability, "Retry After Infra Action")
+
+	def test_app_aware_job_persists_supplied_nested_message(self):
+		result_message = {
+			"message_id": "LC-INFRA-BOOTSTRAP-0001",
+			"message_type": "Error",
+			"source": "Release Runtime",
+			"destination": "Platform",
+			"params": {"operation": "site_bootstrap.install_apps", "reason": "APP_INSTALL_FAILED", "app": "erpnext", "exit_code": 1},
+			"safe_summary": "A required Site application could not be installed.",
+			"details_ref": None,
+		}
+		log = create_action_log("Bench Command", "Pending", dry_run=False, resource_kind="bench-command", operation="site_bootstrap.install_apps")
+
+		class FakeClient:
+			def __enter__(self):
+				return self
+
+			def __exit__(self, *_args):
+				return False
+
+			def create_namespaced(self, *_args, **_kwargs):
+				return {}
+
+		cluster = SimpleNamespace(name="cluster")
+		bench = SimpleNamespace(name="bench-doc", region="EU", operator_resource_name="runtime-bench")
+		site = SimpleNamespace(name="site.example.com", customer="CUST001", region="EU")
+		with (
+			patch("lenscloud.api.bench_command.create_action_log", return_value=log),
+			patch("lenscloud.api.bench_command.get_cluster_client", return_value=FakeClient()),
+			patch("lenscloud.api.bench_command.wait_for_job", return_value=("Failed", {}, [{}])),
+			patch("lenscloud.api.bench_command.sanitized_termination_summary", return_value={"phase": "Failed", "message": result_message, "redacted": True}),
+			patch("lenscloud.api.bench_command.cleanup_command_resources", return_value=[]),
+		):
+			result = bench_command.run_app_aware_job("site_bootstrap.install_apps", cluster, "runtime", bench, "image@sha256:" + "a" * 64, "exit 1", site_doc=site)
+		log.reload()
+		self.assertEqual(result["status"], "Failed")
+		self.assertEqual(log.message_id, "LC-INFRA-BOOTSTRAP-0001")
+		self.assertEqual(log.matched_by, "Infra Supplied")
+		self.assertEqual(log.source, "Release Runtime")
+		self.assertEqual(json.loads(log.message_params_json), result_message["params"])
+		frappe.delete_doc("Orchestration Action Log", log.name, force=True)
+		frappe.db.commit()
 
 	def test_success_does_not_attach_failure_message(self):
 		log = create_action_log("Bench Command", "Running", dry_run=False, resource_kind="bench-command", operation="site_setup.status")

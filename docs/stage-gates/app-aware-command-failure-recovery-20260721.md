@@ -1,7 +1,7 @@
 # Stage Gate: App-Aware Command Failure Recovery And Customer Provisioning
 
 Date: 2026-07-21
-Status: In Progress; Platform contract prepared, awaiting Infra return
+Status: In Progress; Infra amendment a23258a integrated, disposable-Site live recovery proof pending
 
 ## Ownership And Sequence
 
@@ -13,8 +13,10 @@ Status: In Progress; Platform contract prepared, awaiting Infra return
 4. Platform accepts the return, completes customer provisioning recovery
    integration, and runs acceptance.
 
-Current next owner: Infra. Platform implementation resumes when the Infra
-return is available.
+Current next action: Platform runs and retains both controlled failure/recovery
+scenarios on a disposable customer Site, then continues that Site into the
+under-five-minute provisioning gate. Infra's invocation contract is complete;
+the transactional Platform integration passed 84 focused tests.
 
 ## Purpose
 
