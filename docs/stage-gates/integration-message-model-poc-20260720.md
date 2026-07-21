@@ -1,7 +1,7 @@
 # Stage Gate: LensCloud Message Framework POC
 
 Date: 2026-07-20
-Status: Proposed / POC first
+Status: Complete for generic runner POC; app-aware recovery split to 2026-07-21 stage gate
 Canonical workitem: `LensCloud message framework POC`
 
 ## Problem

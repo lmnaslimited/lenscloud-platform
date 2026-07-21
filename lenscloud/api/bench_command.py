@@ -1060,7 +1060,7 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 			message = f"{message} Result: {display_text}."
 		elif status_text:
 			message = f"{message} Summary: {status_text}."
-		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message)
+		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message, result_message=(summary or {}).get("message"))
 		return {
 			"status": status,
 			"command": command,
@@ -1421,7 +1421,7 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 		message = f"App-aware command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
 		status = "Succeeded" if phase == "Succeeded" else "Failed"
 		error = None if status == "Succeeded" else (sanitized_status_summary(summary) or message)
-		finish_action_log(log, status, message, error=error)
+		finish_action_log(log, status, message, error=error, result_message=(summary or {}).get("message"))
 		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message, "fallback_summary": error if status != "Succeeded" else None}
 	except Exception as exc:
 		if job_name:

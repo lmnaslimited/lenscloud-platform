@@ -406,15 +406,17 @@ def create_action_log(action_type, status="Pending", database_server=None, bench
 	return doc
 
 
-def finish_action_log(log, status, message=None, error=None):
+def finish_action_log(log, status, message=None, error=None, result_message=None):
 	log.status = status
 	log.message = message or log.message
 	log.error = sanitize_error(error)
 	log.last_transition_time = now_datetime()
 	log.save(ignore_permissions=True)
 	if status == "Failed":
+		from lenscloud.api.infra_messages import attach_infra_message
 		from lenscloud.api.messages import emit_message
-		emit_message(log, operation=getattr(log, "operation", None), error=error or message, params={"site": getattr(log, "site", None)}, source="Runner" if getattr(log, "action_type", None) == "Bench Command" else "Platform API")
+		if not attach_infra_message(log, result_message, operation=getattr(log, "operation", None)):
+			emit_message(log, operation=getattr(log, "operation", None), error=error or message, params={"site": getattr(log, "site", None)}, source="Runner" if getattr(log, "action_type", None) == "Bench Command" else "Platform API")
 	return log
 
 
