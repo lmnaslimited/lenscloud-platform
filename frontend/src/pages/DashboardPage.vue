@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLink, Globe2, LifeBuoy, Package, Server, Sparkles, Users, RefreshCw } from 'lucide-vue-next'
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, CreditCard, ExternalLink, Headset, Server, Users, RefreshCw, Globe } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import { useSessionStore } from '@/lib/session'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -104,7 +104,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 							{ label: 'Customers', value: metrics.customers, route: '/platform/customers', icon: Users },
 							{ label: 'Subscriptions', value: metrics.subscriptions, route: '/platform/subscriptions', icon: Clock3 },
 							{ label: 'Provisioning Sites', value: metrics.provisioning_sites, route: '/platform/sites', icon: Server },
-							{ label: 'Ready Sites', value: metrics.ready_sites, route: '/platform/sites', icon: Globe2 },
+							{ label: 'Ready Sites', value: metrics.ready_sites, route: '/platform/sites', icon: Globe },
 						]" :key="item.label" :to="item.route" class="rounded border border-outline-gray-2 bg-surface-white p-3 hover:bg-surface-gray-1">
 							<div class="flex items-center justify-between"><p class="text-sm text-ink-gray-5">{{ item.label }}</p><component :is="item.icon" class="size-4 text-ink-gray-4" /></div>
 							<p class="mt-2 text-2xl font-semibold text-ink-gray-9">{{ item.value || 0 }}</p>
@@ -183,7 +183,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 						<section class="mx-auto max-w-5xl rounded-2xl border border-[#EDEDED] bg-white p-6 text-[#191c1e] lg:p-8">
 							<div class="grid gap-6 lg:grid-cols-[1fr_320px] lg:items-start">
 								<div>
-									<Badge :class="onboardingStep === 'ready' ? 'bg-emerald-50 text-emerald-700' : onboardingStep === 'provisioning' ? 'bg-blue-50 text-blue-700' : 'bg-[#dce1ff] text-[#0039b5]'">{{ onboardingStep === 'ready' ? 'Ready to open' : onboardingStep === 'provisioning' ? 'Provisioning' : 'Subscription active' }}</Badge>
+									<Badge :class="onboardingStep === 'ready' ? '!bg-emerald-50 !text-emerald-700' : onboardingStep === 'provisioning' ? '!bg-blue-50 !text-blue-700' : '!bg-[#dce1ff] !text-[#0039b5]'">{{ onboardingStep === 'ready' ? 'Ready to open' : onboardingStep === 'provisioning' ? 'Provisioning' : 'Subscription active' }}</Badge>
 									<h2 class="mt-4 text-[24px] font-semibold leading-8 text-[#191c1e]">{{ activeSite ? 'Your LENS Workspace is on its way' : 'Your subscription is active' }}</h2>
 									<p class="mt-3 max-w-xl text-sm leading-6 text-[#505f76]">{{ activeSite ? 'Follow setup progress and open your Workspace as soon as it is ready.' : 'Your service subscription is ready. Start or review your Workspace setup from here.' }}</p>
 									<div class="mt-6 flex flex-col gap-3 sm:flex-row">
@@ -196,7 +196,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 											Open Workspace
 											<ExternalLink class="size-4" />
 										</a>
-										<RouterLink v-else-if="activeSite" :to="`/customer/plans?site=${encodeURIComponent(activeSite.name)}&subscription=${encodeURIComponent(activeSite.subscription || '')}`" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2"
+										<RouterLink v-else-if="activeSite" :to="`/customer/plans?site=${encodeURIComponent(activeSite.name)}&subscription=${encodeURIComponent(activeSite.subscription || '')}`" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
 										@click="posthog.capture('provisioning_progress_viewed', {
 											site_name: activeSite.name,
 											site_status: activeSite.site_status
@@ -204,7 +204,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 											View provisioning progress
 											<ArrowRight class="size-4" />
 										</RouterLink>
-										<RouterLink v-else to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2"
+										<RouterLink v-else to="/customer/subscriptions" class="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
 										@click="posthog.capture('onboarding_continued', {
 											onboarding_step,
 											subscription_status: selectedSubscription?.status
@@ -219,7 +219,7 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 									</div>
 								</div>
 								<div class="grid grid-cols-3 gap-2 text-center">
-									<RouterLink to="/customer/subscriptions" class="rounded-lg border border-primary bg-secondary p-3 transition hover:bg-secondary/2"><p class="text-xl font-semibold text-primary">{{ customerUsage.subscriptions || 0 }}</p><p class="text-xs font-semibold text-[#0039b5]">Subscriptions</p></RouterLink>
+									<RouterLink to="/customer/subscriptions" class="rounded-lg border border-blue-300 bg-blue-50 p-3 transition hover:bg-blue-100"><p class="text-xl font-semibold text-primary">{{ customerUsage.subscriptions || 0 }}</p><p class="text-xs font-semibold text-[#0039b5]">Subscriptions</p></RouterLink>
 									<div class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.sites || 0 }}</p><p class="text-xs text-[#64748B]">Sites</p></div>
 									<div class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><p class="text-xl font-semibold text-[#191c1e]">{{ customerUsage.ready_sites || 0 }}</p><p class="text-xs text-[#64748B]">Ready</p></div>
 								</div>
@@ -228,8 +228,8 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 
 						<section class="mx-auto mt-4 grid max-w-5xl gap-4 md:grid-cols-3">
 							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><CreditCard class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">{{ selectedSubscription?.plan || freePlan?.title || 'Subscription' }}</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">{{ selectedSubscription?.status || 'Active' }} service subscription.</p></div>
-							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><Globe2 class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">{{ activeSite?.title || activeSite?.name || 'Workspace setup' }}</p></div><p class="mt-3 text-base leading-67text-[#64748B]">{{ activeSite?.site_status || 'Preparing' }}</p></div>
-							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><LifeBuoy class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">Support</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">Contact support from any setup state.</p></div>
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><Globe class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">{{ activeSite?.title || activeSite?.name || 'Workspace setup' }}</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">{{ activeSite?.site_status || 'Preparing' }}</p></div>
+							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><Headset class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">Support</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">Contact support from any setup state.</p></div>
 						</section>
 					</template>
 				</template>			</div>

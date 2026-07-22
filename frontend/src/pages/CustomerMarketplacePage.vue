@@ -92,7 +92,7 @@ async function load() {
 		optedIn.value = Object.fromEntries(opted.map((code) => [code, true]))
 	} catch (err) {
 		// error.value = err?.message || 'Unable to load marketplace capabilities.'
-		console.log(err)
+		// console.log(err)
 
 		const message = err?.message || ''
 
@@ -120,8 +120,11 @@ onMounted(load)
 		inspector-subtitle="Details, category, and access."
 	>
 		<template #actions>
-			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load">
-				<RefreshCcw class="size-4 shrink-0" /><span>Refresh</span>
+			<Button variant="subtle" @click="load">
+				<template #prefix>
+				<RefreshCcw class="h-4 w-4" />
+			</template>
+			Refresh
 			</Button>
 		</template>
 

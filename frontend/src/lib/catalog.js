@@ -1320,7 +1320,7 @@ export const platformNav = [
 
 export const customerNav = [
 	{
-		heading: 'Customer portal',
+		heading: 'Home',
 		items: [
 			{ key: 'customer-dashboard', label: 'Dashboard', note: 'Site status and next steps', route: '/customer/dashboard', icon: LayoutDashboard },
 			{ key: 'customer-plans', label: 'Plans', note: 'Choose a subscription', route: '/customer/plans', icon: Package, doctype: 'Plan' },

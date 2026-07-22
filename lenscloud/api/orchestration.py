@@ -1592,7 +1592,7 @@ def plan_customer_entitlement(plan, customer_name, subscriptions=None, sites=Non
 	if subscription_limit and used_subscriptions >= subscription_limit:
 		reasons.append(_("Subscription limit reached"))
 	if site_limit and used_sites >= site_limit:
-		reasons.append(_("Site limit reached"))
+		reasons.append(_("Workspace limit reached"))
 	return {
 		"subscription_limit": subscription_limit,
 		"site_limit": site_limit,

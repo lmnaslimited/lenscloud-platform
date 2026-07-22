@@ -607,7 +607,7 @@ onBeforeUnmount(() => {
 					</label>
 				</div>
 				<div class="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-					<Button variant="subtle" type="button" @click="dismissSetupDialog">Cancel</Button>
+					<Button variant="subtle" type="button" @click="dismissSetupDialog">Back</Button>
 					<Button variant="solid" type="submit" :disabled="!setupDefaultsComplete || submitting">{{ submitting ? 'Saving...' : 'Save defaults' }}</Button>
 				</div>
 			</form>
@@ -731,7 +731,7 @@ onBeforeUnmount(() => {
 											<h4 class="mb-1 text-base font-semibold text-gray-900">4. Setup Defaults</h4>
 											<p class="mb-4 text-sm text-gray-500">Only fields required by the installed apps are requested.</p>
 											<div class="flex flex-wrap items-center gap-3">
-												<button class="rounded-md border border-gray-50 bg-secondary px-4 py-2 text-sm font-semibold text-white hover:bg-primary" type="button" @click="openSetupDialog">{{ setupDefaultsComplete ? 'Edit setup defaults' : 'Complete setup defaults' }}</button>
+												<button class="rounded-md border border-gray-50 bg-secondary px-4 py-2 text-sm font-semibold text-white hover:bg-primary" type="button" @click="openSetupDialog">{{ setupDefaultsComplete ? 'Edit setup defaults' : 'Continue Setup' }}</button>
 												<span class="rounded-full px-3 py-1 text-sm font-medium" :class="setupDefaultsComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'">{{ setupDefaultsComplete ? 'Ready' : setupSchemaLoading ? 'Loading' : 'Required' }}</span>
 											</div>
 										</section>
@@ -781,7 +781,7 @@ onBeforeUnmount(() => {
 										<div class="border-y border-gray-200 bg-gray-50 p-6"><p class="text-sm text-gray-500">No payment method required for Free Plan</p></div>
 										<div class="flex flex-col items-center gap-3 p-6">
 											<button class="w-full rounded-lg bg-[#2563eb] py-3.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canStartFree || submitting" @click="startFreePlan">{{ submitting ? 'Starting...' : 'Start Free Subscription' }}</button>
-											<button class="w-full rounded-lg bg-gray-100 px-6 py-3.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-200" @click="step = 'setup'">Cancel</button>
+											<button class="w-full rounded-lg bg-gray-100 px-6 py-3.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-200" @click="step = 'setup'">Back</button>
 										</div>
 									</section>
 								</div>
@@ -818,12 +818,14 @@ onBeforeUnmount(() => {
 											</div>
 											<div class="flex shrink-0 flex-wrap gap-3">
 												<a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a>
-												<button v-if="resultSetupRequired" class="inline-flex items-center justify-center rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="openSetupDialog">Update defaults</button><button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
+												<button v-if="resultSetupRequired" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="openSetupDialog">Update defaults</button><button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
 											</div>
 										</div>
 									</div>
 
-									<div class="mt-6 flex flex-wrap gap-2"><Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button><Button v-if="result?.site" :as="RouterLink" :to="result?.subscription ? `/customer/subscriptions?subscription=${encodeURIComponent(result.subscription)}` : '/customer/subscriptions'" variant="subtle">View Subscription</Button>
+									<div class="mt-6 flex flex-wrap gap-2">
+										<Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button>
+										<Button v-if="result?.site" :as="RouterLink" :to="result?.subscription ? `/customer/subscriptions?subscription=${encodeURIComponent(result.subscription)}` : '/customer/subscriptions'" variant="subtle">View Subscription</Button>
 										<Button v-if="readySiteUrl && hasReadySite" 
 										as="a" :href="readySiteUrl" target="_blank" 
 										@click="posthog.capture('site_opened', {

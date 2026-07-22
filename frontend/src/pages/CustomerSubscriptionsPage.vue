@@ -33,7 +33,7 @@ function statusClass(status) {
 }
 
 function siteStatusText(site) {
-	if (!site) return 'No Site yet'
+	if (!site) return 'No Workspace yet'
 	if (['Ready', 'Active'].includes(site.site_status)) return 'Ready to open'
 	if (['Failed'].includes(site.site_status)) return 'Needs support'
 	return site.provisioning_status || site.site_status || 'Preparing'
@@ -75,7 +75,7 @@ onMounted(load)
 		subtitle="Review your LensCloud service subscriptions and setup progress."
 		inspector-kicker="Your Service"
 		:inspector-title="selectedSubscription ? 'Subscription Details' : 'No Subscription Yet'"
-		inspector-subtitle="Customer-safe Plan, payment, and Site progress."
+		inspector-subtitle="Customer-safe Plan, payment, and Workspace progress."
 	>
 		<template #actions>
 			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load"><span class="flex items-center gap-2">
@@ -148,7 +148,7 @@ onMounted(load)
 										plan: subscription.plan,
 									})
 								"
-								class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white ">Open Site <ExternalLink class="size-4" /></a>
+								class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white ">Open Workspace <ExternalLink class="size-4" /></a>
 								<RouterLink v-else-if="selectedSubscription?.name === subscription.name" :to="selectedProgressSite ? `/customer/plans?site=${encodeURIComponent(selectedProgressSite.site || selectedProgressSite.name)}&subscription=${encodeURIComponent(subscription.name)}` : `/customer/plans?subscription=${encodeURIComponent(subscription.name)}`" class="inline-flex items-center gap-2 rounded-lg bg-[#f2f4f6] px-4 py-2 text-sm font-semibold text-[#434655] transition hover:bg-[#e8ecf1]" @click.stop>View progress</RouterLink>
 								<span v-else class="text-sm font-medium text-[#1D4ED8]">View details</span>
 							</div>
@@ -185,7 +185,7 @@ onMounted(load)
 							</div>
 							<div class="min-w-0 flex-1">
 								<p class="text-sm font-medium text-[#191c1e]">{{ item.environment }}</p>
-								<p class="mt-1 text-xs text-[#64748B]">{{ item.site_title || 'Site will be created as part of this landscape' }}</p>
+								<p class="mt-1 text-xs text-[#64748B]">{{ item.site_title || 'Workspace will be created as part of this landscape' }}</p>
 								<p class="mt-1 text-xs text-[#64748B]">Status: {{ environmentStatusText(item) }}<span v-if="item.release"> · Version: {{ item.release }}</span></p>
 								<a v-if="item.access_url && ['Ready','Active'].includes(item.site_status)" 
 								:href="item.access_url" target="_blank" 
@@ -196,7 +196,7 @@ onMounted(load)
 										site: item.site,
 									})
 								"
-								class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">Open Site <ExternalLink class="size-3" /></a>
+								class="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-primary">Open Workspace <ExternalLink class="size-3" /></a>
 							</div>
 						</div>
 					</div>

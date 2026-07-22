@@ -1,6 +1,6 @@
 <script setup>
-import { computed, ref } from 'vue'
-import { Sparkles, PanelRightOpen, PanelRightClose, X } from 'lucide-vue-next'
+import { computed, ref, onUnmounted } from 'vue'
+import { Sparkles, PanelRightOpen, PanelRightClose, X, Send } from 'lucide-vue-next'
 import { Badge, Button } from 'frappe-ui'
 
 const props = defineProps({
@@ -10,7 +10,7 @@ const props = defineProps({
 	inspectorKicker: { type: String, default: 'Inspector' },
 	inspectorTitle: { type: String, default: 'Context' },
 	inspectorSubtitle: { type: String, default: '' },
-	assistantLabel: { type: String, default: 'Assistant' },
+	assistantLabel: { type: String, default: 'lumi' },
 	assistantHint: { type: String, default: 'Reserved for contextual AI guidance tied to the current workspace.' },
 	assistantContext: { type: Object, default: () => ({}) },
 	mobileInspectorLabel: { type: String, default: 'Details' },
@@ -23,6 +23,40 @@ const assistantSections = computed(() => props.assistantContext?.sections || [])
 const assistantBadges = computed(() => props.assistantContext?.badges || [])
 const assistantNextSteps = computed(() => props.assistantContext?.nextSteps || [])
 const assistantGaps = computed(() => props.assistantContext?.gaps || [])
+
+const userMessage = ref('')
+function handleSendMessage() {
+    if (!userMessage.value.trim()) return
+    // Handle message dispatch logic here if connected to an API/store
+    userMessage.value = ''
+}
+
+const inspectorWidth = ref(380) // Default width in px
+const minWidth = 280
+const maxWidth = 600
+const isResizing = ref(false)
+
+function startResize(direction, event) {
+    isResizing.value = true
+    const startX = event.clientX
+    const startWidth = inspectorWidth.value
+
+    const onMouseMove = (e) => {
+        const deltaX = e.clientX - startX
+        // Dragging left handle: moving left increases width, moving right decreases width
+        const newWidth = direction === 'left' ? startWidth - deltaX : startWidth + deltaX
+        inspectorWidth.value = Math.min(Math.max(newWidth, minWidth), maxWidth)
+    }
+
+    const stopResize = () => {
+        isResizing.value = false
+        window.removeEventListener('mousemove', onMouseMove)
+        window.removeEventListener('mouseup', stopResize)
+    }
+
+    window.addEventListener('mousemove', onMouseMove)
+    window.addEventListener('mouseup', stopResize)
+}
 </script>
 
 <template>
@@ -57,7 +91,7 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 				<div class="pointer-events-none absolute inset-x-0 bottom-0 z-20 flex justify-center bg-gradient-to-t from-white via-white/85 to-transparent px-4 pb-4 pt-8 xl:hidden">
 					<button
 						type="button"
-						class="pointer-events-auto inline-flex min-w-[220px] items-center justify-center gap-2 rounded-xl bg-[#1D4ED8] px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-[#0037b0] focus:outline-none focus:ring-2 focus:ring-[#b7c4ff] focus:ring-offset-2"
+						class="pointer-events-auto inline-flex min-w-[220px] items-center justify-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
 						data-testid="mobile-inspector-trigger"
 						@click="mobileInspectorOpen = true"
 					>
@@ -67,7 +101,16 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 				</div>
 			</section>
 
-			<aside class="hidden w-[380px] shrink-0 flex-col border-l border-outline-gray-2 bg-surface-white xl:flex">
+			<!-- <aside class="hidden w-[380px] shrink-0 flex-col border-l border-outline-gray-2 bg-surface-white xl:flex"> -->
+			<aside 
+                class="relative hidden shrink-0 flex-col border-l border-outline-gray-2 bg-surface-white xl:flex transition-none select-none"
+                :style="{ width: `${inspectorWidth}px` }"
+            >
+                <!-- Left Resize Handle -->
+                <div 
+                    class="absolute inset-y-0 -left-1 w-1 cursor-col-resize hover:bg-gray-400/50 active:bg-gray-400/50 z-10"
+                    @mousedown.prevent="startResize('left', $event)"
+                />
 				<div class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-outline-gray-2 px-4">
 					<div class="min-w-0">
 						<p class="text-xs font-medium text-ink-gray-5">{{ inspectorKicker }}</p>
@@ -88,7 +131,7 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 					</slot>
 				</div>
 
-				<div v-if="assistantOpen" class="max-h-[42%] shrink-0 overflow-y-auto border-t border-outline-gray-2 bg-surface-gray-1 p-3">
+				<!-- <div v-if="assistantOpen" class="max-h-[42%] shrink-0 overflow-y-auto border-t border-outline-gray-2 bg-surface-gray-1 p-3">
 					<div class="flex items-start justify-between gap-3">
 						<div class="min-w-0">
 							<div class="flex items-center gap-2 text-sm font-medium text-ink-gray-8">
@@ -124,7 +167,12 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 							<li v-for="step in assistantNextSteps" :key="step">{{ step }}</li>
 						</ul>
 					</div>
-				</div>
+				</div> -->
+			<!-- Right Resize Handle -->
+			<div 
+				class="absolute inset-y-0 -right-1 w-1 cursor-col-resize hover:bg-gray-400/50 active:bg-gray-400/50 z-10"
+				@mousedown.prevent="startResize('right', $event)"
+			/>
 			</aside>
 
 			<Teleport to="body">
@@ -154,5 +202,102 @@ const assistantGaps = computed(() => props.assistantContext?.gaps || [])
 				</div>
 			</Teleport>
 		</div>
+		<!-- Responsive Lumi Chat Assistant Drawer (Non-blocking) -->
+		<Teleport to="body">
+                <div v-if="assistantOpen" class="fixed right-0 top-0 z-[400] h-full w-full max-w-md pointer-events-none">
+                    <!-- Chat Flyout Panel -->
+                    <aside class="pointer-events-auto flex h-full w-full flex-col bg-white shadow-2xl border-l border-outline-gray-2">
+                        <!-- Chat Header -->
+                        <div class="flex h-14 shrink-0 items-center justify-between border-b border-outline-gray-2 bg-violet-50/50 px-4">
+                            <div class="flex items-center gap-2.5 min-w-0">
+                                <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
+                                    <Sparkles class="size-4" />
+                                </div>
+                                <div class="min-w-0">
+                                    <div class="flex items-center gap-2">
+                                        <h2 class="truncate text-sm font-semibold text-ink-gray-9">{{ assistantLabel }}</h2>
+                                        <Badge v-if="assistantContext.scope" class="bg-blue-100 text-primary border-none text-[10px]">
+                                            {{ assistantContext.scope }}
+                                        </Badge>
+                                    </div>
+                                    <p class="text-xs text-ink-gray-5 mt-2">Active context assistant</p>
+                                </div>
+                            </div>
+                            <button 
+                                type="button" 
+                                class="grid size-8 place-items-center rounded-md text-ink-gray-5 hover:bg-blue-100 hover:text-ink-gray-9 transition"
+                                @click="assistantOpen = false"
+                            >
+                                <X class="size-4" />
+                            </button>
+                        </div>
+
+                        <!-- Chat Messages Container -->
+                        <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
+                            <!-- Assistant Intro Message -->
+                            <div class="flex items-start gap-3">
+                                <div class="flex size-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-primary mt-0.5">
+                                    <Sparkles class="size-3.5" />
+                                </div>
+                                <div class="flex-1 space-y-3">
+                                    <div class="rounded-2xl rounded-tl-none border border-blue-100 bg-white p-3.5 text-sm text-ink-gray-8 shadow-sm">
+                                        <p>{{ assistantContext.summary || assistantHint }}</p>
+                                    </div>
+
+                                    <!-- Context Badges -->
+                                    <div v-if="assistantBadges.length" class="flex flex-wrap gap-1.5">
+                                        <Badge v-for="badge in assistantBadges" :key="badge" variant="subtle" class="text-xs">
+                                            {{ badge }}
+                                        </Badge>
+                                    </div>
+
+                                    <!-- Detailed Sections -->
+                                    <div v-if="assistantSections.length" class="space-y-2">
+                                        <div 
+                                            v-for="section in assistantSections" 
+                                            :key="section.label" 
+                                            class="rounded-xl border border-outline-gray-2 bg-white px-3 py-2.5 text-xs shadow-xs"
+                                        >
+                                            <p class="font-medium text-ink-gray-5 uppercase tracking-wider text-[10px]">{{ section.label }}</p>
+                                            <p class="mt-1 text-sm font-normal text-ink-gray-8">{{ section.value }}</p>
+                                        </div>
+                                    </div>
+
+                                    <!-- Gaps Card -->
+                                    <div v-if="assistantGaps.length" class="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900 shadow-xs">
+                                        <p class="font-semibold text-amber-800">Gaps identified</p>
+                                        <ul class="mt-1.5 list-disc pl-4 space-y-1">
+                                            <li v-for="gap in assistantGaps" :key="gap">{{ gap }}</li>
+                                        </ul>
+                                    </div>
+
+                                    <!-- Next Steps Card -->
+                                    <div v-if="assistantNextSteps.length" class="rounded-xl border border-violet-200 bg-violet-50/60 p-3 text-xs text-violet-950 shadow-xs">
+                                        <p class="font-semibold text-violet-900">Recommended Next Steps</p>
+                                        <ul class="mt-1.5 list-disc pl-4 space-y-1">
+                                            <li v-for="step in assistantNextSteps" :key="step">{{ step }}</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Chat Input Box -->
+                        <div class="shrink-0 border-t border-outline-gray-2 bg-white p-3">
+                            <form @submit.prevent="handleSendMessage" class="flex items-center gap-2">
+                                <input 
+                                    v-model="userMessage"
+                                    type="text" 
+                                    placeholder="Comming Soon..." 
+                                    class="flex-1 rounded-lg border border-outline-gray-2 bg-surface-gray-1 px-3 py-2 text-sm text-ink-gray-9 placeholder-ink-gray-4 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
+                                />
+                                <Button type="submit" variant="solid" class="bg-blue-500 text-white shrink-0">
+                                    <Send class="size-4" />
+                                </Button>
+                            </form>
+                        </div>
+                    </aside>
+                </div>
+            </Teleport>
 	</div>
 </template>
