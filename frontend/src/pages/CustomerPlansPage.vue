@@ -101,9 +101,7 @@ const resultReady = computed(() => provisioningMode.value === 'ready')
 const resultRetryable = computed(() => Boolean(result.value?.site && (canonicalProgress.value ? canonicalProgress.value.can_retry : (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value))))
 const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && !resultReady.value && !resultFailed.value && !resultSetupRequired.value))
 const selectedSiteLabel = computed(() => result.value?.hostname || result.value?.access_url?.replace(/^https?:\/\//, '') || resultSite.value?.title || resultSite.value?.name || hostnamePreview.value || '')
-console.log("resultRetryable", resultRetryable)
-console.log("site", hasReadySite)
-console.log("ready site", readySiteUrl)
+
 const flowSteps = computed(() => [
 	{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
 	{ key: 'setup', label: 'Setup Workspace', helper: 'Pick Region and Workspace details.' },
@@ -190,7 +188,7 @@ const provisioningSteps = computed(() => {
 
 
 function flowStepState(index) {
-	if (readySiteUrl) return 'done'
+	if (readySiteUrl.value && readySiteUrl.value.trim() !== '') return 'done'
 	// 1. If an error occurred at the result stage, mark the step as failed
 	if (resultFailed.value && flowSteps.value[index]?.key === 'result') return 'failed'
 
@@ -841,32 +839,7 @@ onBeforeUnmount(() => {
 										</div>
 									</div>
 
-									<div v-if="resultStarted || resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
-										<div class="flex flex-col justify-between gap-4 md:flex-row md:items-center">
-											<div class="flex items-start gap-3">
-												<AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-700" />
-												<p class="max-w-md text-sm leading-6 text-[#505f76]">{{ resultFailed ? 'Workspace setup took longer than expected. Our team can inspect the Platform evidence while you retry safely.' : resultPaused ? 'Your request is saved. Ask the Platform operator to open the controlled live apply window, then retry setup.' : 'LensCloud is checking setup progress automatically. You can refresh status now without leaving this page.' }}</p>
-											</div>
-											<div class="flex shrink-0 flex-wrap gap-3">
-												<!-- <a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a> -->
-												<button v-if="resultSetupRequired" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="openSetupDialog">Update defaults</button>
-												<button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
-												<a v-if="readySiteUrl && hasReadySite" 
-													:href="readySiteUrl" target="_blank" 
-													class="!bg-primary !hover:bg-secondary text-white inline-flex items-center justify-center gap-2"
-													@click="posthog.capture('site_opened', {
-														site: result?.site,
-														plan: result?.plan,
-														region: result?.region,
-													})"
-													variant="subtle">
-													<!-- <template #prefix> -->
-														<ExternalLink class="size-4" />
-													<!-- </template> -->
-												Open Workspace</a>
-											</div>
-										</div>
-									</div>
+									
 
 									<!-- <div class="mt-6 flex flex-wrap gap-2">
 										<Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button>
@@ -887,6 +860,35 @@ onBeforeUnmount(() => {
 										<p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p>
 										<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com">
 										<Headset class="size-4" />Contact support</a>
+
+										<div v-if="resultStarted || resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
+										<div class="flex flex-col items-start gap-4">
+											<div class="flex items-start gap-3">
+												<AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-700" />
+												<p class="max-w-md text-sm leading-6 text-[#505f76]">{{ resultFailed ? 'Workspace setup took longer than expected. Our team can inspect the Platform evidence while you retry safely.' : resultPaused ? 'Your request is saved. Ask the Platform operator to open the controlled live apply window, then retry setup.' : 'LensCloud is checking setup progress automatically. You can refresh status now without leaving this page.' }}</p>
+											</div>
+											<div class="flex flex-col items-start gap-3 w-full">
+												<!-- <a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a> -->
+												<button v-if="resultSetupRequired" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="openSetupDialog">Update defaults</button>
+												<button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()">
+													<RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin [animation-direction:reverse]' : ''" />
+													{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
+												<a v-if="readySiteUrl && hasReadySite" 
+													:href="readySiteUrl" target="_blank" 
+													class="bg-primary hover:bg-secondary text-white inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
+													@click="posthog.capture('site_opened', {
+														site: result?.site,
+														plan: result?.plan,
+														region: result?.region,
+													})"
+													variant="subtle">
+													
+														<ExternalLink class="size-4" />
+													
+												Open Workspace</a>
+											</div>
+										</div>
+									</div>
 								</aside>
 							</div>
 						</div>

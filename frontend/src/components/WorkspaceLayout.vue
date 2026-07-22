@@ -183,7 +183,7 @@ function startResize(direction, event) {
 						<div class="flex shrink-0 items-center justify-between gap-3 border-b border-[#EDEDED] px-4 py-3">
 							<div class="min-w-0">
 								<p class="text-xs font-semibold text-[#64748B]">{{ inspectorKicker }}</p>
-								<h2 class="truncate text-base font-semibold text-[#191c1e]">{{ inspectorTitle }}</h2>
+								<h2 class="truncate text-base font-semibold text-[#191c1e] mt-1">{{ inspectorTitle }}</h2>
 							</div>
 							<button type="button" aria-label="Close details" data-testid="mobile-inspector-close" class="grid size-8 place-items-center rounded-md text-[#64748B] hover:bg-[#f2f4f6] hover:text-[#191c1e]" @click="mobileInspectorOpen = false">
 								<X class="size-4" />
