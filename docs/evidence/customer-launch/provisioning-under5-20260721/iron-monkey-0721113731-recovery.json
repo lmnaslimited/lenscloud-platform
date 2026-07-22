@@ -1,0 +1,1176 @@
+{
+  "run_id": "iron-monkey-0721113731",
+  "customer": "iron_monkey_private@example.com",
+  "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+  "subscription": "SUB-00007",
+  "original_started_at": null,
+  "recovery_started_at": "2026-07-21T11:48:00.251Z",
+  "completed_at": "2026-07-21T11:51:17.929Z",
+  "original_elapsed_ms": null,
+  "recovery_elapsed_ms": 197678,
+  "under_5_minutes": false,
+  "classification": "fresh_acceptance_exceeded_300s_at_route_pending_then_recovered",
+  "final_snapshot": {
+    "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+    "stage": "ready",
+    "stage_status": "succeeded",
+    "active_operation": null,
+    "active_action_log": null,
+    "can_retry": false,
+    "can_continue": false,
+    "message_id": null,
+    "customer_message": null,
+    "operator_message": null,
+    "retryability": null,
+    "resolution_owner": null,
+    "updated_at": "2026-07-21 17:21:17.268500"
+  },
+  "transitions": [
+    {
+      "recovered_elapsed_ms": 1467,
+      "original_elapsed_ms": null,
+      "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+      "stage": "route_pending",
+      "stage_status": "pending",
+      "active_operation": null,
+      "active_action_log": null,
+      "can_retry": false,
+      "can_continue": true,
+      "message_id": null,
+      "customer_message": null,
+      "operator_message": null,
+      "retryability": null,
+      "resolution_owner": null,
+      "updated_at": "2026-07-21 17:16:56.474897"
+    },
+    {
+      "recovered_elapsed_ms": 7562,
+      "original_elapsed_ms": null,
+      "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+      "stage": "setup_completing",
+      "stage_status": "pending",
+      "active_operation": null,
+      "active_action_log": null,
+      "can_retry": false,
+      "can_continue": true,
+      "message_id": null,
+      "customer_message": null,
+      "operator_message": null,
+      "retryability": null,
+      "resolution_owner": null,
+      "updated_at": "2026-07-21 17:18:06.969654"
+    },
+    {
+      "recovered_elapsed_ms": 77197,
+      "original_elapsed_ms": null,
+      "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+      "stage": "setup_verifying",
+      "stage_status": "pending",
+      "active_operation": null,
+      "active_action_log": null,
+      "can_retry": false,
+      "can_continue": true,
+      "message_id": null,
+      "customer_message": null,
+      "operator_message": null,
+      "retryability": null,
+      "resolution_owner": null,
+      "updated_at": "2026-07-21 17:18:07.968422"
+    },
+    {
+      "recovered_elapsed_ms": 114932,
+      "original_elapsed_ms": null,
+      "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+      "stage": "oauth_configuring",
+      "stage_status": "pending",
+      "active_operation": null,
+      "active_action_log": null,
+      "can_retry": false,
+      "can_continue": true,
+      "message_id": null,
+      "customer_message": null,
+      "operator_message": null,
+      "retryability": null,
+      "resolution_owner": null,
+      "updated_at": "2026-07-21 17:19:55.048240"
+    },
+    {
+      "recovered_elapsed_ms": 158799,
+      "original_elapsed_ms": null,
+      "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+      "stage": "oauth_verifying",
+      "stage_status": "pending",
+      "active_operation": null,
+      "active_action_log": null,
+      "can_retry": false,
+      "can_continue": true,
+      "message_id": null,
+      "customer_message": null,
+      "operator_message": null,
+      "retryability": null,
+      "resolution_owner": null,
+      "updated_at": "2026-07-21 17:19:56.594648"
+    },
+    {
+      "recovered_elapsed_ms": 197560,
+      "original_elapsed_ms": null,
+      "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+      "stage": "ready",
+      "stage_status": "succeeded",
+      "active_operation": null,
+      "active_action_log": null,
+      "can_retry": false,
+      "can_continue": false,
+      "message_id": null,
+      "customer_message": null,
+      "operator_message": null,
+      "retryability": null,
+      "resolution_owner": null,
+      "updated_at": "2026-07-21 17:21:17.268500"
+    }
+  ],
+  "refresh": {
+    "before": "setup_completing",
+    "after": "setup_completing",
+    "original_elapsed_ms": null
+  },
+  "progress_api_calls": [
+    {
+      "at": "2026-07-21T11:48:01.717Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:01.786Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:02.728Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:03.744Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:04.759Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:05.776Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:06.793Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:07.006Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.advance_customer_site_provisioning",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:07.812Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:07.917Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:07.945Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:08.947Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:09.966Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:10.989Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:12.017Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:13.037Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:14.059Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:15.087Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:16.110Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:17.125Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:18.173Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:19.197Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:20.221Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:21.258Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:22.281Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:23.298Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:24.321Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:25.344Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:26.364Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:27.379Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:28.411Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:29.434Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:30.450Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:31.470Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:32.492Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:33.511Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:34.534Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:35.559Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:36.576Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:37.594Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:37.965Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:38.616Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:39.633Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:40.646Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:41.662Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:42.679Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:43.697Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:44.714Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:45.730Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:46.746Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:47.765Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:48.783Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:49.796Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:50.813Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:51.837Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:52.866Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:53.908Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:54.940Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:55.960Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:56.979Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:58.000Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:48:59.021Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:00.042Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:01.075Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:02.101Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:03.118Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:04.162Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:05.182Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:06.198Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:07.218Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:07.963Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:08.242Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:09.295Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:10.320Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:11.338Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:12.358Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:13.374Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:14.395Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:15.413Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:16.433Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:16.725Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.advance_customer_site_provisioning",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:17.448Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:18.464Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:19.482Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:20.505Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:21.525Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:22.539Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:23.559Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:24.582Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:25.600Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:26.625Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:27.646Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:28.681Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:29.701Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:30.719Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:31.736Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:32.751Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:33.778Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:34.797Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:35.815Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:36.831Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:37.845Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:37.961Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:38.861Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:39.877Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:40.894Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:41.911Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:42.935Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:43.957Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:44.977Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:46.004Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:47.028Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:48.043Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:49.063Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:50.080Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:51.099Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:52.122Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:53.147Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:54.165Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:55.067Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.advance_customer_site_provisioning",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:55.183Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:56.204Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:57.231Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:58.256Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:49:59.273Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:00.298Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:01.315Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:02.337Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:03.354Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:04.375Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:05.400Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:06.420Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:07.432Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:07.964Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:08.454Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:09.477Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:10.494Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:11.508Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:12.528Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:13.556Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:14.586Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:15.614Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:16.631Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:17.648Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:18.664Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:19.684Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:20.726Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:21.743Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:22.761Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:23.778Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:24.795Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:25.814Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:26.828Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:27.845Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:28.869Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:29.886Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:30.907Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:31.925Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:32.943Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:33.964Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:34.981Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:35.999Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:37.015Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:37.964Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:38.032Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:38.820Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.advance_customer_site_provisioning",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:39.050Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:40.086Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:41.107Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:42.129Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:43.145Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:44.166Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:45.183Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:46.202Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:47.224Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:48.243Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:49.259Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:50.277Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:51.292Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:52.312Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:53.327Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:54.343Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:55.359Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:56.384Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:57.398Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:58.415Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:50:59.429Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:00.447Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:01.469Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:02.496Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:03.511Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:04.529Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:05.555Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:06.582Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:07.600Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:07.967Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:08.623Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:09.649Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:10.668Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:11.687Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:12.709Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:13.731Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:14.748Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:15.770Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:16.791Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:17.303Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.advance_customer_site_provisioning",
+      "status": 200
+    },
+    {
+      "at": "2026-07-21T11:51:17.810Z",
+      "path": "/api/method/lenscloud.api.provisioning_progress.get_customer_site_progress",
+      "status": 200
+    }
+  ],
+  "browser_errors": [],
+  "original_elapsed_note": "Invalidated as an end-to-end duration because diagnostics and fixes paused automatic advancement. Use recovery_elapsed_ms and the separate failed-gate evidence."
+}

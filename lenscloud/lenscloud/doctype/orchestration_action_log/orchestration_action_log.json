@@ -9,33 +9,43 @@
   "title",
   "action_type",
   "status",
+  "resolution_owner",
+  "retryability",
+  "operator_namespace",
+  "operator_resource_name",
+  "column_break_ohby",
   "dry_run",
   "cluster",
   "region",
   "bench",
   "site",
   "release",
+  "column_break_wwdn",
   "database_server",
   "resource_kind",
   "operation",
   "last_transition_time",
-  "message_id",
-  "message_type",
-  "source",
-  "destination",
-  "message_params_json",
   "normalized_signature",
   "matched_by",
   "match_confidence",
-  "customer_message",
-  "operator_message",
-  "resolution_owner",
-  "retryability",
-  "operator_namespace",
-  "operator_resource_name",
-  "manifest",
+  "section_break_cygt",
   "message",
-  "error"
+  "operator_message",
+  "manifest",
+  "customer_message",
+  "error",
+  "message_tab",
+  "section_break_gejd",
+  "message_id",
+  "destination",
+  "column_break_dyre",
+  "message_type",
+  "source",
+  "column_break_frtm",
+  "details_ref",
+  "section_break_fcqo",
+  "message_params_json",
+  "safe_summary"
  ],
  "fields": [
   {
@@ -86,7 +96,8 @@
    "fieldname": "site",
    "fieldtype": "Link",
    "label": "Site",
-   "options": "Site"
+   "options": "Site",
+   "search_index": 1
   },
   {
    "fieldname": "release",
@@ -144,15 +155,15 @@
   {
    "fieldname": "message_id",
    "fieldtype": "Link",
+   "in_list_view": 1,
    "label": "Message ID",
-   "options": "LensCloud Message",
-   "in_list_view": 1
+   "options": "LensCloud Message"
   },
   {
    "fieldname": "message_type",
    "fieldtype": "Select",
    "label": "Message Type",
-   "options": "Success\nInfo\nWarning\nError\nCritical"
+   "options": "\nSuccess\nInfo\nWarning\nError\nCritical"
   },
   {
    "fieldname": "source",
@@ -179,7 +190,7 @@
    "fieldname": "matched_by",
    "fieldtype": "Select",
    "label": "Matched By",
-   "options": "Infra Supplied\nPlatform Exact Match\nPlatform Pattern Match\nFallback Unknown"
+   "options": "\nInfra Supplied\nPlatform Exact Match\nPlatform Pattern Match\nFallback Unknown"
   },
   {
    "fieldname": "match_confidence",
@@ -200,19 +211,62 @@
    "fieldname": "resolution_owner",
    "fieldtype": "Select",
    "label": "Resolution Owner",
-   "options": "Customer\nPlatform\nInfra"
+   "options": "\nCustomer\nPlatform\nInfra"
   },
   {
    "fieldname": "retryability",
    "fieldtype": "Select",
    "label": "Retryability",
-   "options": "Retryable\nRetry After Delay\nRetry After Platform Action\nRetry After Infra Action\nCustomer Action Required\nNot Retryable"
+   "options": "\nRetryable\nRetry After Delay\nRetry After Platform Action\nRetry After Infra Action\nCustomer Action Required\nNot Retryable"
+  },
+  {
+   "fieldname": "column_break_ohby",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_wwdn",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "section_break_gejd",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "column_break_dyre",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "column_break_frtm",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "message_tab",
+   "fieldtype": "Tab Break",
+   "label": "Message"
+  },
+  {
+   "fieldname": "safe_summary",
+   "fieldtype": "Text",
+   "label": "Safe Summary"
+  },
+  {
+   "fieldname": "details_ref",
+   "fieldtype": "Data",
+   "label": "Details Reference"
+  },
+  {
+   "fieldname": "section_break_cygt",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "section_break_fcqo",
+   "fieldtype": "Section Break"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-06-04 19:32:36.545936",
+ "modified": "2026-07-21 11:46:18.234915",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Orchestration Action Log",

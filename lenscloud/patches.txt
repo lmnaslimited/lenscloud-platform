@@ -7,3 +7,5 @@
 lenscloud.patches.seed_self_service_plan_catalog
 lenscloud.patches.seed_lenscloud_messages
 lenscloud.patches.backfill_lenscloud_message_resolution_owner
+lenscloud.patches.seed_infra_message_catalog_v1
+lenscloud.patches.clear_empty_action_log_message_defaults

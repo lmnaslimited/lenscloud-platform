@@ -770,6 +770,28 @@ def cleanup_command_resources(cluster, namespace, job_name, request_name, pod_wa
 	return deleted
 
 
+def cleanup_command_resources_job(cluster_name, namespace, job_name, request_name=None, secret_name=None):
+	cluster = frappe.get_doc("Cluster", cluster_name)
+	return cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
+
+
+def schedule_command_cleanup(cluster, namespace, job_name, request_name=None, secret_name=None):
+	if not job_name and not request_name and not secret_name:
+		return []
+	frappe.enqueue(
+		"lenscloud.api.bench_command.cleanup_command_resources_job",
+		queue="short",
+		enqueue_after_commit=True,
+		cluster_name=cluster.name,
+		namespace=namespace,
+		job_name=job_name,
+		request_name=request_name,
+		secret_name=secret_name,
+	)
+	parts = [item for item in (job_name, request_name, secret_name) if item]
+	return [f"cleanup scheduled after commit for {namespace}/{', '.join(parts)}"]
+
+
 def wait_for_job(cluster, namespace, job_name, labels, timeout):
 	selector = ",".join(f"{key}={value}" for key, value in labels.items())
 	deadline = time.time() + timeout
@@ -1002,6 +1024,7 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 	request_name = None
 	job_name = None
 	secret_name = None
+	resources_created = False
 	try:
 		if command not in SUPPORTED_COMMANDS:
 			return unsupported_response(command, log, site_doc)
@@ -1040,6 +1063,7 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 			if runner_image:
 				dry_run_bench_command_job(client, namespace, job, runner_image)
 			client.create_namespaced("configmaps", namespace, configmap)
+			resources_created = True
 			if secret:
 				client.create_namespaced("secrets", namespace, secret)
 			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
@@ -1050,17 +1074,17 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 		if phase == "Timed Out":
 			status = "Failed"
 			summary = {"phase": "Timed Out", "code": "TIMEOUT", "summary": "Bench Command Job exceeded Platform timeout.", "redacted": True}
-		if cleanup:
-			deleted = cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
 		display = safe_command_display(summary)
 		display_text = command_display_text(display)
 		status_text = sanitized_status_summary(summary)
-		message = f"Bench Command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
+		message = f"Bench Command {command} finished with phase {phase}."
 		if display_text:
 			message = f"{message} Result: {display_text}."
 		elif status_text:
 			message = f"{message} Summary: {status_text}."
-		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message)
+		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message, result_message=(summary or {}).get("message"))
+		if cleanup:
+			deleted = schedule_command_cleanup(cluster, namespace, job_name, request_name, secret_name=secret_name)
 		return {
 			"status": status,
 			"command": command,
@@ -1083,7 +1107,7 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 		}
 	except Exception as exc:
 		cleanup_message = ""
-		if request_name or job_name:
+		if resources_created:
 			try:
 				deleted = cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
 				cleanup_message = f" Cleanup removed {len(deleted)} temporary resource(s)."
@@ -1242,7 +1266,14 @@ def site_setup_complete_script(site_name, args, summary):
 		"text = open(path, 'r', errors='replace').read().splitlines()[-120:]",
 		"excerpt = '\\n'.join(text)[-1400:]",
 		"excerpt = re.sub(r'(?i)(token|password|secret|authorization)([\"\\'=:\\s]+)([^\\s,}\"]+)', r'\\1\\2[REDACTED]', excerpt)",
-		"print(json.dumps({'phase': 'Failed', 'command': 'site_setup.complete', 'summary': 'Site setup completion failed', 'exit_code': rc, 'error_excerpt': excerpt, 'redacted': True}))",
+		"queue_overloaded = 'QueueOverloaded' in excerpt or 'QUEUE_OVERLOADED' in excerpt",
+		"message_id = 'LC-INFRA-QUEUE-0001' if queue_overloaded else 'LC-INFRA-UNKNOWN-0001'",
+		"reason = 'QUEUE_OVERLOADED' if queue_overloaded else 'SETUP_COMPLETE_FAILED'",
+		"params = {'operation': 'site_setup.complete', 'reason': reason, 'exit_code': rc}",
+		"if queue_overloaded: params['queue'] = 'default'",
+		"safe_summary = 'Target runtime background jobs did not drain in time.' if queue_overloaded else 'Site setup completion failed in the Release runtime.'",
+		"message = {'message_id': message_id, 'message_type': 'Error', 'source': 'Release Runtime', 'destination': 'Platform', 'params': params, 'safe_summary': safe_summary, 'details_ref': None}",
+		"print(json.dumps({'phase': 'Failed', 'command': 'site_setup.complete', 'summary': safe_summary, 'exit_code': rc, 'error_excerpt': excerpt, 'message': message, 'redacted': True}))",
 		"PY",
 		"  exit \"$rc\"",
 		"fi",
@@ -1271,7 +1302,10 @@ def app_install_script(site_name, apps, summary):
 		"text = open(path, 'r', errors='replace').read().splitlines()[-40:]",
 		"excerpt = '\\n'.join(text)[-2000:]",
 		"excerpt = re.sub(r'(?i)(token|password|secret|authorization)([\"\'=:\\s]+)([^\\s,}\"]+)', r'\\1\\2[REDACTED]', excerpt)",
-		"print(json.dumps({'phase': 'Failed', 'summary': 'Site bootstrap app install failed', 'failed_step': step, 'exit_code': rc, 'error_excerpt': excerpt, 'redacted': True}))",
+		"app = step.removeprefix('install-app-')",
+		"params = {'operation': 'site_bootstrap.install_apps', 'reason': 'APP_INSTALL_FAILED', 'app': app, 'exit_code': rc}",
+		"message = {'message_id': 'LC-INFRA-BOOTSTRAP-0001', 'message_type': 'Error', 'source': 'Release Runtime', 'destination': 'Platform', 'params': params, 'safe_summary': 'A required Site application could not be installed.', 'details_ref': None}",
+		"print(json.dumps({'phase': 'Failed', 'command': 'site_bootstrap.install_apps', 'summary': 'Site bootstrap app install failed', 'failed_step': step, 'exit_code': rc, 'error_excerpt': excerpt, 'message': message, 'redacted': True}))",
 		"PY",
 		"  exit \"$rc\"",
 		"}",
@@ -1337,7 +1371,24 @@ def verify_bench_site_assets(bench_name, timeout=15):
 	return results
 
 
-def app_aware_job_manifest(name, namespace, labels, annotations, image, script, bench):
+def app_aware_job_manifest(name, namespace, labels, annotations, image, script, bench, acceptance_fault=None):
+	container = {
+		"name": "bench-command",
+		"image": image,
+		"imagePullPolicy": "IfNotPresent",
+		"command": ["bash", "-lc"],
+		"args": [script],
+		"securityContext": {"privileged": False},
+		"volumeMounts": [
+			{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": False},
+			{"name": "sites-assets", "mountPath": "/home/frappe/frappe-bench/sites/assets", "subPath": "frappe-sites/assets", "readOnly": False},
+		],
+	}
+	if acceptance_fault:
+		container["env"] = [{
+			"name": "LENS_INFRA_ACCEPTANCE_FAULT",
+			"valueFrom": {"fieldRef": {"fieldPath": "metadata.annotations['lenscloud.io/acceptance-fault']"}},
+		}]
 	return {
 		"apiVersion": "batch/v1",
 		"kind": "Job",
@@ -1349,18 +1400,7 @@ def app_aware_job_manifest(name, namespace, labels, annotations, image, script, 
 				"spec": {
 					"automountServiceAccountToken": False,
 					"restartPolicy": "Never",
-					"containers": [{
-						"name": "bench-command",
-						"image": image,
-						"imagePullPolicy": "IfNotPresent",
-						"command": ["bash", "-lc"],
-						"args": [script],
-						"securityContext": {"privileged": False},
-						"volumeMounts": [
-							{"name": "sites", "mountPath": "/home/frappe/frappe-bench/sites", "subPath": "frappe-sites", "readOnly": False},
-							{"name": "sites-assets", "mountPath": "/home/frappe/frappe-bench/sites/assets", "subPath": "frappe-sites/assets", "readOnly": False},
-						],
-					}],
+					"containers": [container],
 					"volumes": [
 						{"name": "sites", "persistentVolumeClaim": {"claimName": bench_sites_pvc_name(bench)}},
 						{"name": "sites-assets", "persistentVolumeClaim": {"claimName": bench_sites_pvc_name(bench)}},
@@ -1383,7 +1423,23 @@ def app_aware_labels(command_id_value, site_doc=None, bench=None):
 	return labels
 
 
-def run_app_aware_job(command, cluster, namespace, bench, image, script, site_doc=None, timeout_seconds=900, message=None):
+ACCEPTANCE_FAULTS = {
+	"site_bootstrap.install_apps": ("APP_INSTALL_FAILED", "LC-INFRA-BOOTSTRAP-0001", "A required Site application could not be installed.", {"reason": "APP_INSTALL_FAILED", "app": "erpnext", "exit_code": 1}),
+	"site_setup.complete": ("QUEUE_OVERLOADED", "LC-INFRA-QUEUE-0001", "Target runtime background jobs did not drain in time.", {"reason": "QUEUE_OVERLOADED", "queue": "default", "queued_count": 750}),
+}
+
+
+def acceptance_fault_script(command, fault):
+	expected, message_id, safe_summary, params = ACCEPTANCE_FAULTS.get(command, (None, None, None, None))
+	if fault != expected:
+		frappe.throw(_("Acceptance fault is not authorized for command {0}.").format(command))
+	frappe.only_for("System Manager")
+	params = {"operation": command, **params}
+	payload = {"phase": "Failed", "command": command, "message": {"message_id": message_id, "message_type": "Error", "source": "Release Runtime", "destination": "Platform", "params": params, "safe_summary": safe_summary, "details_ref": None}, "redacted": True}
+	return f'if [ "${{LENS_INFRA_ACCEPTANCE_FAULT:-}}" = {shlex.quote(fault)} ]; then printf "%s\\n" {shlex.quote(json.dumps(payload, separators=(",", ":")))} > /dev/termination-log; exit 1; fi\n'
+
+
+def run_app_aware_job(command, cluster, namespace, bench, image, script, site_doc=None, timeout_seconds=900, message=None, acceptance_fault=None):
 	if command not in APP_AWARE_COMMANDS:
 		frappe.throw(_("Unsupported app-aware command {0}.").format(command))
 	log = create_action_log(
@@ -1407,7 +1463,10 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 			"lenscloud.io/bench-command-family": command_family(command),
 			"lenscloud.io/bench-command": command,
 		}
-		job = app_aware_job_manifest(job_name, namespace, labels, annotations, image, script, bench)
+		if acceptance_fault:
+			annotations["lenscloud.io/acceptance-fault"] = acceptance_fault
+			script = acceptance_fault_script(command, acceptance_fault) + script
+		job = app_aware_job_manifest(job_name, namespace, labels, annotations, image, script, bench, acceptance_fault=acceptance_fault)
 		log.manifest = manifest_yaml({"job": job})
 		log.message = sanitize_error(json.dumps({"job": job_name, "namespace": namespace, "command": command, "image": image}, sort_keys=True))
 		log.status = "Queued"
@@ -1417,11 +1476,11 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
 		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, app_aware_timeout_value(timeout_seconds))
 		summary = sanitized_termination_summary(pods) or {"phase": phase, "summary": f"{command} finished with {phase}", "redacted": True}
-		deleted = cleanup_command_resources(cluster, namespace, job_name, None)
-		message = f"App-aware command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
+		message = f"App-aware command {command} finished with phase {phase}."
 		status = "Succeeded" if phase == "Succeeded" else "Failed"
 		error = None if status == "Succeeded" else (sanitized_status_summary(summary) or message)
-		finish_action_log(log, status, message, error=error)
+		finish_action_log(log, status, message, error=error, result_message=(summary or {}).get("message"))
+		deleted = schedule_command_cleanup(cluster, namespace, job_name, None)
 		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message, "fallback_summary": error if status != "Succeeded" else None}
 	except Exception as exc:
 		if job_name:

@@ -1,7 +1,7 @@
 # Stage Gate: Customer Site Provisioning Under 5 Minutes
 
 Date: 2026-07-20
-Status: Proposed
+Status: In progress — canonical flow implemented; first live acceptance exceeded budget
 Canonical workitem: `Customer Site provisioning under 5 minutes`
 
 ## Problem
@@ -227,3 +227,117 @@ Minimum live E2E coverage:
 - Can Infra expose app-aware command `Running` transitions, or only Queued/Succeeded/Failed through Platform action logs?
 - Should the under-5-minute target include OAuth final verification, or stop at first usable admin/SSO handoff?
 - Should customer UI show elapsed time and current action log ID during beta testing?
+
+## Implementation And Live Evidence — 2026-07-21
+
+Implemented:
+
+- canonical read-only `get_customer_site_progress(site)` endpoint
+- one-stage-only `advance_customer_site_provisioning(site, force=False)` endpoint
+- duplicate queued/running operation guard and strict bootstrap/setup/OAuth ordering
+- direct setup and OAuth mutation followed by one verification each
+- customer-scoped `lenscloud_site_progress` realtime publication with 30-second read-only polling fallback
+- Vue rendering from the canonical backend snapshot, including refresh rehydration
+- read-only membership authorization; the first live request exposed and fixed an unintended User-role-profile write
+
+Live recovery run:
+
+- Customer: `iron_monkey_private@example.com`
+- Site: `iron-monkey-0721081416.cloud.lmnaslens.com`
+- Subscription: `SUB-00007`
+- Result: `ready`
+- Trustworthy recovery elapsed: `492,885 ms` (`8m 12.885s`)
+- Under five minutes: **No**
+- Refresh: `bootstrap_installing` before and after reload
+- Command order: `site_bootstrap.install_apps` → `site_setup.complete` → `site_setup.status` → `oauth.configure` → `oauth.status`
+- Duplicate app-aware commands: none
+
+Measured canonical transition intervals:
+
+| Stage interval | Elapsed |
+| --- | ---: |
+| Resume to route ready/bootstrap start | 6.952s |
+| Bootstrap install | 201.197s |
+| Setup complete | 71.437s |
+| Setup verification | 36.685s |
+| OAuth configure | 41.781s |
+| OAuth verification | 134.733s |
+| Total recovery | 492.885s |
+
+The original submission-to-ready duration is intentionally not reported: the browser used UTC while Frappe creation timestamps were rendered in the site timezone, producing an invalid negative comparison. The monotonic recovery duration above is valid and independently sufficient to fail the 300-second gate.
+
+Evidence:
+
+- `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721081416-recovery.json`
+- `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721081416-recovery-final.png`
+
+Gate disposition:
+
+- Reliability/order/refresh behavior: passed for this run.
+- Under-five-minute performance: failed.
+- Realtime delivery within two seconds: backend scoping is unit-tested, but live socket latency was not isolated from the one-second evidence polling and remains unproven.
+- Next bottleneck work: reduce Release-runtime bootstrap startup/execution and especially final OAuth verification latency, then run a new fresh customer journey with a single monotonic timer from submission.
+
+## Infra Performance Return And Platform Retest Preparation — 2026-07-21
+
+Infra commit `1697eae` delivered image prewarm and direct command timing evidence. Warm-image status/OAuth commands completed in approximately 10–14 seconds, and Job terminal state was observable within 1.443 seconds. Infra identified the separate 201-second post-ready bootstrap as avoidable duplication for default creation apps.
+
+Platform now emits Release Group creation apps through `FrappeSite.spec.apps`, consumes operator app installation status, and skips the separate bootstrap Job only after explicit operator confirmation. Focused validation passed 36 tests. A new fresh customer run is required to determine the final gate result.
+
+## Fresh Operator-Native Retest — 2026-07-21
+
+Fresh Site `iron-monkey-0721113731.cloud.lmnaslens.com` requested `erpnext` and `brandkit` in `FrappeSite.spec.apps`. No separate post-ready bootstrap Job was created. The browser's monotonic five-minute assertion failed at canonical stage `route_pending`.
+
+The FrappeSite resource took 329 seconds from creation to operator Ready, exceeding the entire gate by 29 seconds before setup or OAuth began. Recovery from the ready resource through route, setup, and OAuth took another 197.678 seconds. The resulting minimum uninterrupted estimate is 526.678 seconds.
+
+Post-ready command durations remained above Infra's idempotent probe timings: setup complete 68.720s, setup verification 36.779s, OAuth configure 42.140s, and OAuth verification 36.907s.
+
+The run found and fixed unchanged status-sync action-log noise, an invalid synthetic bootstrap action type, and missing failed-run harness persistence. Final Site state is Ready/Complete/Configured, but the under-five-minute gate remains failed.
+
+Evidence: `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721113731-failed-gate.json`.
+
+## 2026-07-21 Infra App-Install Latency Return Review
+
+Infra returned the operator init-resource patch at Infra `69f3d0b` with operator
+fork commit `1333c73a`. The fresh operator-native app-install proof improved the
+FrappeSite creation-to-Ready stage from the Platform baseline of 329s to 241s.
+That is useful, but it still leaves only about 59s inside the 300s gate for the
+remaining Platform setup/OAuth path.
+
+Platform action from this review: defer Bench Command cleanup until after the
+terminal result and action-log evidence are captured, then measure retained-site
+setup/OAuth timings before requesting another customer Site reset. If the next
+fresh run still exceeds 300s after this cleanup change, the likely next gate is a
+prepared Site/database template using `spec.skipInit: true` rather than more
+polling or status-loop tuning.
+
+## 2026-07-21 Retained-Site Timing Probe Blocked
+
+After moving Bench Command cleanup out of the terminal customer path, Platform
+attempted a retained-site `site_setup.status` timing probe for
+`iron-monkey-0721113731.cloud.lmnaslens.com`. The command did not reach runtime
+execution because the Kubernetes API dry-run timed out connecting to
+`116.203.22.81:6443`. Platform recorded `ORCH-2026-01149` with the existing API
+connectivity next action: confirm the Platform devcontainer can reach the
+Kubernetes API and refresh the host-side authorization watcher if needed.
+
+No fresh customer reset was performed in this probe. Keep the retained Site until
+Platform can rerun retained setup/OAuth timing against the patched cleanup path.
+
+## 2026-07-21 Retained-Site Verifier Timing Passed
+
+After Infra restored the Platform-to-Kubernetes API path, Platform reran retained
+read-only verifier probes for `iron-monkey-0721113731.cloud.lmnaslens.com` against
+the cleanup-deferred command path.
+
+| Operation | Action Log | CLI Wall Time | Action Log Elapsed | Result |
+| --- | --- | ---: | ---: | --- |
+| `site_setup.status` | `ORCH-2026-01151` | 16.804s | 15.243s | Setup wizard: Complete |
+| `oauth.status` | `ORCH-2026-01152` | 15.104s | 13.822s | Social login: Enabled |
+
+Both responses returned cleanup as scheduled after commit, so terminal verifier
+results no longer wait for Kubernetes resource cleanup. This clears the retained
+read-only timing check. The next destructive fresh-Site run still needs to prove
+`site_setup.complete` and `oauth.configure` inside the 300s total budget.
+
+Evidence: `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721113731-retained-verifier-probe.json`.

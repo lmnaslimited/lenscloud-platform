@@ -362,6 +362,42 @@ def get_site_hostname(site):
 	frappe.throw(_("Site requires a subdomain and root/approved domain."))
 
 
+def site_creation_apps_for_bench(bench):
+	if not getattr(bench, "current_release", None):
+		return []
+	release = frappe.get_doc("Release", bench.current_release)
+	if not release.release_group:
+		return []
+	from lenscloud.api.bench_command import release_group_install_apps
+	return release_group_install_apps(release.release_group, site_creation=True)
+
+
+def record_operator_site_creation_apps(site, bench, cluster, resource):
+	operation = "site_bootstrap.install_apps"
+	if frappe.db.exists("Orchestration Action Log", {"site": site.name, "operation": operation, "status": ["in", ["Succeeded", "Failed"]]}):
+		return
+	desired = site_creation_apps_for_bench(bench)
+	status = (resource or {}).get("status") or {}
+	installed = {str(app).strip() for app in status.get("installedApps") or [] if str(app).strip()}
+	failed = status.get("failedApps") or {}
+	failed_names = {str(app).strip() for app in failed if str(app).strip()}
+	app_status = str(status.get("appInstallationStatus") or "").strip()
+	phase = phase_from_resource(resource)
+	failed_requested = sorted(set(desired) & failed_names)
+	if failed_requested or (desired and "fail" in app_status.lower()):
+		log = create_action_log("Bench Command", "Pending", site=site.name, bench=bench.name, cluster=cluster.name, region=site.region, dry_run=False, resource_kind="FrappeSite", operation=operation)
+		detail = app_status or f"Operator failed app installation for: {', '.join(failed_requested)}"
+		finish_action_log(log, "Failed", "Operator-native Site app installation failed.", error=detail)
+		return
+	if phase.lower() != "ready" or not set(desired).issubset(installed):
+		return
+	log = create_action_log("Bench Command", "Pending", site=site.name, bench=bench.name, cluster=cluster.name, region=site.region, dry_run=False, resource_kind="FrappeSite", operation=operation)
+	message = "Operator confirmed Site creation apps installed."
+	if desired:
+		message = f"Operator confirmed Site creation apps installed: {', '.join(desired)}."
+	finish_action_log(log, "Succeeded", message)
+
+
 def build_frappesite_manifest_data(site):
 	cluster = get_region_cluster(site.region)
 	ensure_operator_fields(site, cluster)
@@ -390,6 +426,9 @@ def build_frappesite_manifest_data(site):
 		},
 		"tls": {"enabled": False},
 	}
+	creation_apps = site_creation_apps_for_bench(bench)
+	if creation_apps:
+		spec["apps"] = creation_apps
 	manifest = {"apiVersion": "vyogo.tech/v1", "kind": "FrappeSite", "metadata": {"name": site.operator_resource_name, "namespace": bench.kubernetes_namespace or default_runtime_namespace(cluster)}, "spec": spec}
 	return merge_metadata_labels(manifest, platform_owner_labels("site", site))
 
@@ -406,15 +445,19 @@ def create_action_log(action_type, status="Pending", database_server=None, bench
 	return doc
 
 
-def finish_action_log(log, status, message=None, error=None):
+def finish_action_log(log, status, message=None, error=None, result_message=None):
 	log.status = status
 	log.message = message or log.message
 	log.error = sanitize_error(error)
 	log.last_transition_time = now_datetime()
 	log.save(ignore_permissions=True)
 	if status == "Failed":
+		from lenscloud.api.infra_messages import attach_infra_message
 		from lenscloud.api.messages import emit_message
-		emit_message(log, operation=getattr(log, "operation", None), error=error or message, params={"site": getattr(log, "site", None)}, source="Runner" if getattr(log, "action_type", None) == "Bench Command" else "Platform API")
+		if not attach_infra_message(log, result_message, operation=getattr(log, "operation", None)):
+			emit_message(log, operation=getattr(log, "operation", None), error=error or message, params={"site": getattr(log, "site", None)}, source="Runner" if getattr(log, "action_type", None) == "Bench Command" else "Platform API")
+	from lenscloud.api.provisioning_realtime import publish_action_log_progress
+	publish_action_log_progress(log)
 	return log
 
 
@@ -1100,19 +1143,26 @@ def check_site_route(doc, timeout=15, strict_asset=True):
 @frappe.whitelist()
 def sync_site_status(site, check_route=True):
 	doc = frappe.get_doc("Site", site); cluster = get_region_cluster(doc.region); bench = frappe.get_doc("Bench", doc.bench)
-	log = create_action_log("Site Status Sync", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, dry_run=False, resource_kind="FrappeSite", operation="status-sync")
+	log = None
 	try:
 		resource = sync_custom_resource(cluster, "FrappeSite", bench.kubernetes_namespace, doc.operator_resource_name)
-		phase = phase_from_resource(resource); status = resource.get("status") or {}
+		phase = phase_from_resource(resource)
+		record_operator_site_creation_apps(doc, bench, cluster, resource)
+		previous = (doc.site_status, doc.provisioning_status, doc.route_status, doc.tls_status, doc.access_url, doc.route_error)
 		doc.site_status = phase; doc.provisioning_status = "Ready" if phase.lower() == "ready" else "Running"
 		doc.access_url = f"https://{get_site_hostname(doc)}"; doc.hostname_reservation_status = "Reserved"
 		if as_bool(check_route) and phase.lower() == "ready":
 			result = check_site_route(doc, strict_asset=True); doc.route_status = "Ready"; doc.tls_status = "Ready"; doc.last_route_check = now_datetime(); doc.route_error = None
 		else:
 			result = None; doc.route_status = "Pending"
-		doc.save(ignore_permissions=True); finish_action_log(log, "Succeeded", f"FrappeSite runtime phase: {phase}; route: {doc.route_status}.")
-		return {"status": doc.site_status, "provisioning_status": doc.provisioning_status, "route_status": doc.route_status, "access_url": doc.access_url, "route": result, "action_log": log.name}
+		current = (doc.site_status, doc.provisioning_status, doc.route_status, doc.tls_status, doc.access_url, doc.route_error)
+		if current != previous:
+			log = create_action_log("Site Status Sync", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, dry_run=False, resource_kind="FrappeSite", operation="status-sync")
+			doc.save(ignore_permissions=True)
+			finish_action_log(log, "Succeeded", f"FrappeSite runtime phase: {phase}; route: {doc.route_status}.")
+		return {"status": doc.site_status, "provisioning_status": doc.provisioning_status, "route_status": doc.route_status, "access_url": doc.access_url, "route": result, "action_log": log.name if log else None}
 	except Exception as exc:
+		log = log or create_action_log("Site Status Sync", site=doc.name, bench=doc.bench, cluster=cluster.name, region=doc.region, dry_run=False, resource_kind="FrappeSite", operation="status-sync")
 		if is_not_found(exc) and (doc.site_status in {"Deletion Requested", "Deleting"} or doc.provisioning_status in {"Deletion Requested", "Deleting"}):
 			doc.site_status = "Deleted"
 			doc.provisioning_status = "Deleted"

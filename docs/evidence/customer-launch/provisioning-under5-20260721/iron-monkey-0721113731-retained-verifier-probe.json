@@ -1,0 +1,37 @@
+{
+  "date": "2026-07-21",
+  "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+  "purpose": "Retained-site setup/OAuth verifier timing after Bench Command cleanup deferral",
+  "result": "passed",
+  "commands": [
+    {
+      "operation": "site_setup.status",
+      "action_log": "ORCH-2026-01151",
+      "command_id": "BCMD-2026-01151",
+      "status": "Succeeded",
+      "cli_wall_seconds": 16.8035,
+      "action_log_creation": "2026-07-21 21:14:21.178065",
+      "action_log_modified": "2026-07-21 21:14:36.420926",
+      "action_log_elapsed_seconds": 15.243,
+      "display": "Setup wizard: Complete",
+      "cleanup": "scheduled after commit"
+    },
+    {
+      "operation": "oauth.status",
+      "action_log": "ORCH-2026-01152",
+      "command_id": "BCMD-2026-01152",
+      "status": "Succeeded",
+      "cli_wall_seconds": 15.1036,
+      "action_log_creation": "2026-07-21 21:14:49.178997",
+      "action_log_modified": "2026-07-21 21:15:03.000840",
+      "action_log_elapsed_seconds": 13.822,
+      "display": "Social login: Enabled",
+      "cleanup": "scheduled after commit"
+    }
+  ],
+  "notes": [
+    "No fresh customer reset was performed.",
+    "The first retry after Infra restored the API path succeeded.",
+    "These are verifier timings only; setup.complete and oauth.configure fresh-path timings still require the next fresh run."
+  ]
+}

@@ -50,9 +50,12 @@ def assign_role_profile(user, role="Member", status="Active"):
 		return None
 	user_doc = frappe.get_doc("User", user)
 	configured = configured_customer_role_profiles()
-	current = [row.role_profile for row in (user_doc.get("role_profiles") or []) if row.role_profile not in configured]
+	existing = [row.role_profile for row in (user_doc.get("role_profiles") or [])]
+	current = [item for item in existing if item not in configured]
 	if profile not in current:
 		current.append(profile)
+	if existing == current:
+		return profile
 	user_doc.set("role_profiles", [{"role_profile": item} for item in current])
 	user_doc.save(ignore_permissions=True)
 	frappe.clear_cache(user=user)

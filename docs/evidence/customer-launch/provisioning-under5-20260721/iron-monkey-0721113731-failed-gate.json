@@ -1,0 +1,84 @@
+{
+  "run_id": "iron-monkey-0721113731",
+  "customer": "iron_monkey_private@example.com",
+  "site": "iron-monkey-0721113731.cloud.lmnaslens.com",
+  "subscription": "SUB-00007",
+  "timing_basis": "Kubernetes UTC creation/condition timestamps plus browser monotonic five-minute deadline",
+  "frappesite_created_at": "2026-07-21T11:37:35Z",
+  "five_minute_deadline": "2026-07-21T11:42:35Z",
+  "stage_at_deadline": "route_pending",
+  "operator_ready_at": "2026-07-21T11:43:04Z",
+  "operator_creation_to_ready_ms": 329000,
+  "operator_over_gate_ms": 29000,
+  "requested_creation_apps": [
+    "erpnext",
+    "brandkit"
+  ],
+  "operator_apps_confirmed_action_log": "ORCH-2026-01142",
+  "operator_apps_confirmation": "Operator confirmed Site creation apps installed: erpnext, brandkit.",
+  "separate_bootstrap_job_created": false,
+  "under_5_minutes": false,
+  "timed_gate_error": "Provisioning exceeded 300 seconds at route_pending.",
+  "recovery_elapsed_ms": 197678,
+  "minimum_uninterrupted_estimate_ms": 526678,
+  "final_stage": "ready",
+  "final_site_state": {
+    "site_status": "Ready",
+    "provisioning_status": "Ready",
+    "route_status": "Ready",
+    "setup_status": "Complete",
+    "oauth_status": "Configured"
+  },
+  "post_ready_actions": [
+    {
+      "action_log": "ORCH-2026-01144",
+      "operation": "site_setup.complete",
+      "elapsed_ms": 68720,
+      "status": "Succeeded"
+    },
+    {
+      "action_log": "ORCH-2026-01145",
+      "operation": "site_setup.status",
+      "elapsed_ms": 36779,
+      "status": "Succeeded"
+    },
+    {
+      "action_log": "ORCH-2026-01146",
+      "operation": "oauth.configure",
+      "elapsed_ms": 42140,
+      "status": "Succeeded"
+    },
+    {
+      "action_log": "ORCH-2026-01147",
+      "operation": "oauth.status",
+      "elapsed_ms": 36907,
+      "status": "Succeeded"
+    }
+  ],
+  "defects_found_and_fixed": [
+    {
+      "defect": "Unchanged two-second Site observations created action-log noise.",
+      "evidence": {
+        "status_sync_logs_in_run": 191
+      },
+      "fix": "Site Status Sync now records only meaningful state transitions; two live unchanged Ready observations returned action_log null."
+    },
+    {
+      "defect": "Operator bootstrap confirmation initially used unsupported action type Site Bootstrap.",
+      "evidence": {
+        "failed_status_sync_logs": 44,
+        "message_id": "LC-PLATFORM-UNKNOWN-0001"
+      },
+      "fix": "Use allowed Bench Command action type; regression assertion added; ORCH-2026-01142 succeeded live."
+    },
+    {
+      "defect": "Timed harness discarded evidence when the five-minute assertion failed.",
+      "fix": "Harness now writes a -failed.json artifact before rethrowing future failures."
+    }
+  ],
+  "caveats": [
+    "Diagnostics and live fixes paused automatic advancement after the five-minute failure, so the observed final wall-clock time is not a valid uninterrupted total.",
+    "The 526.678-second value is a lower-bound estimate formed from the operator creation-to-Ready interval and separately measured uninterrupted recovery; it is sufficient to reject the 300-second gate but is not a replacement for a new uninterrupted retest.",
+    "Realtime socket latency remains unisolated from evidence polling."
+  ]
+}
