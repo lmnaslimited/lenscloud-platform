@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { getLoggedUser, getUserRoles, isGuestUser } from './api'
+import posthog from 'posthog-js'
 
 export const PLATFORM_ROLES = new Set([
 	'Administrator',
@@ -51,6 +52,13 @@ export const useSessionStore = defineStore('session', {
 				this.user = await getLoggedUser()
 				if (!isGuestUser(this.user)) {
 					this.roles = await getUserRoles(this.user)
+					posthog.identify(this.user, {
+						email: this.user,
+						roles: this.roles,
+						user_type: this.roles.some(role => PLATFORM_ROLES.has(role))
+							? 'platform'
+							: 'customer',
+					})
 				} else {
 					this.roles = []
 				}

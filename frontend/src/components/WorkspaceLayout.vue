@@ -205,100 +205,117 @@ function startResize(direction, event) {
 		<!-- Responsive Lumi Chat Assistant Drawer (Non-blocking) -->
 		<Teleport to="body">
                 <div v-if="assistantOpen" class="fixed right-0 top-0 z-[400] h-full w-full max-w-md pointer-events-none">
-                    <!-- Chat Flyout Panel -->
-                    <aside class="pointer-events-auto flex h-full w-full flex-col bg-white shadow-2xl border-l border-outline-gray-2">
-                        <!-- Chat Header -->
-                        <div class="flex h-14 shrink-0 items-center justify-between border-b border-outline-gray-2 bg-violet-50/50 px-4">
-                            <div class="flex items-center gap-2.5 min-w-0">
-                                <div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
-                                    <Sparkles class="size-4" />
-                                </div>
-                                <div class="min-w-0">
-                                    <div class="flex items-center gap-2">
-                                        <h2 class="truncate text-sm font-semibold text-ink-gray-9">{{ assistantLabel }}</h2>
-                                        <Badge v-if="assistantContext.scope" class="bg-blue-100 text-primary border-none text-[10px]">
-                                            {{ assistantContext.scope }}
-                                        </Badge>
-                                    </div>
-                                    <p class="text-xs text-ink-gray-5 mt-2">Active context assistant</p>
-                                </div>
-                            </div>
-                            <button 
-                                type="button" 
-                                class="grid size-8 place-items-center rounded-md text-ink-gray-5 hover:bg-blue-100 hover:text-ink-gray-9 transition"
-                                @click="assistantOpen = false"
-                            >
-                                <X class="size-4" />
-                            </button>
-                        </div>
+                    <!-- Inside the Lumi Chat Flyout Panel -->
+					<aside class="pointer-events-auto flex h-full w-full flex-col bg-white shadow-2xl border-l border-outline-gray-2">
+						<!-- Chat Header -->
+						<div class="flex h-14 shrink-0 items-center justify-between border-b border-outline-gray-2 bg-violet-50/50 px-4">
+							<div class="flex items-center gap-2.5 min-w-0">
+								<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
+									<Sparkles class="size-4" />
+								</div>
+								<div class="min-w-0">
+									<div class="flex items-center gap-2">
+										<h2 class="truncate text-sm font-semibold text-ink-gray-9">{{ assistantLabel }}</h2>
+										<Badge v-if="assistantContext.scope" class="bg-blue-100 text-primary border-none text-[10px]">
+											{{ assistantContext.scope }}
+										</Badge>
+									</div>
+									<p class="text-xs text-ink-gray-5 mt-1">Active context assistant</p>
+								</div>
+							</div>
+							<button 
+								type="button" 
+								class="grid size-8 place-items-center rounded-md text-ink-gray-5 hover:bg-violet-100 hover:text-ink-gray-9 transition"
+								@click="assistantOpen = false"
+							>
+								<X class="size-4" />
+							</button>
+						</div>
 
-                        <!-- Chat Messages Container -->
-                        <div class="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50/50">
-                            <!-- Assistant Intro Message -->
-                            <div class="flex items-start gap-3">
-                                <div class="flex size-7 shrink-0 items-center justify-center rounded-full bg-blue-100 text-primary mt-0.5">
-                                    <Sparkles class="size-3.5" />
-                                </div>
-                                <div class="flex-1 space-y-3">
-                                    <div class="rounded-2xl rounded-tl-none border border-blue-100 bg-white p-3.5 text-sm text-ink-gray-8 shadow-sm">
-                                        <p>{{ assistantContext.summary || assistantHint }}</p>
-                                    </div>
+						<!-- Main Container: Centered Content & Stream -->
+						<div class="flex-1 overflow-y-auto p-4 bg-slate-50/50 flex flex-col justify-center">
+							<div class="w-full max-w-lg mx-auto space-y-6">
+								
+								<!-- Assistant Summary / Header Context -->
+								<div class="text-center space-y-2">
+									<div class="inline-flex size-10 items-center justify-center rounded-xl bg-blue-100 text-primary shadow-xs">
+										<Sparkles class="size-5" />
+									</div>
+									<h3 class="text-base font-semibold text-ink-gray-9">How can Lumi help you?</h3>
+									<p class="text-xs leading-relaxed text-ink-gray-5 max-w-xs mx-auto">
+										{{ assistantContext.summary || assistantHint }}
+									</p>
+								</div>
 
-                                    <!-- Context Badges -->
-                                    <div v-if="assistantBadges.length" class="flex flex-wrap gap-1.5">
-                                        <Badge v-for="badge in assistantBadges" :key="badge" variant="subtle" class="text-xs">
-                                            {{ badge }}
-                                        </Badge>
-                                    </div>
+								<!-- CENTERED INPUT BOX (PostHog Style) -->
+								<div class="rounded-2xl border border-outline-gray-2 bg-white p-2.5 shadow-md transition-all">
+									<textarea 
+										v-model="userMessage"
+										rows="2"
+										placeholder="Coming Soon..." 
+										class="w-full resize-none border-none bg-transparent px-2 text-sm text-ink-gray-9 placeholder-ink-gray-4 focus:outline-none"
+										@keydown.enter.prevent="handleSendMessage"
+									/>
+									<div class="flex items-center justify-between border-t border-outline-gray-1 pt-2 mt-1 px-1">
+										<div class="flex items-center gap-1.5">
+											<Badge v-for="badge in assistantBadges.slice(0, 2)" :key="badge" class="bg-surface-gray-2 text-ink-gray-7 text-[10px]">
+												{{ badge }}
+											</Badge>
+										</div>
+										<Button type="submit" variant="solid" class="!bg-primary hover:!bg-primary text-white shrink-0" @click="handleSendMessage">
+											<template #icon>
+												<Send class="size-4" />
+											</template>
+										</Button>
+									</div>
+								</div>
 
-                                    <!-- Detailed Sections -->
-                                    <div v-if="assistantSections.length" class="space-y-2">
-                                        <div 
-                                            v-for="section in assistantSections" 
-                                            :key="section.label" 
-                                            class="rounded-xl border border-outline-gray-2 bg-white px-3 py-2.5 text-xs shadow-xs"
-                                        >
-                                            <p class="font-medium text-ink-gray-5 uppercase tracking-wider text-[10px]">{{ section.label }}</p>
-                                            <p class="mt-1 text-sm font-normal text-ink-gray-8">{{ section.value }}</p>
-                                        </div>
-                                    </div>
+								<!-- CONTEXT & SUGGESTIONS BELOW INPUT -->
+								<div class="space-y-3 pt-2">
+									<!-- Detailed Sections -->
+									<div v-if="assistantSections.length" class="space-y-1.5">
+										<p class="text-[11px] font-medium text-ink-gray-5 uppercase tracking-wider">Context details</p>
+										<div class="grid grid-cols-1 gap-1.5">
+											<div 
+												v-for="section in assistantSections" 
+												:key="section.label" 
+												class="rounded-xl border border-outline-gray-2 bg-white px-3 py-2 text-xs shadow-xs"
+											>
+												<p class="font-medium text-ink-gray-5 uppercase tracking-wider text-[10px]">{{ section.label }}</p>
+												<p class="mt-0.5 font-normal text-ink-gray-8">{{ section.value }}</p>
+											</div>
+										</div>
+									</div>
 
-                                    <!-- Gaps Card -->
-                                    <div v-if="assistantGaps.length" class="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900 shadow-xs">
-                                        <p class="font-semibold text-amber-800">Gaps identified</p>
-                                        <ul class="mt-1.5 list-disc pl-4 space-y-1">
-                                            <li v-for="gap in assistantGaps" :key="gap">{{ gap }}</li>
-                                        </ul>
-                                    </div>
+									<!-- Gaps Warning Card -->
+									<div v-if="assistantGaps.length" class="rounded-xl border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-900">
+										<p class="font-semibold text-amber-800">Gaps identified</p>
+										<ul class="mt-1 list-disc pl-4 space-y-0.5">
+											<li v-for="gap in assistantGaps" :key="gap">{{ gap }}</li>
+										</ul>
+									</div>
 
-                                    <!-- Next Steps Card -->
-                                    <div v-if="assistantNextSteps.length" class="rounded-xl border border-violet-200 bg-violet-50/60 p-3 text-xs text-violet-950 shadow-xs">
-                                        <p class="font-semibold text-violet-900">Recommended Next Steps</p>
-                                        <ul class="mt-1.5 list-disc pl-4 space-y-1">
-                                            <li v-for="step in assistantNextSteps" :key="step">{{ step }}</li>
-                                        </ul>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+									<!-- Recommended Next Steps as Quick Action Chips -->
+									<div v-if="assistantNextSteps.length" class="space-y-1.5">
+										<p class="text-[11px] font-medium text-ink-gray-5 uppercase tracking-wider">Suggested actions</p>
+										<div class="flex flex-col gap-1.5">
+											<button 
+												v-for="step in assistantNextSteps" 
+												:key="step"
+												type="button"
+												class="flex items-center justify-between rounded-xl border border-outline-gray-2 bg-white p-2.5 text-left text-xs text-ink-gray-8 hover:border-violet-300 hover:bg-violet-50/50 transition shadow-xs"
+												@click="userMessage = step"
+											>
+												<span>{{ step }}</span>
+												<Sparkles class="size-3.5 text-violet-500 shrink-0" />
+											</button>
+										</div>
+									</div>
+								</div>
 
-                        <!-- Chat Input Box -->
-                        <div class="shrink-0 border-t border-outline-gray-2 bg-white p-3">
-                            <form @submit.prevent="handleSendMessage" class="flex items-center gap-2">
-                                <input 
-                                    v-model="userMessage"
-                                    type="text" 
-                                    placeholder="Comming Soon..." 
-                                    class="flex-1 rounded-lg border border-outline-gray-2 bg-surface-gray-1 px-3 py-2 text-sm text-ink-gray-9 placeholder-ink-gray-4 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
-                                />
-                                <Button type="submit" variant="solid" class="!bg-primary hover:!bg-primary-600 text-white shrink-0">
-									<template #icon>
-                                    <Send class="size-4" />
-									</template>
-                                </Button>
-                            </form>
-                        </div>
-                    </aside>
+							</div>
+						</div>
+					</aside>
                 </div>
             </Teleport>
 	</div>
