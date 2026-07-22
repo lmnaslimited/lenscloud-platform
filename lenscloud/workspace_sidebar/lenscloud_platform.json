@@ -53,6 +53,17 @@
    "collapsible": 1,
    "indent": 0,
    "keep_closed": 0,
+   "label": "Customer Members",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/customer-members"
+  },
+  {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
    "label": "Plans",
    "link_type": "URL",
    "show_arrow": 0,
@@ -69,28 +80,6 @@
    "show_arrow": 0,
    "type": "Link",
    "url": "/lenscloud/platform/subscriptions"
-  },
-  {
-   "child": 1,
-   "collapsible": 1,
-   "indent": 0,
-   "keep_closed": 0,
-   "label": "Capability",
-   "link_type": "URL",
-   "show_arrow": 0,
-   "type": "Link",
-   "url": "/lenscloud/platform/capability"
-  },
-  {
-   "child": 1,
-   "collapsible": 1,
-   "indent": 0,
-   "keep_closed": 0,
-   "label": "Capability Opted",
-   "link_type": "URL",
-   "show_arrow": 0,
-   "type": "Link",
-   "url": "/lenscloud/platform/capability-opted"
   },
   {
    "child": 0,
@@ -375,7 +364,7 @@
    "url": "/lenscloud/platform/settings"
   }
  ],
- "modified": "2026-07-20 23:02:46.015734",
+ "modified": "2026-07-22 10:50:57.188615",
  "modified_by": "Administrator",
  "name": "LensCloud Platform",
  "owner": "Administrator",
