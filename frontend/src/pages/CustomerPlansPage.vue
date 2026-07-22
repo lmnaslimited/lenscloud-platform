@@ -190,11 +190,6 @@ const provisioningSteps = computed(() => {
 
 
 function flowStepState(index) {
-	console.log({
-    index,
-    current: currentStepIndex.value,
-    step: step.value,
-  })
 	if (hasReadySite.value && index <= currentStepIndex.value) return 'done'
 	if (index < currentStepIndex.value) return 'done'
 	if (index === currentStepIndex.value && progressActive.value) return 'active'
@@ -812,7 +807,7 @@ onBeforeUnmount(() => {
 										</div>
 										<div class="border-y border-gray-200 bg-gray-50 p-6"><p class="text-sm text-gray-500">No payment method required for Free Plan</p></div>
 										<div class="flex flex-col items-center gap-3 p-6">
-											<button class="w-full rounded-lg bg-[#2563eb] py-3.5 text-sm font-bold text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canStartFree || submitting" @click="startFreePlan">{{ submitting ? 'Starting...' : 'Start Free Subscription' }}</button>
+											<button class="w-full rounded-lg bg-primary py-3.5 text-sm font-bold text-white transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50" :disabled="!canStartFree || submitting" @click="startFreePlan">{{ submitting ? 'Starting...' : 'Start Free Subscription' }}</button>
 											<button class="w-full rounded-lg bg-gray-100 px-6 py-3.5 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-200" @click="step = 'setup'">Back</button>
 										</div>
 									</section>
@@ -848,14 +843,67 @@ onBeforeUnmount(() => {
 												<AlertTriangle class="mt-0.5 size-5 shrink-0 text-amber-700" />
 												<p class="max-w-md text-sm leading-6 text-[#505f76]">{{ resultFailed ? 'Workspace setup took longer than expected. Our team can inspect the Platform evidence while you retry safely.' : resultPaused ? 'Your request is saved. Ask the Platform operator to open the controlled live apply window, then retry setup.' : 'LensCloud is checking setup progress automatically. You can refresh status now without leaving this page.' }}</p>
 											</div>
+											<!-- <div class="flex shrink-0 flex-wrap gap-3"> -->
+												<!-- <a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a> -->
+												<!-- <button v-if="resultSetupRequired" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="openSetupDialog">Update defaults</button><button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
+												<Button v-if="readySiteUrl && hasReadySite" 
+													as="a" :href="readySiteUrl" target="_blank" 
+													@click="posthog.capture('site_opened', {
+														site: result?.site,
+														plan: result?.plan,
+														region: result?.region,
+													})"
+													variant="subtle"><ExternalLink class="size-4" />Open Workspace</Button></div>
+											</div> -->
 											<div class="flex shrink-0 flex-wrap gap-3">
-												<a class="inline-flex items-center justify-center rounded-lg border border-[#EDEDED] bg-white px-4 py-2 text-sm font-bold text-[#505f76] hover:bg-[#f7f9fb]" href="mailto:support@lmnas.com">Contact Support</a>
-												<button v-if="resultSetupRequired" class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="openSetupDialog">Update defaults</button><button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()"><RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
+												<!-- 1. Open Workspace Button (Only shown when site IS ready) -->
+												<Button 
+													v-if="readySiteUrl && hasReadySite" 
+													as="a" 
+													:href="readySiteUrl" 
+													target="_blank" 
+													variant="solid"
+													class="bg-emerald-600 hover:bg-emerald-700 text-white inline-flex items-center justify-center gap-2"
+													@click="posthog.capture('site_opened', {
+														site: result?.site,
+														plan: result?.plan,
+														region: result?.region,
+													})"
+												>
+													<template #prefix>
+														<ExternalLink class="size-4" />
+													</template>
+													Open Workspace
+												</Button>
+
+												<!-- 2. Setup / Refresh / Retry Buttons (Only shown when site is NOT ready yet) -->
+												<template v-else>
+													<!-- Update Defaults Button -->
+													<button 
+														v-if="resultSetupRequired" 
+														class="inline-flex items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60" 
+														:disabled="submitting || polling" 
+														@click="openSetupDialog"
+													>
+														Update defaults
+													</button>
+
+													<!-- Refresh / Retry Button -->
+													<button 
+														v-else-if="resultRetryable" 
+														class="inline-flex items-center justify-center gap-2 rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-bold text-white hover:bg-[#0037b0] disabled:cursor-not-allowed disabled:opacity-60" 
+														:disabled="submitting || polling" 
+														@click="resultStarted ? refreshProgress() : retrySetup()"
+													>
+														<RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin' : ''" />
+														{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}
+													</button>
+												</template>
 											</div>
 										</div>
 									</div>
 
-									<div class="mt-6 flex flex-wrap gap-2">
+									<!-- <div class="mt-6 flex flex-wrap gap-2">
 										<Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button>
 										<Button v-if="result?.site" :as="RouterLink" :to="result?.subscription ? `/customer/subscriptions?subscription=${encodeURIComponent(result.subscription)}` : '/customer/subscriptions'" variant="subtle">View Subscription</Button>
 										<Button v-if="readySiteUrl && hasReadySite" 
@@ -866,10 +914,11 @@ onBeforeUnmount(() => {
 											region: result?.region,
 										})"
 										variant="subtle"><ExternalLink class="size-4" />Open Workspace</Button></div>
-								</div>
+								</div> -->
 								<aside class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-5"><div class="grid size-10 place-items-center rounded-full bg-[#dce1ff] text-[#1D4ED8]"><ShieldCheck class="size-5" /></div><h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3><p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p><a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com"><HelpCircle class="size-4" />Contact support</a></aside>
 							</div>
 						</div>
+					</div>
 					</div>
 				</section>
 			</div>
@@ -893,14 +942,19 @@ onBeforeUnmount(() => {
 					<p class="text-sm font-semibold text-ink-gray-9">Launch Progress</p>
 					<div class="mt-4 space-y-3">
 						<div v-for="(item, index) in flowSteps" :key="item.key" class="flex gap-3">
-							<div class="mt-0.5 grid size-7 shrink-0 place-items-center rounded-full" :class="flowStepState(index) === 'done' ? 'bg-emerald-500 text-white' : ['active', 'current'].includes(flowStepState(index)) ? 'bg-primary text-white' : 'bg-surface-gray-2 text-ink-gray-5'">
-								<CheckCircle2 v-if="flowStepState(index) === 'done'" class="size-4 text-ink-green-5" />
-								<RefreshCcw v-else-if="flowStepState(index) === 'active'" class="size-4 animate-spin text-ink-green-5" />
+							<div class="flex size-7 shrink-0 items-center justify-center rounded-full leading-none" 
+							:class="{
+								'bg-green-600 text-white': flowStepState(index) === 'done',
+								'bg-secondary text-white': ['active', 'current'].includes(flowStepState(index)),
+								'bg-surface-gray-2 text-ink-gray-5': flowStepState(index) === 'pending'
+							}">
+  								<CheckCircle2 v-if="flowStepState(index) === 'done'" class="size-4" />
+								<RefreshCcw v-else-if="flowStepState(index) === 'active'" class="size-4 animate-spin" />
 								<Clock3 v-else class="size-4" />
 							</div>
 							<div>
 								<p class="text-sm font-medium text-ink-gray-9">{{ item.label }}</p>
-								<p class="text-xs leading-5 text-ink-gray-5 mt-2">{{ item.helper }}</p>
+								<p class="text-xs leading-5 text-ink-gray-5 mt-1">{{ item.helper }}</p>
 							</div>
 						</div>
 					</div>

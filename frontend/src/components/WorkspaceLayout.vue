@@ -1,5 +1,5 @@
 <script setup>
-import { computed, ref, onUnmounted } from 'vue'
+import { computed, ref } from 'vue'
 import { Sparkles, PanelRightOpen, PanelRightClose, X, Send } from 'lucide-vue-next'
 import { Badge, Button } from 'frappe-ui'
 
@@ -291,8 +291,10 @@ function startResize(direction, event) {
                                     placeholder="Comming Soon..." 
                                     class="flex-1 rounded-lg border border-outline-gray-2 bg-surface-gray-1 px-3 py-2 text-sm text-ink-gray-9 placeholder-ink-gray-4 focus:border-violet-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-violet-500"
                                 />
-                                <Button type="submit" variant="solid" class="bg-blue-500 text-white shrink-0">
+                                <Button type="submit" variant="solid" class="!bg-primary hover:!bg-primary-600 text-white shrink-0">
+									<template #icon>
                                     <Send class="size-4" />
+									</template>
                                 </Button>
                             </form>
                         </div>
