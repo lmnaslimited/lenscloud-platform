@@ -83,7 +83,7 @@ class TestInfraMessageEnvelope(FrappeTestCase):
 			patch("lenscloud.api.bench_command.get_cluster_client", return_value=FakeClient()),
 			patch("lenscloud.api.bench_command.wait_for_job", return_value=("Failed", {}, [{}])),
 			patch("lenscloud.api.bench_command.sanitized_termination_summary", return_value={"phase": "Failed", "message": result_message, "redacted": True}),
-			patch("lenscloud.api.bench_command.cleanup_command_resources", return_value=[]),
+			patch("lenscloud.api.bench_command.schedule_command_cleanup", return_value=["cleanup scheduled"]),
 		):
 			result = bench_command.run_app_aware_job("site_bootstrap.install_apps", cluster, "runtime", bench, "image@sha256:" + "a" * 64, "exit 1", site_doc=site)
 		log.reload()

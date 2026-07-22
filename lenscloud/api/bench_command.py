@@ -770,6 +770,28 @@ def cleanup_command_resources(cluster, namespace, job_name, request_name, pod_wa
 	return deleted
 
 
+def cleanup_command_resources_job(cluster_name, namespace, job_name, request_name=None, secret_name=None):
+	cluster = frappe.get_doc("Cluster", cluster_name)
+	return cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
+
+
+def schedule_command_cleanup(cluster, namespace, job_name, request_name=None, secret_name=None):
+	if not job_name and not request_name and not secret_name:
+		return []
+	frappe.enqueue(
+		"lenscloud.api.bench_command.cleanup_command_resources_job",
+		queue="short",
+		enqueue_after_commit=True,
+		cluster_name=cluster.name,
+		namespace=namespace,
+		job_name=job_name,
+		request_name=request_name,
+		secret_name=secret_name,
+	)
+	parts = [item for item in (job_name, request_name, secret_name) if item]
+	return [f"cleanup scheduled after commit for {namespace}/{', '.join(parts)}"]
+
+
 def wait_for_job(cluster, namespace, job_name, labels, timeout):
 	selector = ",".join(f"{key}={value}" for key, value in labels.items())
 	deadline = time.time() + timeout
@@ -1002,6 +1024,7 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 	request_name = None
 	job_name = None
 	secret_name = None
+	resources_created = False
 	try:
 		if command not in SUPPORTED_COMMANDS:
 			return unsupported_response(command, log, site_doc)
@@ -1040,6 +1063,7 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 			if runner_image:
 				dry_run_bench_command_job(client, namespace, job, runner_image)
 			client.create_namespaced("configmaps", namespace, configmap)
+			resources_created = True
 			if secret:
 				client.create_namespaced("secrets", namespace, secret)
 			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
@@ -1050,17 +1074,17 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 		if phase == "Timed Out":
 			status = "Failed"
 			summary = {"phase": "Timed Out", "code": "TIMEOUT", "summary": "Bench Command Job exceeded Platform timeout.", "redacted": True}
-		if cleanup:
-			deleted = cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
 		display = safe_command_display(summary)
 		display_text = command_display_text(display)
 		status_text = sanitized_status_summary(summary)
-		message = f"Bench Command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
+		message = f"Bench Command {command} finished with phase {phase}."
 		if display_text:
 			message = f"{message} Result: {display_text}."
 		elif status_text:
 			message = f"{message} Summary: {status_text}."
 		finish_action_log(log, "Succeeded" if phase == "Succeeded" else "Failed", message, result_message=(summary or {}).get("message"))
+		if cleanup:
+			deleted = schedule_command_cleanup(cluster, namespace, job_name, request_name, secret_name=secret_name)
 		return {
 			"status": status,
 			"command": command,
@@ -1083,7 +1107,7 @@ def _run_site_control_command(site, command="bench_test.status", args=None, time
 		}
 	except Exception as exc:
 		cleanup_message = ""
-		if request_name or job_name:
+		if resources_created:
 			try:
 				deleted = cleanup_command_resources(cluster, namespace, job_name, request_name, secret_name=secret_name)
 				cleanup_message = f" Cleanup removed {len(deleted)} temporary resource(s)."
@@ -1452,11 +1476,11 @@ def run_app_aware_job(command, cluster, namespace, bench, image, script, site_do
 			client.create_namespaced("jobs", namespace, job, group="batch", version="v1")
 		phase, _job, pods = wait_for_job(cluster, namespace, job_name, labels, app_aware_timeout_value(timeout_seconds))
 		summary = sanitized_termination_summary(pods) or {"phase": phase, "summary": f"{command} finished with {phase}", "redacted": True}
-		deleted = cleanup_command_resources(cluster, namespace, job_name, None)
-		message = f"App-aware command {command} finished with phase {phase}; cleanup removed {len(deleted)} resource(s)."
+		message = f"App-aware command {command} finished with phase {phase}."
 		status = "Succeeded" if phase == "Succeeded" else "Failed"
 		error = None if status == "Succeeded" else (sanitized_status_summary(summary) or message)
 		finish_action_log(log, status, message, error=error, result_message=(summary or {}).get("message"))
+		deleted = schedule_command_cleanup(cluster, namespace, job_name, None)
 		return {"status": phase, "command": command, "cluster": cluster.name, "namespace": namespace, "bench": bench.name, "site": getattr(site_doc, "name", None), "job": job_name, "action_log": log.name, "summary": summary, "cleanup": deleted, "message": message, "fallback_summary": error if status != "Succeeded" else None}
 	except Exception as exc:
 		if job_name:

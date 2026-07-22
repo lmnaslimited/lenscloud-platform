@@ -477,6 +477,22 @@ class BenchCommandContractTest(unittest.TestCase):
 				bench_command.cleanup_command_resources(SimpleNamespace(name="cluster"), "lenscloud-runtime-eu", "bcmd-test-job", "bcmd-test-request", pod_wait_seconds=0)
 		self.assertNotIn(("pods", "lenscloud-runtime-eu", "bcmd-test-job-unsafe", ""), client.deleted)
 
+	def test_schedule_cleanup_enqueues_after_commit_with_secret(self):
+		cluster = SimpleNamespace(name="cluster")
+		with patch("lenscloud.api.bench_command.frappe.enqueue") as enqueue:
+			result = bench_command.schedule_command_cleanup(cluster, "runtime", "job-1", "request-1", secret_name="secret-1")
+		self.assertEqual(result, ["cleanup scheduled after commit for runtime/job-1, request-1, secret-1"])
+		enqueue.assert_called_once_with(
+			"lenscloud.api.bench_command.cleanup_command_resources_job",
+			queue="short",
+			enqueue_after_commit=True,
+			cluster_name="cluster",
+			namespace="runtime",
+			job_name="job-1",
+			request_name="request-1",
+			secret_name="secret-1",
+		)
+
 	def test_app_aware_acceptance_fault_uses_annotation_and_downward_api(self):
 		labels = bench_command.app_aware_labels("BCMD-TEST")
 		annotations = {"lenscloud.io/bench-command": "site_bootstrap.install_apps", "lenscloud.io/acceptance-fault": "APP_INSTALL_FAILED"}
@@ -528,7 +544,7 @@ class BenchCommandContractTest(unittest.TestCase):
 			patch("lenscloud.api.bench_command.get_cluster_client", return_value=FakeClient()),
 			patch("lenscloud.api.bench_command.wait_for_job", return_value=("Succeeded", {}, [])),
 			patch("lenscloud.api.bench_command.sanitized_termination_summary", return_value={"phase": "Succeeded", "redacted": True}),
-			patch("lenscloud.api.bench_command.cleanup_command_resources", return_value=[]),
+			patch("lenscloud.api.bench_command.schedule_command_cleanup", return_value=["cleanup scheduled"]),
 			patch("lenscloud.api.bench_command.finish_action_log"),
 		):
 			result = bench_command.run_app_aware_job("site_bootstrap.install_apps", cluster, "runtime", bench, "image@sha256:" + "a" * 64, "echo ok", site_doc=site)
@@ -563,7 +579,7 @@ class BenchCommandContractTest(unittest.TestCase):
 			patch("lenscloud.api.bench_command.get_cluster_client", return_value=FakeClient()),
 			patch("lenscloud.api.bench_command.wait_for_job", return_value=("Failed", {}, [{}])),
 			patch("lenscloud.api.bench_command.sanitized_termination_summary", return_value={"phase": "Failed", "message": result_message, "redacted": True}),
-			patch("lenscloud.api.bench_command.cleanup_command_resources", return_value=[]),
+			patch("lenscloud.api.bench_command.schedule_command_cleanup", return_value=["cleanup scheduled"]),
 			patch("lenscloud.api.bench_command.finish_action_log") as finish,
 		):
 			result = bench_command.run_app_aware_job("site_bootstrap.install_apps", cluster, "runtime", bench, "image@sha256:" + "a" * 64, "exit 1", site_doc=site)

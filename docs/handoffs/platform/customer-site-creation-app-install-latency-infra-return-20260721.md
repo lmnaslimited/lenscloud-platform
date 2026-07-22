@@ -191,3 +191,49 @@ latencies.
 If the full gate still fails, the viable next design path is a prepared
 Site/database template using `spec.skipInit: true` with a valid prebuilt schema
 and default apps.
+
+## Platform Review
+
+Reviewed against Infra `1697eae..69f3d0b` and operator fork commit `1333c73a`.
+The operator resource override patch is accepted as a material improvement: the
+fresh app-aware Site creation proof dropped from the Platform baseline of 329s to
+241s with `erpnext` and `brandkit` installed by the operator-native init Job.
+
+No Platform manifest schema change is required for this return because Platform
+already sends default creation apps through `FrappeSite.spec.apps` and records the
+operator-confirmed bootstrap action log when requested apps appear in
+`status.installedApps` / `status.appInstallationStatus`.
+
+The return does not by itself clear the under-five-minute gate. A 241s operator
+stage leaves about 59s for setup completion, setup verification, OAuth configure,
+OAuth verification, browser refresh, and customer progress rendering. Platform is
+therefore moving Bench Command cleanup outside the customer-critical path before
+asking for another destructive fresh-Site reset. The resource profile also needs
+Infra/GitOps ownership before it can be treated as a durable production default.
+
+Retained Site `iron-monkey-0721113731.cloud.lmnaslens.com` should stay in place
+until Platform completes retained-site setup/OAuth timing checks against the
+patched Platform cleanup path.
+
+## Platform Retained-Site Probe
+
+Platform implemented cleanup deferral and attempted a retained-site
+`site_setup.status` probe for `iron-monkey-0721113731.cloud.lmnaslens.com`.
+The probe failed before runtime Job creation at Kubernetes API dry-run with a
+connect timeout to `116.203.22.81:6443`; action log `ORCH-2026-01149` records the
+connectivity failure and next action. Retained-site setup/OAuth timing remains
+pending until the Platform devcontainer API path / host authorization watcher is
+healthy.
+
+## Platform Retained-Site Probe Passed
+
+After the API path was restored, Platform reran retained read-only verifier
+commands for `iron-monkey-0721113731.cloud.lmnaslens.com` against the patched
+cleanup-deferred command path. `site_setup.status` passed as `ORCH-2026-01151`
+with 16.804s CLI wall time / 15.243s action-log elapsed time. `oauth.status`
+passed as `ORCH-2026-01152` with 15.104s CLI wall time / 13.822s action-log
+elapsed time. Both responses reported cleanup scheduled after commit.
+
+This validates the verifier portion of the post-ready path. Platform still needs
+a fresh customer run to measure `site_setup.complete` and `oauth.configure` in
+the real provisioning sequence.

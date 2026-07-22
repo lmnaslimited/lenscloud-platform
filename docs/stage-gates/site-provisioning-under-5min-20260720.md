@@ -295,3 +295,49 @@ Post-ready command durations remained above Infra's idempotent probe timings: se
 The run found and fixed unchanged status-sync action-log noise, an invalid synthetic bootstrap action type, and missing failed-run harness persistence. Final Site state is Ready/Complete/Configured, but the under-five-minute gate remains failed.
 
 Evidence: `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721113731-failed-gate.json`.
+
+## 2026-07-21 Infra App-Install Latency Return Review
+
+Infra returned the operator init-resource patch at Infra `69f3d0b` with operator
+fork commit `1333c73a`. The fresh operator-native app-install proof improved the
+FrappeSite creation-to-Ready stage from the Platform baseline of 329s to 241s.
+That is useful, but it still leaves only about 59s inside the 300s gate for the
+remaining Platform setup/OAuth path.
+
+Platform action from this review: defer Bench Command cleanup until after the
+terminal result and action-log evidence are captured, then measure retained-site
+setup/OAuth timings before requesting another customer Site reset. If the next
+fresh run still exceeds 300s after this cleanup change, the likely next gate is a
+prepared Site/database template using `spec.skipInit: true` rather than more
+polling or status-loop tuning.
+
+## 2026-07-21 Retained-Site Timing Probe Blocked
+
+After moving Bench Command cleanup out of the terminal customer path, Platform
+attempted a retained-site `site_setup.status` timing probe for
+`iron-monkey-0721113731.cloud.lmnaslens.com`. The command did not reach runtime
+execution because the Kubernetes API dry-run timed out connecting to
+`116.203.22.81:6443`. Platform recorded `ORCH-2026-01149` with the existing API
+connectivity next action: confirm the Platform devcontainer can reach the
+Kubernetes API and refresh the host-side authorization watcher if needed.
+
+No fresh customer reset was performed in this probe. Keep the retained Site until
+Platform can rerun retained setup/OAuth timing against the patched cleanup path.
+
+## 2026-07-21 Retained-Site Verifier Timing Passed
+
+After Infra restored the Platform-to-Kubernetes API path, Platform reran retained
+read-only verifier probes for `iron-monkey-0721113731.cloud.lmnaslens.com` against
+the cleanup-deferred command path.
+
+| Operation | Action Log | CLI Wall Time | Action Log Elapsed | Result |
+| --- | --- | ---: | ---: | --- |
+| `site_setup.status` | `ORCH-2026-01151` | 16.804s | 15.243s | Setup wizard: Complete |
+| `oauth.status` | `ORCH-2026-01152` | 15.104s | 13.822s | Social login: Enabled |
+
+Both responses returned cleanup as scheduled after commit, so terminal verifier
+results no longer wait for Kubernetes resource cleanup. This clears the retained
+read-only timing check. The next destructive fresh-Site run still needs to prove
+`site_setup.complete` and `oauth.configure` inside the 300s total budget.
+
+Evidence: `docs/evidence/customer-launch/provisioning-under5-20260721/iron-monkey-0721113731-retained-verifier-probe.json`.
