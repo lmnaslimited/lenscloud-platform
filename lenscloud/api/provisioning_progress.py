@@ -76,6 +76,7 @@ def progress_snapshot(site_doc):
 		"can_retry": bool(message and retryability in {"Retryable", "Retry After Delay"}),
 		"can_continue": not active and status not in {"failed", "blocked", "succeeded"},
 		"message_id": message.message_id if message else None,
+		"message": message.message if message else None,
 		"message_params_json": message.message_params_json if message else None,
 		"customer_message": message.customer_message if message else None,
 		"operator_message": message.operator_message if message else None, "retryability": retryability,

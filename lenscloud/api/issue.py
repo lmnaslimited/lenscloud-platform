@@ -181,9 +181,9 @@ def create_orchestration_issue(site, subscription, action_log=None, summary=None
         "site": site,
         "category": "Technical",
         "status": "Open",
-        "summary": summary or f"Orchestration Failure: {site}",
+        "summary": summary,
         "description": message_params_json or "No detailed logs available.",
-        "naming_series": "ISS-YYYY-MM-####",
+        "severity": "S"
     }
     
     # Store Action Log link if your Issue DocType has this custom field

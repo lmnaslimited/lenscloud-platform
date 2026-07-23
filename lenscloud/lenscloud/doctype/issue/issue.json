@@ -95,18 +95,18 @@
    "label": "Last Sync"
   },
   {
-   "default": "ISS-YYYY-MM-####",
+   "default": "ISS-.YYYY.-.MM.-.####",
    "fieldname": "naming_series",
    "fieldtype": "Select",
    "hidden": 1,
    "label": "Series",
-   "options": "ISS-YYYY-MM-####"
+   "options": "ISS-.YYYY.-.MM.-.####"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-22 23:37:21.937814",
+ "modified": "2026-07-23 15:30:27.130409",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Issue",

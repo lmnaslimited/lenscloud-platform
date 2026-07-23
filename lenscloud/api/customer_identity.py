@@ -151,6 +151,9 @@ def customer_doctype_permissions(user=None):
 			"read": bool(frappe.has_permission("Customer Member", "read", user=user)),
 			"write": bool(frappe.has_permission("Customer Member", "write", user=user)),
 		},
+		"Issue": {
+			"read" : bool(frappe.has_permission("Issue", "read", user=user)),
+		}
 	}
 
 

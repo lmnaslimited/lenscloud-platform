@@ -603,30 +603,28 @@ onBeforeUnmount(() => {
 })
 
 const issueCreated = ref(false)
+const createdIssueName = ref('')
 
 async function autoCreateIssueOnFailure() {
 	if (issueCreated.value || !result.value?.site) return
 
 	const progress = canonicalProgress.value || {}
-	const failedStep = rawProvisioningSteps.value.find((s) => s.state === 'failed')
-
 	try {
 		issueCreated.value = true
 		const response = await callMethod('lenscloud.api.issue.create_orchestration_issue', {
 			site: result.value.site,
 			subscription: result.value.subscription,
 			action_log: progress.action_log || null,
-			summary: `Orchestration Failure on Site ${result.value.site}: ${failedStep?.label || 'General Failure'}`,
-			message_params_json: progress.message_params_json || progress.operator_message || 'Provisioning failed without JSON log.'
+			summary: progress.message || "Failed at Provisioning",
+			message_params_json: progress.message_params_json || 'Provisioning failed.'
 		}, 'POST')
 		console.log("result", response)
-		// posthog.capture('orchestration_issue_created', {
-		// 	site: result.value.site,
-		// 	issue: response.message?.issue || response.issue
-		// })
+		// Capture created issue ID
+		createdIssueName.value = response.message?.issue || response.issue || ''
+
 	} catch (err) {
 		console.error('Failed to auto-create issue:', err)
-		issueCreated.value = false // Allow retry if request failed
+		issueCreated.value = false
 	}
 }
 
@@ -649,7 +647,24 @@ watch(resultFailed, (isFailed) => {
 	>
 		<template #main>
 			<div class="h-full overflow-y-auto bg-[#f7f9fb] p-4 lg:p-6">
-				<Alert v-if="error" theme="red" title="Plan action failed" :description="error" class="mb-4" />
+				<!-- <Alert v-if="error" theme="red" title="Plan action failed" :description="error" class="mb-4" /> -->
+				 <!-- NEW: Auto-Created Support Issue Alert -->
+				 <Alert 
+					v-if="createdIssueName" 
+					theme="blue" 
+					title="Support Ticket has been Created" 
+					class="mb-4"
+					>
+					<template #description>
+						<p class="text-ink-gray-6 prose-sm">
+						A support issue (<strong>{{ createdIssueName }}</strong>) has been logged. 
+						For More Details look into 
+						<RouterLink to="/customer/support-tickets" class="font-semibold underline text-ink-blue-3 hover:text-blue-800">
+							Support
+						</RouterLink>.
+						</p>
+					</template>
+				</Alert>
 
 		<div v-if="setupDialogOpen" class="fixed inset-0 z-[1000] grid place-items-center bg-black/30 px-4 py-6" role="presentation" @mousedown.self="dismissSetupDialog">
 			<form class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl" @submit.prevent="saveSetupDefaults">
