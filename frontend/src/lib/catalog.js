@@ -14,6 +14,8 @@ import {
 	Pause,
 	ShieldAlert,
 	SquareArrowOutUpRight,
+	Store,
+	ListChecks,
 	Users,
 	UserRound,
 	AlertTriangle,
@@ -1281,6 +1283,8 @@ export const platformNav = [
 		{ key: 'platform-customer-members', label: 'Customer Members', route: '/platform/customer-members', icon: UserRound },
 		{ key: 'platform-plans', label: 'Plans', route: '/platform/plans', icon: Package },
 		{ key: 'platform-subscriptions', label: 'Subscriptions', route: '/platform/subscriptions', icon: Users },
+		{ key: 'platform-capability', label: 'Capability', route: '/platform/capability', icon: Store },
+		{ key: 'platform-capability-opted', label: 'Capability Opted', route: '/platform/capability-opted', icon: ListChecks },
 	] },
 	{ heading: 'Product and Delivery', collapsible: true, keep_closed: true, items: [
 		{ key: 'platform-landscapes', label: 'Landscapes', route: '/platform/landscapes', icon: Layers3 },
@@ -1316,7 +1320,7 @@ export const platformNav = [
 
 export const customerNav = [
 	{
-		heading: 'Customer portal',
+		heading: 'Home',
 		items: [
 			{ key: 'customer-dashboard', label: 'Dashboard', note: 'Site status and next steps', route: '/customer/dashboard', icon: LayoutDashboard },
 			{ key: 'customer-plans', label: 'Plans', note: 'Choose a subscription', route: '/customer/plans', icon: Package, doctype: 'Plan' },

@@ -95,11 +95,13 @@ onMounted(load)
 		:assistant-context="assistantContext"
 	>
 		<template #actions>
-			<Button :as="RouterLink" to="/customer/plans">
+			<Button :as="RouterLink" to="/customer/plans" class="!inline-flex !items-center !gap-2 whitespace-nowrap">
 				<SquareArrowOutUpRight class="size-4" />
-				Choose Plan
+				<span>Choose Plan </span>
 			</Button>
-			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load">Refresh</Button>
+			<Button variant="subtle" class="!inline-flex !items-center !gap-2 whitespace-nowrap" @click="load">
+				<RefreshCcw class="size-4 shrink-0" /><span>Refresh</span>
+			</Button>
 		</template>
 
 		<template #main>

@@ -12,7 +12,13 @@ export default {
 	],
 	safelist: [{ pattern: /!(text|bg)-/, variants: ['hover', 'active'] }],
 	theme: {
-		extend: {},
+		extend: {
+			colors: {
+				primary: "#225AA0",
+				secondary: "#4bade9",
+				tertiary: "#87bbed"
+			  }
+		},
 	},
 	plugins: [],
 }

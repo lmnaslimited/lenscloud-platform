@@ -1437,7 +1437,7 @@ def check_cluster_permissions(cluster):
 
 def customer_isolation_summary(plan, privacy, environments):
 	if plan_value(plan, "is_free"):
-		return _("Free launch plan with one production Site. LensCloud selects ready shared capacity in your Region.")
+		return _("Free launch plan with one production Workspace. LensCloud selects ready shared capacity in your Region.")
 	if privacy == "Private":
 		return _("Dedicated customer runtime boundaries for approved environments, managed by LensCloud.")
 	if privacy == "Private Shared":
@@ -1642,7 +1642,7 @@ def plan_customer_entitlement(plan, customer_name, subscriptions=None, sites=Non
 	if subscription_limit and used_subscriptions >= subscription_limit:
 		reasons.append(_("Subscription limit reached"))
 	if site_limit and used_sites >= site_limit:
-		reasons.append(_("Site limit reached"))
+		reasons.append(_("Workspace limit reached"))
 	return {
 		"subscription_limit": subscription_limit,
 		"site_limit": site_limit,

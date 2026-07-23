@@ -78,6 +78,9 @@ async function load() {
 			const customerRegion = regions.value.find((region) => region.name === customer.value?.region)?.name
 			form.region = customerRegion || regions.value[0]?.name || ''
 		}
+		posthog.capture('create_site_viewed', {
+    plan: selectedPlan.value,
+})
 	} catch (err) {
 		error.value = err?.message || 'Unable to load create site context.'
 	} finally {
@@ -89,6 +92,10 @@ async function submitRequest() {
 	if (!canSubmit.value) return
 	error.value = null
 	try {
+		posthog.capture('site_request_started', {
+			plan: selectedPlan.value,
+			region: form.region,
+		})
 		const response = await callMethod('lenscloud.api.orchestration.request_customer_subscription', {
 			site_name: form.site_name,
 			company_name: form.company_name,
@@ -99,6 +106,11 @@ async function submitRequest() {
 		}, 'POST')
 		const result = response.message || response.data || response
 		submitted.value = result
+		posthog.capture('site_request_submitted', {
+			plan: selectedPlan.value,
+			region: form.region,
+			hostname: result.hostname,
+		})
 	} catch (err) {
 		error.value = err?.message || 'Unable to submit site request.'
 	}
@@ -162,8 +174,12 @@ onMounted(load)
 								</div>
 							</div>
 							<div class="mt-4 flex flex-wrap gap-2">
-								<Button :as="RouterLink" to="/customer/dashboard">View dashboard</Button>
-								<Button :as="RouterLink" to="/customer/sites" variant="subtle">View sites</Button>
+								<Button :as="RouterLink" to="/customer/dashboard"
+								@click="posthog.capture('dashboard_opened_after_request')"
+								>View dashboard</Button>
+								<Button :as="RouterLink" to="/customer/sites" variant="subtle"
+								@click="posthog.capture('sites_opened_after_request')"
+								>View sites</Button>
 								<Button variant="subtle" @click="submitted = false">Edit request</Button>
 							</div>
 						</div>
@@ -207,7 +223,15 @@ onMounted(load)
 						</div>
 						<div v-if="betaPlans.length" class="mt-4 border-t border-outline-gray-2 pt-3">
 							<p class="text-sm font-medium text-ink-gray-8">Explore beta Plans</p><p class="mt-1 text-xs text-ink-gray-5">Multi-environment Plans require capacity approval before provisioning.</p>
-							<div class="mt-2 space-y-2"><div v-for="plan in betaPlans" :key="plan.name" class="flex items-center justify-between gap-3 rounded bg-surface-gray-1 px-3 py-2"><div><p class="text-sm font-medium text-ink-gray-8">{{ plan.title }}</p><p class="text-xs text-ink-gray-5">{{ plan.description || plan.landscape }}</p></div><Button size="sm" variant="subtle" :disabled="!form.region || enrollment" @click="requestBeta(plan)">{{ enrollment ? 'Requested' : 'Request access' }}</Button></div></div>
+							<div class="mt-2 space-y-2"><div v-for="plan in betaPlans" :key="plan.name" class="flex items-center justify-between gap-3 rounded bg-surface-gray-1 px-3 py-2"><div><p class="text-sm font-medium text-ink-gray-8">{{ plan.title }}</p><p class="text-xs text-ink-gray-5">{{ plan.description || plan.landscape }}</p></div><Button size="sm" variant="subtle" :disabled="!form.region || enrollment"
+							@click="
+								posthog.capture('beta_access_requested', {
+									plan: plan.name,
+									region: form.region,
+								});
+								requestBeta(plan);
+							"
+							>{{ enrollment ? 'Requested' : 'Request access' }}</Button></div></div>
 						</div>
 					</section>
 
@@ -221,8 +245,13 @@ onMounted(load)
 								v-for="region in regions.filter((item) => !item.is_group).slice(0, 8)"
 								:key="region.name"
 								class="rounded border px-3 py-2 text-left transition hover:bg-surface-gray-1"
-								:class="form.region === region.name ? 'border-ink-gray-8 bg-surface-gray-1' : 'border-outline-gray-2 bg-surface-white'"
-								@click="form.region = region.name"
+								:class="form.region === region.name ? 'border-ink-gray-8 bg-surface-gray-1' : 'border-outline-gray-2 bg-surface-white'"			
+								@click="
+									posthog.capture('region_selected', {
+										region: region.name,
+									});
+									form.region = region.name;
+								"
 							>
 								<p class="text-sm font-medium text-ink-gray-9">{{ region.title || region.name }}</p>
 								<p class="mt-1 text-xs text-ink-gray-5">{{ region.cluster ? `Cluster: ${region.cluster}` : (region.parent_region || 'Cluster not mapped') }}</p>
@@ -243,9 +272,9 @@ onMounted(load)
 							<span class="text-xs font-medium text-ink-gray-5">Notes</span>
 							<Textarea v-model="form.notes" variant="subtle" placeholder="Launch timing, DNS notes, migration context" />
 						</label>
-						<Button class="mt-4" :disabled="!canSubmit" @click="submitRequest">
+						<Button class="mt-4 !inline-flex !items-center gap-2" :disabled="!canSubmit" @click="submitRequest">
 							<Send class="size-4" />
-							Submit site request
+							<span>Submit site request </span>
 						</Button>
 					</section>
 				</div>

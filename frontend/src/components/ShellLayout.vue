@@ -118,19 +118,25 @@ watch(() => route.fullPath, () => {
 
 <template>
 	<div class="flex h-screen overflow-hidden bg-surface-white text-ink-gray-9">
-		<aside class="hidden w-60 shrink-0 flex-col border-r border-outline-gray-2 bg-surface-menu-bar lg:flex">
+		<aside class="hidden w-64 shrink-0 flex-col border-r border-outline-gray-2 bg-surface-menu-bar lg:flex">
 			<div class="flex h-14 items-center gap-2 border-b border-outline-gray-2 px-3">
-				<div class="grid size-7 place-items-center rounded bg-ink-gray-9 text-xs font-semibold text-white">LC</div>
-				<div class="min-w-0"><div class="truncate text-sm font-semibold text-ink-gray-9">LensCloud</div><div class="text-xs text-ink-gray-5">{{ scopeLabel }}</div></div>
+				<!-- <div class="grid size-7 place-items-center rounded bg-ink-gray-9 text-xs font-semibold text-white">LC</div> -->
+				<img
+				src="/lenscloud.png"
+				alt="LensCloud"
+				class="h-10 w-10 shrink-0"
+				/>
+				<div class="min-w-0"><div class="truncate text-sm font-semibold text-ink-gray-9">LensCloud</div><div class="text-xs text-ink-gray-5 mt-2">{{ scopeLabel }}</div></div>
 			</div>
 			<div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
 				<nav v-for="group in primaryNavGroups" :key="group.heading" class="mb-1">
 					<button type="button" class="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs font-medium text-ink-gray-5 hover:bg-surface-gray-1" @click="group.collapsible && toggleGroup(group)">
-						<span>{{ group.heading }}</span><component v-if="group.collapsible" :is="groupOpen(group) ? ChevronDown : ChevronRight" class="size-3.5" />
+						<span>{{ group.heading }}</span>
+						<component v-if="group.collapsible" :is="groupOpen(group) ? ChevronDown : ChevronRight" class="size-3.5" />
 					</button>
-					<div v-show="groupOpen(group)" class="mt-0.5 space-y-0.5">
-						<RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-2 py-1.5 text-sm text-ink-gray-7 hover:bg-surface-gray-1" :class="{ 'bg-surface-gray-2 font-medium text-ink-gray-9': route.path === item.route || route.path.startsWith(`${item.route}/`) }" @click="closeMobileNav">
-							<component :is="item.icon || Circle" class="size-4 shrink-0 text-ink-gray-4" /><span class="truncate">{{ item.label }}</span>
+					<div v-show="groupOpen(group)" class="mt-2 space-y-1">
+						<RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-3 py-3 text-sm text-ink-gray-7" :class="{ 'bg-surface-gray-3 font-medium text-ink-gray-9': route.path === item.route || route.path.startsWith(`${item.route}/`) }" @click="closeMobileNav">
+							<component :is="item.icon || Circle" class="size-4 shrink-0 text-primary" /><span class="truncate">{{ item.label }}</span>
 						</RouterLink>
 					</div>
 				</nav>
@@ -143,7 +149,7 @@ watch(() => route.fullPath, () => {
 				</nav>
 				<div v-if="accountMenuOpen" data-testid="account-menu" class="absolute inset-x-2 bottom-full z-40 mb-2 overflow-hidden rounded-2xl border border-outline-gray-2 bg-white p-2 shadow-xl">
 					<div class="flex items-center gap-3 border-b border-outline-gray-2 px-3 py-3">
-						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-[#1D4ED8] text-sm font-semibold text-white">{{ accountInitials }}</div>
+						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">{{ accountInitials }}</div>
 						<div class="min-w-0"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ accountName }}</p><p class="truncate text-xs text-ink-gray-5">{{ session.user }}</p></div>
 					</div>
 					<RouterLink :to="accountRoute()" class="mt-2 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-gray-8 hover:bg-surface-gray-1" @click="accountMenuOpen = false"><UserRound class="size-4 shrink-0" /><span>Profile</span></RouterLink>
@@ -151,7 +157,7 @@ watch(() => route.fullPath, () => {
 					<button type="button" class="mt-2 flex w-full items-center gap-3 border-t border-outline-gray-2 px-3 py-3 text-left text-sm font-medium text-ink-gray-8 hover:bg-surface-gray-1" @click="signOut"><LogOut class="size-4 shrink-0" /><span>Sign Out</span></button>
 				</div>
 				<button type="button" data-testid="account-menu-trigger" class="mt-1 flex w-full items-center gap-3 rounded-xl bg-surface-gray-1 px-3 py-2.5 text-left transition hover:bg-surface-gray-2" @click="accountMenuOpen = !accountMenuOpen">
-					<div class="grid size-9 shrink-0 place-items-center rounded-full bg-[#1D4ED8] text-sm font-semibold text-white">{{ accountInitials }}</div>
+					<div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">{{ accountInitials }}</div>
 					<div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ accountName }}</p><p class="truncate text-xs text-ink-gray-5">{{ accountCaption }}</p></div>
 					<ChevronRight class="size-4 shrink-0 text-ink-gray-5" />
 				</button>
@@ -159,13 +165,25 @@ watch(() => route.fullPath, () => {
 		</aside>
 
 		<div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-			<header class="flex h-11 shrink-0 items-center justify-between border-b border-outline-gray-2 px-3 lg:hidden"><button type="button" aria-label="Toggle navigation" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1" @click="mobileNavOpen = !mobileNavOpen"><component :is="mobileNavOpen ? PanelLeftClose : Menu" class="size-4" /></button><span class="text-sm font-medium">LensCloud</span></header>
+			<header class="flex h-11 shrink-0 items-center justify-between border-b border-outline-gray-2 px-3 lg:hidden">
+				<button type="button" aria-label="Toggle navigation" class="grid size-8 place-items-center rounded hover:bg-surface-gray-1" @click="mobileNavOpen = !mobileNavOpen">
+					<component :is="mobileNavOpen ? PanelLeftClose : Menu" class="size-4" />
+				</button>
+				<span class="flex items-center gap-2 text-sm font-medium">
+					<img
+						src="/lenscloud.png"
+						alt="LensCloud"
+						class="h-7 w-7 shrink-0 object-contain"
+					/>
+					<span>LensCloud</span>
+				</span>
+			</header>
 			<div v-if="mobileNavOpen" data-testid="mobile-navigation" class="max-h-[70vh] overflow-y-auto border-b border-outline-gray-2 bg-surface-menu-bar p-2 lg:hidden">
 				<div v-for="group in primaryNavGroups" :key="group.heading" class="mb-2"><p class="px-2 py-1 text-xs font-medium text-ink-gray-5">{{ group.heading }}</p><RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-2 py-2 text-sm hover:bg-surface-gray-1" @click="closeMobileNav"><component :is="item.icon || Circle" class="size-4 text-ink-gray-4" />{{ item.label }}</RouterLink></div>
 				<div v-for="group in bottomNavVisibleGroups" :key="group.heading" class="mt-3 border-t border-outline-gray-2 pt-2"><p class="px-2 py-1 text-xs font-medium text-ink-gray-5">{{ group.heading }}</p><RouterLink v-for="item in group.items" :key="item.key" :to="item.route" class="flex items-center gap-2 rounded px-2 py-2 text-sm hover:bg-surface-gray-1" @click="closeMobileNav"><component :is="item.icon || Circle" class="size-4 text-ink-gray-4" />{{ item.label }}</RouterLink></div>
 				<div class="mt-3 border-t border-outline-gray-2 pt-3">
 					<button type="button" data-testid="mobile-account-menu-trigger" class="flex w-full items-center gap-3 rounded-xl bg-surface-gray-1 px-3 py-3 text-left" @click="accountMenuOpen = !accountMenuOpen">
-						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-[#1D4ED8] text-sm font-semibold text-white">{{ accountInitials }}</div>
+						<div class="grid size-9 shrink-0 place-items-center rounded-full bg-primary text-sm font-semibold text-white">{{ accountInitials }}</div>
 						<div class="min-w-0 flex-1"><p class="truncate text-sm font-semibold text-ink-gray-9">{{ accountName }}</p><p class="truncate text-xs text-ink-gray-5">{{ accountCaption }}</p></div>
 						<ChevronRight class="size-4 shrink-0 text-ink-gray-5" />
 					</button>
