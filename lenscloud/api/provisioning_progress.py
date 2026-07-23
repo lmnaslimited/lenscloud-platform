@@ -36,7 +36,7 @@ def progress_snapshot(site_doc):
 	rows = frappe.get_all(
 		"Orchestration Action Log",
 		filters={"site": site_doc.name, "operation": ["in", OPERATIONS]},
-		fields=["name", "status", "operation", "modified", "message_id", "customer_message", "operator_message", "retryability", "resolution_owner"],
+		fields=["name", "status", "operation", "modified", "message_id", "customer_message", "operator_message", "retryability", "resolution_owner", "message_params_json"],
 		order_by="modified desc",
 		limit=20,
 	)
@@ -75,7 +75,9 @@ def progress_snapshot(site_doc):
 		"active_operation": active.operation if active else None, "active_action_log": active.name if active else None,
 		"can_retry": bool(message and retryability in {"Retryable", "Retry After Delay"}),
 		"can_continue": not active and status not in {"failed", "blocked", "succeeded"},
-		"message_id": message.message_id if message else None, "customer_message": message.customer_message if message else None,
+		"message_id": message.message_id if message else None,
+		"message_params_json": message.message_params_json if message else None,
+		"customer_message": message.customer_message if message else None,
 		"operator_message": message.operator_message if message else None, "retryability": retryability,
 		"resolution_owner": message.resolution_owner if message else None, "updated_at": str((active or failed or site_doc).modified),
 	}

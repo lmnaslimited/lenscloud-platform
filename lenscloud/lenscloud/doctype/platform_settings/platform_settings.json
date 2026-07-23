@@ -36,15 +36,25 @@
   "column_break_riyd",
   "kubernetes_apply_enabled",
   "tab_break_nfns",
+  "billing_integration_section",
   "billing_system",
+  "billing_api_key",
+  "billing_api_secret",
+  "column_break_jstk",
   "billing_integration_enabled",
   "billing_integration_status",
-  "column_break_jstk",
+  "crm_integration_section",
   "crm_system",
+  "crm_api_key",
+  "crm_api_secret",
+  "column_break_fmma",
   "crm_integration_enabled",
   "crm_integration_status",
-  "column_break_ntkb",
+  "section_break_iogw",
   "support_system",
+  "support_api_key",
+  "support_api_secret",
+  "column_break_kyhg",
   "support_integration_enabled",
   "support_integration_status",
   "customer_portal_tab",
@@ -282,10 +292,6 @@
    "fieldtype": "Column Break"
   },
   {
-   "fieldname": "column_break_ntkb",
-   "fieldtype": "Column Break"
-  },
-  {
    "fieldname": "cua_oauth_section",
    "fieldtype": "Section Break",
    "label": "Central User Access OAuth"
@@ -313,13 +319,69 @@
    "fieldname": "allow_local_oauth_http",
    "fieldtype": "Check",
    "label": "Allow Local OAuth HTTP"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "crm_integration_section",
+   "fieldtype": "Section Break",
+   "label": "CRM Integration"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "section_break_iogw",
+   "fieldtype": "Section Break",
+   "label": "Support Integration"
+  },
+  {
+   "fieldname": "billing_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "billing_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "crm_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "crm_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "column_break_fmma",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "support_api_key",
+   "fieldtype": "Data",
+   "label": "API Key"
+  },
+  {
+   "fieldname": "support_api_secret",
+   "fieldtype": "Password",
+   "label": "API Secret"
+  },
+  {
+   "fieldname": "column_break_kyhg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "collapsible": 1,
+   "fieldname": "billing_integration_section",
+   "fieldtype": "Section Break",
+   "label": "Billing Integration"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-09 22:39:06.655048",
+ "modified": "2026-07-22 23:56:31.930620",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Platform Settings",

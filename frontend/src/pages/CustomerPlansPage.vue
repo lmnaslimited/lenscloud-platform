@@ -601,6 +601,42 @@ onBeforeUnmount(() => {
 	socket?.off('lenscloud_site_progress', onSiteProgress)
 	stopProgressPolling()
 })
+
+const issueCreated = ref(false)
+
+async function autoCreateIssueOnFailure() {
+	if (issueCreated.value || !result.value?.site) return
+
+	const progress = canonicalProgress.value || {}
+	const failedStep = rawProvisioningSteps.value.find((s) => s.state === 'failed')
+
+	try {
+		issueCreated.value = true
+		const response = await callMethod('lenscloud.api.issue.create_orchestration_issue', {
+			site: result.value.site,
+			subscription: result.value.subscription,
+			action_log: progress.action_log || null,
+			summary: `Orchestration Failure on Site ${result.value.site}: ${failedStep?.label || 'General Failure'}`,
+			message_params_json: progress.message_params_json || progress.operator_message || 'Provisioning failed without JSON log.'
+		}, 'POST')
+		console.log("result", response)
+		// posthog.capture('orchestration_issue_created', {
+		// 	site: result.value.site,
+		// 	issue: response.message?.issue || response.issue
+		// })
+	} catch (err) {
+		console.error('Failed to auto-create issue:', err)
+		issueCreated.value = false // Allow retry if request failed
+	}
+}
+
+// Watch canonical failure state automatically
+watch(resultFailed, (isFailed) => {
+	if (isFailed) {
+		autoCreateIssueOnFailure()
+	}
+})
+
 </script>
 
 <template>
