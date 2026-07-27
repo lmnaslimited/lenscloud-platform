@@ -62,18 +62,42 @@ class Plan(Document):
     def validate_portal_features(self):
         if not self.portal_feature_json:
             return
+
         try:
-            features = json.loads(self.portal_feature_json)
+            data = json.loads(self.portal_feature_json)
         except Exception as exc:
             frappe.throw(_("Portal Feature JSON must be valid JSON: {0}").format(exc))
-        if not isinstance(features, list):
-            frappe.throw(_("Portal Feature JSON must be an array."))
-        for index, feature in enumerate(features, start=1):
-            if not isinstance(feature, dict):
-                frappe.throw(_("Portal feature row {0} must be an object.").format(index))
-            if not feature.get("feature"):
-                frappe.throw(_("Portal feature row {0} requires a feature value.").format(index))
-            text = f"{feature.get('icon', '')} {feature.get('feature', '')}".lower()
-            for term in FORBIDDEN_CUSTOMER_TERMS:
-                if term in text:
-                    frappe.throw(_("Portal feature row {0} contains customer-hidden runtime term: {1}").format(index, term))
+
+        if not isinstance(data, dict):
+            frappe.throw(_("Portal Feature JSON must be a JSON object containing 'features' or 'highlights'."))
+
+        # Helper function to validate lists of items (features or highlights)
+        def validate_items(items, list_name, text_key):
+            if not isinstance(items, list):
+                frappe.throw(_("'{0}' in Portal Feature JSON must be an array.").format(list_name))
+
+            for index, item in enumerate(items, start=1):
+                if not isinstance(item, dict):
+                    frappe.throw(_("{0} row {1} must be an object.").format(list_name.capitalize(), index))
+                
+                value = item.get(text_key)
+                if not value:
+                    frappe.throw(_("{0} row {1} requires a '{2}' value.").format(list_name.capitalize(), index, text_key))
+
+                # Check forbidden terms
+                text = f"{item.get('icon', '')} {value}".lower()
+                for term in FORBIDDEN_CUSTOMER_TERMS:
+                    if term in text:
+                        frappe.throw(
+                            _("{0} row {1} contains customer-hidden runtime term: {2}").format(
+                                list_name.capitalize(), index, term
+                            )
+                        )
+
+        # Validate features if provided
+        if "features" in data:
+            validate_items(data["features"], "features", "feature")
+
+        # Validate highlights if provided
+        if "highlights" in data:
+            validate_items(data["highlights"], "highlights", "highlight")

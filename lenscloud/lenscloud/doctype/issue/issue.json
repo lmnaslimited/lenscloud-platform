@@ -7,15 +7,20 @@
  "doctype": "DocType",
  "engine": "InnoDB",
  "field_order": [
+  "customer_member",
   "customer",
+  "external_customer_id",
+  "email",
   "subscription",
-  "source",
+  "helpdesk_ticket_id",
   "naming_series",
   "column_break_gqpg",
   "site",
   "category",
   "status",
   "severity",
+  "source",
+  "orchestration_action_log",
   "section_break_gkte",
   "summary",
   "description",
@@ -23,13 +28,13 @@
  ],
  "fields": [
   {
-   "fetch_from": "subscription.customer",
+   "fetch_from": "customer_member.customer",
+   "fetch_if_empty": 1,
    "fieldname": "customer",
    "fieldtype": "Link",
-   "in_list_view": 1,
    "label": "Customer",
    "options": "Customer",
-   "reqd": 1
+   "read_only": 1
   },
   {
    "fieldname": "subscription",
@@ -67,13 +72,13 @@
    "fieldname": "status",
    "fieldtype": "Select",
    "label": "Status",
-   "options": "Open"
+   "options": "Open\nResolved\nClosed"
   },
   {
    "fieldname": "severity",
    "fieldtype": "Select",
    "label": "Severity",
-   "options": "\nL\nM\nS\nXL\nXS"
+   "options": "\nHigh\nLow\nMedium"
   },
   {
    "fieldname": "section_break_gkte",
@@ -101,12 +106,48 @@
    "hidden": 1,
    "label": "Series",
    "options": "ISS-.YYYY.-.MM.-.####"
+  },
+  {
+   "fieldname": "customer_member",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer Member",
+   "options": "Customer Member",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer_member.user",
+   "fetch_if_empty": 1,
+   "fieldname": "email",
+   "fieldtype": "Link",
+   "label": "Email",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "helpdesk_ticket_id",
+   "fieldtype": "Read Only",
+   "label": "Helpdesk Ticket ID"
+  },
+  {
+   "fetch_from": "customer.external_customer_id",
+   "fetch_if_empty": 1,
+   "fieldname": "external_customer_id",
+   "fieldtype": "Read Only",
+   "label": "External Customer ID"
+  },
+  {
+   "fieldname": "orchestration_action_log",
+   "fieldtype": "Link",
+   "label": "Orchestration Action Log",
+   "options": "Orchestration Action Log",
+   "read_only": 1
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-23 15:30:27.130409",
+ "modified": "2026-07-26 21:52:11.269643",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Issue",

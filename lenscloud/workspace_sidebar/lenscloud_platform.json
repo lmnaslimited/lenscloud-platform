@@ -341,7 +341,7 @@
    "link_type": "URL",
    "show_arrow": 0,
    "type": "Link",
-   "url": "/lenscloud/platform/customer-support-tickets"
+   "url": "/lenscloud/platform/support-tickets"
   },
   {
    "child": 0,
@@ -376,7 +376,7 @@
    "url": "/lenscloud/platform/settings"
   }
  ],
- "modified": "2026-07-23 14:29:26.141021",
+ "modified": "2026-07-24 10:58:51.098319",
  "modified_by": "Administrator",
  "name": "LensCloud Platform",
  "owner": "Administrator",

@@ -75,6 +75,7 @@ def progress_snapshot(site_doc):
 		"active_operation": active.operation if active else None, "active_action_log": active.name if active else None,
 		"can_retry": bool(message and retryability in {"Retryable", "Retry After Delay"}),
 		"can_continue": not active and status not in {"failed", "blocked", "succeeded"},
+		"orchestration_action_log": message.name if message else None,
 		"message_id": message.message_id if message else None,
 		"message": message.message if message else None,
 		"message_params_json": message.message_params_json if message else None,

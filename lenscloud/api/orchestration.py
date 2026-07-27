@@ -1455,20 +1455,51 @@ def plan_value(plan, key, default=None):
 
 
 def parse_portal_features(plan):
-	if not plan_value(plan, "portal_feature_json"):
-		return []
-	try:
-		features = json.loads(plan_value(plan, "portal_feature_json"))
-	except Exception:
-		return []
-	if not isinstance(features, list):
-		return []
-	cleaned = []
-	for feature in features:
-		if not isinstance(feature, dict) or not feature.get("feature"):
-			continue
-		cleaned.append({"icon": feature.get("icon") or "check", "feature": feature.get("feature")})
-	return cleaned[:8]
+    raw_json = plan_value(plan, "portal_feature_json")
+    if not raw_json:
+        return {"features": [], "highlights": []}
+    
+    try:
+        data = json.loads(raw_json)
+    except Exception:
+        return {"features": [], "highlights": []}
+    
+    # Backward compatibility: if it's a legacy flat list
+    if isinstance(data, list):
+        cleaned_features = []
+        for item in data:
+            if isinstance(item, dict) and item.get("feature"):
+                cleaned_features.append({
+                    "icon": item.get("icon") or "check", 
+                    "feature": item.get("feature")
+                })
+        return {"features": cleaned_features[:8], "highlights": []}
+    
+    if not isinstance(data, dict):
+        return {"features": [], "highlights": []}
+        
+    # Clean highlights
+    highlights = []
+    for item in data.get("highlights", []):
+        if isinstance(item, dict) and item.get("highlight"):
+            highlights.append({
+                "icon": item.get("icon") or "check",
+                "highlight": item.get("highlight")
+            })
+            
+    # Clean features
+    features = []
+    for item in data.get("features", []):
+        if isinstance(item, dict) and item.get("feature"):
+            features.append({
+                "icon": item.get("icon") or "check",
+                "feature": item.get("feature")
+            })
+            
+    return {
+        "highlights": highlights[:8],
+        "features": features[:8]
+    }
 
 
 def plan_customer_cta_mode(plan):
