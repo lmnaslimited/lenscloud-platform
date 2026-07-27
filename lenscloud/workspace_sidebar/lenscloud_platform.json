@@ -334,7 +334,6 @@
   {
    "child": 1,
    "collapsible": 1,
-   "icon": "",
    "indent": 0,
    "keep_closed": 0,
    "label": "Support",
@@ -376,7 +375,7 @@
    "url": "/lenscloud/platform/settings"
   }
  ],
- "modified": "2026-07-24 10:58:51.098319",
+ "modified": "2026-07-27 12:48:38.089518",
  "modified_by": "Administrator",
  "name": "LensCloud Platform",
  "owner": "Administrator",

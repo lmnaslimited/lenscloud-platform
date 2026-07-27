@@ -27,7 +27,7 @@ def create_orchestration_issue(site, subscription, orchestration_action_log=None
     
     # Store Action Log link if your Issue DocType has this custom field
     if orchestration_action_log:
-        issue_exist = frappe.get_list("Issue", filters={orchestration_action_log: orchestration_action_log}, limit=1)
+        issue_exist = frappe.get_list("Issue", filters={"orchestration_action_log": orchestration_action_log}, limit=1)
         if issue_exist:
             return
         if frappe.get_meta("Issue").has_field("orchestration_action_log"):
