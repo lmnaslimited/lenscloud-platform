@@ -332,6 +332,17 @@
    "url": "/lenscloud/platform/orchestration-logs"
   },
   {
+   "child": 1,
+   "collapsible": 1,
+   "indent": 0,
+   "keep_closed": 0,
+   "label": "Support",
+   "link_type": "URL",
+   "show_arrow": 0,
+   "type": "Link",
+   "url": "/lenscloud/platform/support-tickets"
+  },
+  {
    "child": 0,
    "collapsible": 1,
    "indent": 0,
@@ -364,7 +375,7 @@
    "url": "/lenscloud/platform/settings"
   }
  ],
- "modified": "2026-07-22 10:50:57.188615",
+ "modified": "2026-07-27 12:48:38.089518",
  "modified_by": "Administrator",
  "name": "LensCloud Platform",
  "owner": "Administrator",

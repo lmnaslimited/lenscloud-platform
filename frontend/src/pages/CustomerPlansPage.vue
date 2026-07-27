@@ -307,8 +307,11 @@ function planDisabledReason(plan) {
 
 function featureIconLabel(icon) {
 	const labels = {
+		rocket: '🚀',
+		clock: '⏱️',
+		'shield-check': '🛡️',
+		'credit-card': '$',
 		globe: '🌐',
-		'credit-card': '₹',
 		shield: '✓',
 		sparkles: '✦',
 		layers: '▣',
@@ -455,7 +458,12 @@ function applyCanonicalProgress(snapshot) {
 	if (!snapshot?.site || (result.value?.site && snapshot.site !== result.value.site)) return
 	canonicalProgress.value = snapshot
 	result.value = { ...(result.value || {}), site: snapshot.site, canonical_progress: snapshot }
-	if (snapshot.can_continue) scheduleAdvance()
+	// Trigger issue creation directly on failure/blocked state
+	if (['failed', 'blocked', 'bootstrap_failed', 'oauth_failed'].includes(snapshot.stage_status)) {
+		autoCreateIssueOnFailure()
+	} else if (snapshot.can_continue) {
+		scheduleAdvance()
+	}
 }
 
 async function refreshProgress({ silent = false } = {}) {
@@ -601,6 +609,41 @@ onBeforeUnmount(() => {
 	socket?.off('lenscloud_site_progress', onSiteProgress)
 	stopProgressPolling()
 })
+
+const issueCreated = ref(false)
+const createdIssueName = ref('')
+
+async function autoCreateIssueOnFailure() {
+	if (issueCreated.value || !result.value?.site) return
+	const siteName = result.value?.site
+    if (!siteName) return
+	const progress = canonicalProgress.value || {}
+	try {
+		issueCreated.value = true
+		const response = await callMethod('lenscloud.api.issue.create_orchestration_issue', {
+			site: result.value.site,
+			subscription: result.value.subscription,
+			orchestration_action_log: progress.orchestration_action_log || null,
+			summary: progress.message || "Failed at Provisioning",
+			message_params_json: progress.customer_message || 'Provisioning failed.'
+		}, 'POST')
+		
+		// Capture created issue ID
+		createdIssueName.value = response.message?.issue || response.issue || ''
+
+	} catch (err) {
+		console.error('Failed to auto-create issue:', err)
+		issueCreated.value = false
+	}
+}
+
+// // Watch canonical failure state automatically
+// watch(resultFailed, (isFailed) => {
+// 	if (isFailed) {
+// 		autoCreateIssueOnFailure()
+// 	}
+// })
+
 </script>
 
 <template>
@@ -613,7 +656,24 @@ onBeforeUnmount(() => {
 	>
 		<template #main>
 			<div class="h-full overflow-y-auto bg-[#f7f9fb] p-4 lg:p-6">
-				<Alert v-if="error" theme="red" title="Plan action failed" :description="error" class="mb-4" />
+				<!-- <Alert v-if="error" theme="red" title="Plan action failed" :description="error" class="mb-4" /> -->
+				 <!-- NEW: Auto-Created Support Issue Alert -->
+				 <Alert 
+					v-if="createdIssueName" 
+					theme="blue" 
+					title="Support Ticket has been Created" 
+					class="mb-4"
+					>
+					<template #description>
+						<p class="text-ink-gray-6 prose-sm">
+						A support issue (<strong>{{ createdIssueName }}</strong>) has been logged. 
+						For More Details look into 
+						<RouterLink to="/customer/support-tickets" class="font-semibold underline text-ink-blue-3 hover:text-blue-800">
+							Support
+						</RouterLink>.
+						</p>
+					</template>
+				</Alert>
 
 		<div v-if="setupDialogOpen" class="fixed inset-0 z-[1000] grid place-items-center bg-black/30 px-4 py-6" role="presentation" @mousedown.self="dismissSetupDialog">
 			<form class="w-full max-w-2xl rounded-xl bg-white p-6 shadow-xl" @submit.prevent="saveSetupDefaults">
@@ -685,19 +745,39 @@ onBeforeUnmount(() => {
 										<p class="mt-4 min-h-12 text-sm leading-6 text-[#505f76]">{{ plan.description || plan.customer_summary }}</p>
 										<div v-if="planDisabled(plan)" class="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">{{ planDisabledReason(plan) }}. Manage progress from Subscriptions.</div>
 
-										<ul class="mt-5 space-y-2 text-sm text-[#434655]">
-											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.site_limit || 1 }} Workspace{{ Number(plan.site_limit || 1) > 1 ? 's' : '' }}</li>
-											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.environments?.join(', ') || 'Configured' }}</li>
-											<li class="flex items-center gap-2"><span class="grid size-5 place-items-center rounded-full bg-[#dce1ff] text-xs font-semibold text-primary">✓</span>{{ plan.privacy === 'Public' ? 'Public placement' : 'Private placement' }}</li>
-										</ul>
+										<!-- First UL: Highlights -->
+										<div v-if="plan.features?.highlights?.length" class="mt-5 flex flex-wrap gap-2">
+											<div 
+											v-for="item in plan.features.highlights" 
+											:key="item.highlight"
+											class="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 border border-indigo-200/60 px-2.5 py-1 text-xs font-semibold text-indigo-900"
+											>
+											<span>{{ featureIconLabel(item.icon) }}</span>
+											<span>{{ item.highlight }}</span>
+											</div>
+										</div>
 
-										<ul class="mt-5 flex-1 space-y-3">
-											<li v-for="feature in (plan.features || []).slice(0, 3)" :key="feature.feature" class="flex items-start gap-3 text-sm text-[#434655]">
-												<span class="grid size-6 shrink-0 place-items-center rounded-full bg-white text-xs font-semibold text-[#0039b5]" :class="selectedPlanRecord?.name === plan.name ? 'bg-[#dce1ff]' : 'border border-[#EDEDED]'">{{ featureIconLabel(feature.icon) }}</span>
-												<span>{{ feature.feature }}</span>
+										<!-- Second UL: Features -->
+										<hr class="my-5 border-gray-100" />
+
+										<!-- Features Section -->
+										<div class="flex-1">
+											<p class="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">Includes</p>
+											<ul class="space-y-3">
+											<li 
+												v-for="item in (plan.features?.features || []).slice(0, 5)" 
+												:key="item.feature" 
+												class="flex items-start gap-2.5 text-sm text-gray-600"
+											>
+												<!-- Consistent Check Icon or Dynamic Emoji -->
+												<span class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-indigo-700"
+												:class="selectedPlanRecord?.name === plan.name ? 'bg-[#dce1ff]' : 'border border-[#EDEDED]'">
+													{{ featureIconLabel(item.icon) }}
+												</span>
+												<span class="leading-tight">{{ item.feature }}</span>
 											</li>
-										</ul>
-
+											</ul>
+										</div>
 										<button class="mt-6 inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-bold transition disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2" :disabled="planDisabled(plan)" :class="selectedPlanRecord?.name === plan.name && !planDisabled(plan) ? 'bg-primary text-white hover:bg-primary' : 'border border-[#EDEDED] bg-white text-[#505f76] hover:bg-white'" @click.stop="selectedPlanRecord?.name === plan.name ? continueFromPlan() : selectPlan(plan)"
 										@click="
 											posthog.capture('plan_selected', {
@@ -748,20 +828,40 @@ onBeforeUnmount(() => {
 											</div>
 										</section>
 
-										<section data-purpose="site-name">
-											<h4 class="mb-1 text-base font-semibold text-gray-900">3. Workspace Name</h4>
-											<p class="mb-4 text-sm text-gray-500">Give your Workspace a friendly name for internal reference.</p>
-											<div class="w-full sm:w-80">
-												<input v-model="form.site_name" aria-label="Site Name" class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" type="text" placeholder="My Awesome App" />
-											</div>
-										</section>
+										<section data-purpose="workspace-setup">
+											<h4 class="mb-1 text-base font-semibold text-gray-900">3. Workspace & Defaults Configuration</h4>
+											<p class="mb-4 text-sm text-gray-500">Provide a friendly name for internal reference and configure required Workspace defaults.</p>
+											
+											<div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
+												<!-- WORKSPACE NAME INPUT -->
+												<div>
+													<input 
+														v-model="form.site_name" 
+														aria-label="Workspace Name" 
+														class="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:ring-blue-500" 
+														type="text" 
+														placeholder="My Awesome App" 
+													/>
+												</div>
 
-										<section data-purpose="setup-defaults">
-											<h4 class="mb-1 text-base font-semibold text-gray-900">4. Setup Defaults</h4>
-											<p class="mb-4 text-sm text-gray-500">Only fields required by the installed apps are requested.</p>
-											<div class="flex flex-wrap items-center gap-3">
-												<button class="rounded-md border border-gray-50 bg-secondary px-4 py-2 text-sm font-semibold text-white hover:bg-primary" type="button" @click="openSetupDialog">{{ setupDefaultsComplete ? 'Edit setup defaults' : 'Continue Setup' }}</button>
-												<span class="rounded-full px-3 py-1 text-sm font-medium" :class="setupDefaultsComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'">{{ setupDefaultsComplete ? 'Ready' : setupSchemaLoading ? 'Loading' : 'Required' }}</span>
+												<!-- SETUP DEFAULTS ACTION -->
+												<div>
+													<div class="flex flex-wrap items-center gap-3">
+														<button 
+															class="rounded-md border border-gray-50 bg-secondary px-4 py-2 text-sm font-semibold text-white hover:bg-primary transition" 
+															type="button" 
+															@click="openSetupDialog"
+														>
+															{{ setupDefaultsComplete ? 'Edit setup defaults' : 'Continue Setup' }}
+														</button>
+														<span 
+															class="rounded-full px-3 py-1 text-sm font-medium" 
+															:class="setupDefaultsComplete ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-800'"
+														>
+															{{ setupDefaultsComplete ? 'Ready' : setupSchemaLoading ? 'Loading' : 'Required' }}
+														</span>
+													</div>
+												</div>
 											</div>
 										</section>
 									</div>

@@ -114,7 +114,7 @@ function startResize(direction, event) {
 				<div class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-outline-gray-2 px-4">
 					<div class="min-w-0">
 						<p class="text-xs font-medium text-ink-gray-5">{{ inspectorKicker }}</p>
-						<h2 class="truncate text-base font-semibold text-ink-gray-9 mt-2">{{ inspectorTitle }}</h2>
+						<h2 class="truncate text-base font-semibold text-ink-gray-9 mt-2 cursor-text">{{ inspectorTitle }}</h2>
 					</div>
 					<!-- <Button variant="ghost" :tooltip="assistantOpen ? 'Hide assistant' : assistantLabel" @click="assistantOpen = !assistantOpen">
 						<component :is="assistantIcon" class="size-4" />
@@ -210,7 +210,7 @@ function startResize(direction, event) {
 						<!-- Chat Header -->
 						<div class="flex h-14 shrink-0 items-center justify-between border-b border-outline-gray-2 bg-violet-50/50 px-4">
 							<div class="flex items-center gap-2.5 min-w-0">
-								<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary text-white shadow-sm">
+								<div class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-violet-600 text-white shadow-sm">
 									<Sparkles class="size-4" />
 								</div>
 								<div class="min-w-0">
@@ -238,7 +238,7 @@ function startResize(direction, event) {
 								
 								<!-- Assistant Summary / Header Context -->
 								<div class="text-center space-y-2">
-									<div class="inline-flex size-10 items-center justify-center rounded-xl bg-blue-100 text-primary shadow-xs">
+									<div class="inline-flex size-10 items-center justify-center rounded-xl bg-violet-100 text-violet-600 shadow-xs">
 										<Sparkles class="size-5" />
 									</div>
 									<h3 class="text-base font-semibold text-ink-gray-9">How can Lumi help you?</h3>
@@ -262,7 +262,7 @@ function startResize(direction, event) {
 												{{ badge }}
 											</Badge>
 										</div>
-										<Button type="submit" variant="solid" class="!bg-primary hover:!bg-primary text-white shrink-0" @click="handleSendMessage">
+										<Button type="submit" variant="solid" class="!bg-violet-600 hover:!bg-violet-800 text-white shrink-0" @click="handleSendMessage">
 											<template #icon>
 												<Send class="size-4" />
 											</template>

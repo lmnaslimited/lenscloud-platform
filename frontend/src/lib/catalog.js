@@ -22,6 +22,8 @@ import {
 	CircleHelp,
 	ScrollText,
 	Sparkles,
+	LifeBuoy,
+	Headset,
 } from 'lucide-vue-next'
 
 const linkField = (options, labelFields = []) => ({ type: 'link', options, labelFields })
@@ -1034,8 +1036,52 @@ export const platformResources = [
 		],
 		actions: [],
 	},
-
-
+	{
+		key: 'support-tickets',
+		scope: 'platform',
+		label: 'Support Tickets',
+		doctype: 'Issue',
+		route: '/platform/support-tickets',
+		detailRoute: (name) => `/platform/support-tickets/${encodeURIComponent(name)}`,
+		icon: LifeBuoy,
+		listHelp: 'Customer-reported issues linked to Subscription and Site, with severity and triage status.',
+		creatable: true,
+		editable: true,
+		lifecycleFields: [
+			{ key: 'customer', label: 'Customer', required: true, readOnly: true, ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'subscription', label: 'Subscription', required: true, ...linkField('Subscription', ['customer', 'plan', 'status']) },
+			{ key: 'site', label: 'Site', ...linkField('Site', ['title', 'subdomain']) },
+			{ key: 'source', label: 'Source', default: 'Customer', ...selectField(['Customer']) },
+			{ key: 'category', label: 'Category', ...selectField(['Technical', 'Miscellaneous', 'Others']) },
+			{ key: 'status', label: 'Status', default: 'Open', ...selectField(['Open']) },
+			{ key: 'severity', label: 'Severity', ...selectField(['Low', 'Medium', 'High']) },
+			{ key: 'summary', label: 'Summary', type: 'textarea' },
+			{ key: 'description', label: 'Description', type: 'textarea' },
+		],
+		summaryFields: [
+			{ key: 'name', label: 'Ticket' },
+			{ key: 'customer', label: 'Customer', linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'subscription', label: 'Subscription', linkPrefix: '/platform/subscriptions/', ...linkField('Subscription', ['customer', 'plan', 'status']) },
+			{ key: 'site', label: 'Site', linkPrefix: '/platform/sites/', ...linkField('Site', ['title', 'subdomain']) },
+			{ key: 'category', label: 'Category', ...selectField(['Technical', 'Miscellaneous', 'Others']) },
+			{ key: 'status', label: 'Status', ...selectField(['Open']) },
+			{ key: 'severity', label: 'Severity', ...selectField(['Low', 'Medium', 'High']) },
+		],
+		detailFields: [
+			{ key: 'name', label: 'Ticket ID' },
+			{ key: 'customer', label: 'Customer', readOnly: true, linkPrefix: '/platform/customers/', ...linkField('Customer', ['first_name', 'last_name']) },
+			{ key: 'subscription', label: 'Subscription', linkPrefix: '/platform/subscriptions/', ...linkField('Subscription', ['customer', 'plan', 'status']) },
+			{ key: 'site', label: 'Site', linkPrefix: '/platform/sites/', ...linkField('Site', ['title', 'subdomain']) },
+			{ key: 'source', label: 'Source', ...selectField(['Customer']) },
+			{ key: 'category', label: 'Category', ...selectField(['Technical', 'Miscellaneous', 'Others']) },
+			{ key: 'status', label: 'Status', ...selectField(['Open']) },
+			{ key: 'severity', label: 'Severity', ...selectField(['Low', 'Medium', 'High']) },
+			{ key: 'summary', label: 'Summary' },
+			{ key: 'description', label: 'Description' },
+			{ key: 'last_sync', label: 'Last sync', readOnly: true, type: 'datetime' },
+		],
+		actions: [],
+	},
 	{
 		key: 'tools', scope: 'platform', label: 'Tools', doctype: 'Tool', route: '/platform/tools',
 		detailRoute: (name) => `/platform/tools/${encodeURIComponent(name)}`, icon: Settings2, creatable: true, editable: true,
@@ -1225,7 +1271,7 @@ export const customerResources = [
 		],
 	},
 	{
-			key: 'customer-sites',
+		key: 'customer-sites',
 		scope: 'customer',
 		label: 'Sites',
 		doctype: 'Site',
@@ -1272,6 +1318,45 @@ export const customerResources = [
 			},
 		],
 	},
+	{
+		key: 'platform-support-tickets',
+		scope: 'customer',
+		label: 'Support Tickets',
+		doctype: 'Issue',
+		route: '/platform/support-tickets',
+		detailRoute: (name) => `/platform/support-tickets/${encodeURIComponent(name)}`,
+		icon: LifeBuoy,
+		listHelp: 'Support tickets raised against your subscriptions and sites.',
+		customerScoped: true,
+		creatable: true,
+		editable: true,
+		lifecycleFields: [
+			{ key: 'subscription', label: 'Subscription', required: true, ...linkField('Subscription', ['plan', 'status']) },
+			{ key: 'site', label: 'Site', ...linkField('Site', ['title', 'subdomain']) },
+			{ key: 'category', label: 'Category', ...selectField(['Technical', 'Miscellaneous', 'Others']) },
+			{ key: 'severity', label: 'Severity', ...selectField(['Low', 'Medium', 'High']) },
+			{ key: 'summary', label: 'Summary', type: 'textarea' },
+			{ key: 'description', label: 'Description', type: 'textarea' },
+		],
+		summaryFields: [
+			{ key: 'name', label: 'Ticket' },
+			{ key: 'site', label: 'Site', linkPrefix: '/platform/sites/', ...linkField('Site', ['title', 'subdomain']) },
+			{ key: 'category', label: 'Category', ...selectField(['Technical', 'Miscellaneous', 'Others']) },
+			{ key: 'status', label: 'Status', ...selectField(['Open']) },
+			{ key: 'severity', label: 'Severity', ...selectField(['Low', 'Medium', 'High']) },
+		],
+		detailFields: [
+			{ key: 'name', label: 'Ticket ID' },
+			{ key: 'subscription', label: 'Subscription', linkPrefix: '/platform/subscriptions/', ...linkField('Subscription', ['plan', 'status']) },
+			{ key: 'site', label: 'Site', linkPrefix: '/platform/sites/', ...linkField('Site', ['title', 'subdomain']) },
+			{ key: 'category', label: 'Category', ...selectField(['Technical', 'Miscellaneous', 'Others']) },
+			{ key: 'status', label: 'Status', readOnly: true, ...selectField(['Open']) },
+			{ key: 'severity', label: 'Severity', ...selectField(['Low', 'Medium', 'High']) },
+			{ key: 'summary', label: 'Summary' },
+			{ key: 'description', label: 'Description' },
+		],
+		actions: [],
+	},
 ]
 
 export const platformNav = [
@@ -1311,6 +1396,7 @@ export const platformNav = [
 	{ heading: 'Operations', collapsible: true, keep_closed: true, items: [
 		{ key: 'platform-environment-test-runs', label: 'Test Runs', route: '/platform/environment-test-runs', icon: ScrollText },
 		{ key: 'platform-orchestration-logs', label: 'Orchestration Logs', route: '/platform/orchestration-logs', icon: ScrollText },
+		{ key: 'platform-support-tickets', label: 'Support Tickets', route: '/platform/support-tickets', icon: Headset },
 	] },
 	{ heading: 'Configuration', collapsible: true, keep_closed: true, items: [
 		{ key: 'platform-regions', label: 'Regions', route: '/platform/regions', icon: Globe2 },
@@ -1327,6 +1413,7 @@ export const customerNav = [
 			{ key: 'customer-subscriptions', label: 'Subscriptions', note: 'Service status', route: '/customer/subscriptions', icon: CreditCard, doctype: 'Subscription' },
 			{ key: 'customer-marketplace', label: 'Marketplace', note: 'Capabilities', route: '/customer/marketplace', icon: Sparkles, doctype: 'Capability' },
 			{ key: 'customer-members', label: 'Members', note: 'Team access', route: '/customer/members', icon: UserRound, doctype: 'Customer Member' },
+			{ key: 'customer-support-tickets', label: 'Support', note: 'Get help', route: '/customer/support-tickets', icon: Headset, doctype: 'Issue' },
 		],
 	},
 	{

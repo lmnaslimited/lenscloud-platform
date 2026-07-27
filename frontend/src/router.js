@@ -12,6 +12,7 @@ import CustomerMembersPage from '@/pages/CustomerMembersPage.vue'
 import CustomerSitesPage from '@/pages/CustomerSitesPage.vue'
 import CustomerSubscriptionsPage from '@/pages/CustomerSubscriptionsPage.vue'
 import CustomerMarketplacePage from '@/pages/CustomerMarketplacePage.vue'
+import CustomerSupportTicketPage from '@/pages/CustomerSupportTicketPage.vue'
 
 const routes = [
 	{
@@ -81,6 +82,8 @@ const routes = [
 			{ path: 'environment-test-runs/:name', name: 'platform-environment-test-run-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'environment-test-runs', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'orchestration-logs', name: 'platform-orchestration-logs', component: ResourcePage, props: { scope: 'platform', resourceKey: 'orchestration-logs', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'orchestration-logs/:name', name: 'platform-orchestration-log-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'orchestration-logs', mode: 'detail' }, meta: { scope: 'platform' } },
+			{ path: 'support-tickets', name: 'platform-support-tickets', component: ResourcePage, props: { scope: 'platform', resourceKey: 'support-tickets', mode: 'list' }, meta: { scope: 'platform' } },
+			{ path: 'support-tickets/:name', name: 'platform-support-tickets-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'support-tickets', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'settings', name: 'platform-settings', component: ResourcePage, props: { scope: 'platform', resourceKey: 'settings', mode: 'detail' }, meta: { scope: 'platform' } },
 			{ path: 'capability', name: 'platform-capability', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability', mode: 'list' }, meta: { scope: 'platform' } },
 			{ path: 'capability/:name', name: 'platform-capability-detail', component: ResourcePage, props: { scope: 'platform', resourceKey: 'capability', mode: 'detail' }, meta: { scope: 'platform' } },
@@ -100,6 +103,7 @@ const routes = [
 			{ path: 'subscriptions', name: 'customer-subscriptions', component: CustomerSubscriptionsPage, meta: { scope: 'customer' } },
 			{ path: 'marketplace', name: 'customer-marketplace', component: CustomerMarketplacePage, meta: { scope: 'customer' } },
 			{ path: 'members', name: 'customer-members', component: CustomerMembersPage, meta: { scope: 'customer' } },
+			{ path: 'support-tickets', name: 'customer-support-tickets', component: CustomerSupportTicketPage, meta: { scope: 'customer' } },
 			{ path: 'sites/:name', name: 'customer-site-detail', component: CustomerSitesPage, meta: { scope: 'customer' } },
 			{ path: 'create-site', name: 'customer-create-site', component: CustomerCreateSitePage, meta: { scope: 'customer' } },
 			{ path: 'account', name: 'customer-account', component: CustomerAccountPage, meta: { scope: 'customer' } },

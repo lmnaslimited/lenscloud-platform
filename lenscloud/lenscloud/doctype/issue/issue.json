@@ -1,0 +1,175 @@
+{
+ "actions": [],
+ "allow_bulk_edit": 1,
+ "allow_rename": 1,
+ "autoname": "naming_series:",
+ "creation": "2026-07-22 23:27:46.153973",
+ "doctype": "DocType",
+ "engine": "InnoDB",
+ "field_order": [
+  "customer_member",
+  "customer",
+  "external_customer_id",
+  "email",
+  "subscription",
+  "helpdesk_ticket_id",
+  "naming_series",
+  "column_break_gqpg",
+  "site",
+  "category",
+  "status",
+  "severity",
+  "source",
+  "orchestration_action_log",
+  "section_break_gkte",
+  "summary",
+  "description",
+  "last_sync"
+ ],
+ "fields": [
+  {
+   "fetch_from": "customer_member.customer",
+   "fetch_if_empty": 1,
+   "fieldname": "customer",
+   "fieldtype": "Link",
+   "label": "Customer",
+   "options": "Customer",
+   "read_only": 1
+  },
+  {
+   "fieldname": "subscription",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Subscription",
+   "options": "Subscription",
+   "reqd": 1
+  },
+  {
+   "default": "Customer",
+   "fieldname": "source",
+   "fieldtype": "Select",
+   "label": "Source",
+   "options": "\nCustomer"
+  },
+  {
+   "fieldname": "column_break_gqpg",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fieldname": "site",
+   "fieldtype": "Link",
+   "label": "Site",
+   "options": "Site"
+  },
+  {
+   "fieldname": "category",
+   "fieldtype": "Select",
+   "label": "Category",
+   "options": "\nTechnical\nMiscellaneous\nOthers"
+  },
+  {
+   "default": "Open",
+   "fieldname": "status",
+   "fieldtype": "Select",
+   "label": "Status",
+   "options": "Open\nResolved\nClosed"
+  },
+  {
+   "fieldname": "severity",
+   "fieldtype": "Select",
+   "label": "Severity",
+   "options": "\nHigh\nLow\nMedium"
+  },
+  {
+   "fieldname": "section_break_gkte",
+   "fieldtype": "Section Break"
+  },
+  {
+   "fieldname": "summary",
+   "fieldtype": "Small Text",
+   "label": "Summary"
+  },
+  {
+   "fieldname": "description",
+   "fieldtype": "Text Editor",
+   "label": "Description"
+  },
+  {
+   "fieldname": "last_sync",
+   "fieldtype": "Datetime",
+   "label": "Last Sync"
+  },
+  {
+   "default": "ISS-.YYYY.-.MM.-.####",
+   "fieldname": "naming_series",
+   "fieldtype": "Select",
+   "hidden": 1,
+   "label": "Series",
+   "options": "ISS-.YYYY.-.MM.-.####"
+  },
+  {
+   "fieldname": "customer_member",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Customer Member",
+   "options": "Customer Member",
+   "reqd": 1
+  },
+  {
+   "fetch_from": "customer_member.user",
+   "fetch_if_empty": 1,
+   "fieldname": "email",
+   "fieldtype": "Link",
+   "label": "Email",
+   "options": "User",
+   "read_only": 1
+  },
+  {
+   "fieldname": "helpdesk_ticket_id",
+   "fieldtype": "Read Only",
+   "label": "Helpdesk Ticket ID"
+  },
+  {
+   "fetch_from": "customer.external_customer_id",
+   "fetch_if_empty": 1,
+   "fieldname": "external_customer_id",
+   "fieldtype": "Read Only",
+   "label": "External Customer ID"
+  },
+  {
+   "fieldname": "orchestration_action_log",
+   "fieldtype": "Link",
+   "label": "Orchestration Action Log",
+   "options": "Orchestration Action Log",
+   "read_only": 1
+  }
+ ],
+ "grid_page_length": 50,
+ "index_web_pages_for_search": 1,
+ "links": [],
+ "modified": "2026-07-26 21:52:11.269643",
+ "modified_by": "Administrator",
+ "module": "Lenscloud",
+ "name": "Issue",
+ "naming_rule": "By \"Naming Series\" field",
+ "owner": "Administrator",
+ "permissions": [
+  {
+   "create": 1,
+   "delete": 1,
+   "email": 1,
+   "export": 1,
+   "print": 1,
+   "read": 1,
+   "report": 1,
+   "role": "System Manager",
+   "share": 1,
+   "write": 1
+  }
+ ],
+ "row_format": "Dynamic",
+ "rows_threshold_for_grid_search": 20,
+ "sort_field": "creation",
+ "sort_order": "DESC",
+ "states": []
+}

@@ -93,10 +93,10 @@ onMounted(load)
 
 				<section v-else-if="!hasSubscriptions" class="mx-auto grid min-h-[560px] max-w-4xl place-items-center rounded-xl border border-[#EDEDED] bg-white p-8 text-center">
 					<div class="max-w-lg">
-						<div class="mx-auto grid size-14 place-items-center rounded-xl bg-[#dce1ff] text-[#1D4ED8]"><CreditCard class="size-7" /></div>
+						<div class="mx-auto grid size-14 place-items-center rounded-xl bg-blue-200 text-primary"><CreditCard class="size-7" /></div>
 						<h2 class="mt-5 text-2xl font-semibold text-[#191c1e]">No Subscription Yet</h2>
 						<p class="mt-3 text-sm leading-6 text-[#64748B]">Choose a Plan to start your LensCloud service. The Free Plan has ₹0 due today and no payment method requirement.</p>
-						<RouterLink to="/customer/plans" class="mt-6 inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#1D4ED8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#0037b0]"><span>Choose a Plan</span><ArrowRight class="size-4 shrink-0" /></RouterLink>
+						<RouterLink to="/customer/plans" class="mt-6 inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary"><span>Choose a Plan</span><ArrowRight class="size-4 shrink-0" /></RouterLink>
 					</div>
 				</section>
 
