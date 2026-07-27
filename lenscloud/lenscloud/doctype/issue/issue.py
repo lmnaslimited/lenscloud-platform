@@ -32,7 +32,7 @@ class Issue(Document):
         payload = {
             "customer": self.external_customer_id,
             "raised_by": self.email,
-            "issue_type": self.category or "Technical",
+            "issue_type": self.category or "Issue",
             "subject": self.summary or "",
             "description": self.description or "",
             "priority": self.severity,
