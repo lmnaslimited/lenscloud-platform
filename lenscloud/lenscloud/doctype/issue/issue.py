@@ -32,7 +32,7 @@ class Issue(Document):
         payload = {
             "customer": self.external_customer_id,
             "raised_by": self.email,
-            "issue_type": self.category or "Technical",
+            "issue_type": self.category or "Issue",
             "subject": self.summary or "",
             "description": self.description or "",
             "priority": self.severity,
@@ -73,63 +73,4 @@ class Issue(Document):
             frappe.log_error(
                 title=f"Support sync warning: {self.name}",
                 message=f"Ticket created on remote site, but 'name' key was missing in response: {response_data}",
-            )
-    
-    def after_save(self):
-        """
-        Triggered after every save. Checks if status or severity changed,
-        and updates the corresponding remote Issue if synced.
-        """
-        # Skip if this save is the initial insertion (after_insert already handled creation)
-        if self.flags.in_insert:
-            return
-
-        # Only proceed if status or severity actually changed
-        if not (self.has_value_changed("status") or self.has_value_changed("severity")):
-            return
-
-        platform_settings = frappe.get_single("Platform Settings")
-
-        if not platform_settings.get("support_integration_enabled"):
-            return
-
-        # Make sure the ticket has already been synced to remote site
-        if not self.helpdesk_ticket_id:
-            return
-
-        support_url = platform_settings.get("support_system")
-        api_key = platform_settings.get("support_api_key")
-        api_secret = platform_settings.get_password("support_api_secret")
-
-        if not (support_url and api_key and api_secret):
-            frappe.log_error(
-                title="Support update sync: config missing",
-                message="Platform Settings configuration is incomplete for updating Issue.",
-            )
-            return
-
-        payload = {
-            "status": self.status,
-            "priority": self.severity,
-        }
-
-        headers = {
-            "Authorization": f"token {api_key}:{api_secret}",
-            "Content-Type": "application/json",
-            "Accept": "application/json",
-        }
-
-        endpoint = f"{support_url.rstrip('/')}/api/resource/Issue/{self.helpdesk_ticket_id}"
-
-        try:
-            response = requests.put(endpoint, json=payload, headers=headers, timeout=10)
-            response.raise_for_status()
-
-            # Update local sync timestamp
-            frappe.db.set_value("Issue", self.name, "last_sync", now_datetime(), update_modified=False)
-
-        except requests.exceptions.RequestException as e:
-            frappe.log_error(
-                title=f"Support update sync failed: {self.name}",
-                message=f"Failed to update Issue {self.name} on remote site {support_url}.\nError: {e}",
             )

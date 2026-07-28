@@ -18,7 +18,7 @@ def create_orchestration_issue(site, subscription, orchestration_action_log=None
         "customer": customer,
         "subscription": subscription,
         "site": site,
-        "category": "Technical",
+        "category": "Issue",
         "status": "Open",
         "summary": summary,
         "description": message_params_json or "No detailed logs available.",

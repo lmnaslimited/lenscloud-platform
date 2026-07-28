@@ -65,7 +65,7 @@
    "fieldname": "category",
    "fieldtype": "Select",
    "label": "Category",
-   "options": "\nTechnical\nMiscellaneous\nOthers"
+   "options": "\nIssue\nService Request\nChange Request"
   },
   {
    "default": "Open",
@@ -147,7 +147,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-26 21:52:11.269643",
+ "modified": "2026-07-27 16:11:11.325937",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Issue",

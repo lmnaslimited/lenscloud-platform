@@ -14,7 +14,8 @@ import {
 	ShieldCheck,
 	Sparkles,
 	XCircle,
-	Headset
+	Headset,
+	Rocket,Clock, CircleCheckBig, Globe, CreditCard, Layers, Workflow, Building, Shield, Users, LifeBuoy
 } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
@@ -306,24 +307,24 @@ function planDisabledReason(plan) {
 }
 
 function featureIconLabel(icon) {
-	const labels = {
-		rocket: '🚀',
-		clock: '⏱️',
-		'shield-check': '🛡️',
-		'credit-card': '$',
-		globe: '🌐',
-		shield: '✓',
-		sparkles: '✦',
-		layers: '▣',
-		users: '👥',
-		'life-buoy': '?',
-		workflow: '↗',
-		'check-circle': '✓',
-		building: '▦',
-	}
-	return labels[icon] || '✓'
-}
+    const icons = {
+        rocket: Rocket,
+        clock: Clock,
+        'shield-check': ShieldCheck,
+        'credit-card': CreditCard,
+        globe: Globe,
+        shield: Shield,
+        sparkles: Sparkles,
+        layers: Layers,
+        users: Users,
+        'life-buoy': LifeBuoy,
+        workflow: Workflow,
+        'check-circle': CircleCheckBig,
+        building: Building,
+    }
 
+    return icons[icon] || CircleCheckBig
+}
 function planPlacement(plan) {
 	return plan?.privacy === 'Public' ? 'public' : 'private'
 }
@@ -752,7 +753,9 @@ async function autoCreateIssueOnFailure() {
 											:key="item.highlight"
 											class="inline-flex items-center gap-1.5 rounded-md bg-indigo-50 border border-indigo-200/60 px-2.5 py-1 text-xs font-semibold text-indigo-900"
 											>
-											<span>{{ featureIconLabel(item.icon) }}</span>
+											<span>
+												<component :is="featureIconLabel(item.icon)" class="w-4 h-4 text-secondary" />
+											</span>
 											<span>{{ item.highlight }}</span>
 											</div>
 										</div>
@@ -771,8 +774,8 @@ async function autoCreateIssueOnFailure() {
 											>
 												<!-- Consistent Check Icon or Dynamic Emoji -->
 												<span class="mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-indigo-700"
-												:class="selectedPlanRecord?.name === plan.name ? 'bg-[#dce1ff]' : 'border border-[#EDEDED]'">
-													{{ featureIconLabel(item.icon) }}
+												:class="selectedPlanRecord?.name === plan.name ? 'bg-[#EDEDED]' : 'border border-[#EDEDED]'">
+													<component :is="featureIconLabel(item.icon)" class="w-3 h-3 text-gray-600" />
 												</span>
 												<span class="leading-tight">{{ item.feature }}</span>
 											</li>
