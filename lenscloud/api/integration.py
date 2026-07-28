@@ -59,15 +59,18 @@ def google_callback(state: str):
     if frappe.session.user == "Guest":
         frappe.throw("Not logged in")
 
+    l_state_key = f"lmnas-google:{state}"
+
     l_data = frappe.cache.get_value(
-        f"lmnas-google:{state}",
+        l_state_key,
         expires=True,
     )
 
     if not l_data:
         frappe.throw("Invalid state")
     
-    frappe.cache.delete_value(state)
+    # Delete the state to prevent it from being reused.
+    frappe.cache.delete_value(l_state_key)
 
     l_redirect_to = l_data["redirect_to"]
 
