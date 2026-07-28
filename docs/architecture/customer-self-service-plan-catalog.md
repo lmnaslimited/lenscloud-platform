@@ -108,7 +108,7 @@ Implementation guidance:
 
 - Launch progress must clearly mark completed steps with a green check icon, highlight the current step in blue, and leave future steps muted.
 - Setup must keep customers focused on Region, Site name, company/project, subdomain, and optional notes. It must not expose Bench, Database Server, Runtime Namespace, Kubernetes, CR names, or action logs.
-- Review must behave like a real Free checkout: selected Plan, Region, Site URL, price summary, `₹0` total due today, and `No payment method required`.
+- Review must behave like a real Free checkout: selected Plan, Region, Site URL, price summary, `$0` total due today, and `No payment method required`.
 - Use Frappe UI controls (`Button`, `Alert`, `Badge`) where they do not conflict with exact Stitch mapping. The `Setup Your Site` step intentionally uses native `select` and `input` controls from the supplied Stitch `code.html` so the Region/domain component matches the design exactly.
 
 
@@ -124,7 +124,7 @@ Design rules:
 - Source data from `get_customer_portal_context` only: subscriptions, Sites, Plans, usage, and onboarding state.
 - Show customer-safe fields: Plan, status, Region, Landscape, environment count, ready Site, and next action.
 - Show lifecycle metadata in the detail panel: start date, end date when set, billing frequency, next renewal date, and Plan-specific payment copy.
-- Payment copy must come from Plan/Subscription data. Free Plans may say `₹0 due today` and `No payment method is required`; paid, beta, or request-access Plans must show approval/payment-managed copy instead.
+- Payment copy must come from Plan/Subscription data. Free Plans may say `$0 due today` and `No payment method is required`; paid, beta, or request-access Plans must show approval/payment-managed copy instead.
 - Replace flat `linked Sites` lists with a Landscape progression sequence. Each Landscape environment row shows the environment, Site status, provisioning status, access link when ready, and a customer-safe release/version label when available.
 - Hide runtime terms: Bench, Database Server, Runtime Namespace, CR names, Kubernetes, Secrets, action logs, pod logs, kubeconfig, and raw operator resource names.
 - Primary actions should be `Choose a Plan`, `View progress`, or `Open Site` depending on state.

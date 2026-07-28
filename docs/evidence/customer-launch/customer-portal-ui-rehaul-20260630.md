@@ -31,7 +31,7 @@ Ignored:
 Implemented customer-facing UI surfaces from non-legacy Stitch artifacts:
 
 - Customer Dashboard: state-aware launch home with `Choose a Plan`, `View progress`, or `Open Site` primary action depending on real context.
-- Customer Plans: guided Plan selection, setup details, Free checkout summary, `₹0` due today, no payment method required, and real `request_customer_subscription` submission.
+- Customer Plans: guided Plan selection, setup details, Free checkout summary, `$0` due today, no payment method required, and real `request_customer_subscription` submission.
 - Provisioning result: customer-safe progress labels for subscription approval, Site reservation, workspace preparation, HTTPS connection, and ready-to-open state.
 - Customer Sites: customer-safe setup/access cards with Open Site and support actions; Bench/runtime details removed.
 - Customer Account: profile and future CUA/access-management framing; linked Sites show status/access only.
@@ -357,7 +357,7 @@ Completed the 2026-07-01 setup/review mapping pass:
 
 - Launch progress now clearly marks completed steps with green check icons, highlights the current step in blue, and leaves pending steps muted.
 - `Setup Your Site` was rebuilt from the supplied `setup_your_site/code.html`: centered white setup card, header, `Step 3: Region & Domain`, Region select, `https://` + subdomain + Platform domain input group, availability badge, Site Name field, and Back/Continue footer.
-- `Confirm your Free subscription` was rebuilt against the `review_subscription` reference and the available `free_checkout_confirmation/code.html` structure: completed breadcrumb, selected Plan, Region, subdomain, `₹0` total due today, no-payment helper text, and a confirmation action card.
+- `Confirm your Free subscription` was rebuilt against the `review_subscription` reference and the available `free_checkout_confirmation/code.html` structure: completed breadcrumb, selected Plan, Region, subdomain, `$0` total due today, no-payment helper text, and a confirmation action card.
 - The flow remains production-wired: Plan context comes from `get_customer_portal_context`; Region choices come from active Regions attached to active Clusters; the domain suffix comes from Platform Settings `root_domain`; and the final action still calls `request_customer_subscription`.
 
 Frappe UI reuse/deviation record:
@@ -437,7 +437,7 @@ Implemented mapping:
 
 - Main heading: `Review Subscription`.
 - Left card: `Order summary` with Plan, Region, and Subdomain rows using live customer flow data.
-- Right card: `Price breakdown` with Plan price, Taxes, `Total due today`, `₹0`, `No payment method required for Free Plan`, `Start Free Subscription`, and `Cancel`.
+- Right card: `Price breakdown` with Plan price, Taxes, `Total due today`, `$0`, `No payment method required for Free Plan`, `Start Free Subscription`, and `Cancel`.
 - Right inspector for checkout step: `Your service`, `Checkout details`, and the self-provisioned Free Plan explanation from the Stitch reference.
 - Customer dashboard no longer uses generic `/api/resource/Site`; it uses `get_customer_portal_context.sites` to avoid customer-facing 403 console errors.
 

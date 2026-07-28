@@ -24,7 +24,7 @@ The primary flow starts after a customer signs up from `lmnas.com` and lands ins
 3. **Subscription Review**
    - Summarize selected Plan, Region, Site/subdomain, and included features.
    - Make the Subscription concept friendly: `Your LensCloud service subscription`.
-   - For the Free Plan, show payment as a real step but clearly state `₹0 due today`, `No payment method required`, and `Free Plan`.
+   - For the Free Plan, show payment as a real step but clearly state `$0 due today`, `No payment method required`, and `Free Plan`.
    - For paid/beta Plans, show `Approval required` or `Payment coming later`; do not design a fake card-payment form for this pass.
 
 4. **Confirm Free Payment**
@@ -69,7 +69,7 @@ Design desktop and mobile screens for the complete flow. The mobile flow should 
 - Plan selection screen.
 - Plan comparison cards.
 - Free Plan subscription review.
-- Free checkout confirmation showing `₹0 due today` and `No payment method required`.
+- Free checkout confirmation showing `$0 due today` and `No payment method required`.
 - Region and subdomain setup.
 - Provisioning progress: loading, in progress, delayed, failed/retry, and ready.
 - Ready dashboard with `Open Site` primary action.

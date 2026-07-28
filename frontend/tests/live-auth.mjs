@@ -158,7 +158,7 @@ async function testCustomer(browser) {
 		await checkoutButton.waitFor()
 		await checkoutButton.click()
 		await page.getByRole('heading', { name: 'Review Subscription', exact: true }).first().waitFor()
-		await page.getByText('₹0', { exact: false }).first().waitFor()
+		await page.getByText('$0', { exact: false }).first().waitFor()
 		await page.getByText('No payment method required for Free Plan', { exact: false }).first().waitFor()
 		await page.getByRole('button', { name: /Start Free Subscription/ }).waitFor()
 	} else {

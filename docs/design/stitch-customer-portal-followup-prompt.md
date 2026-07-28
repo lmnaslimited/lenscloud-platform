@@ -41,9 +41,9 @@ Must show:
 - Region;
 - Site/subdomain preview;
 - line items;
-- Plan price: `₹0`;
-- taxes/fees: `₹0` or `Included`;
-- total due today: `₹0`;
+- Plan price: `$0`;
+- taxes/fees: `$0` or `Included`;
+- total due today: `$0`;
 - clear note: `No payment method required for the Free Plan`;
 - primary action: `Start Free Subscription`;
 - secondary action: `Change Plan`;

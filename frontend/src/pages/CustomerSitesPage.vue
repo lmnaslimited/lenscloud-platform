@@ -144,7 +144,7 @@ onMounted(load)
 							<Globe2 class="size-5" />
 						</div>
 						<p class="mt-3 text-base font-semibold text-ink-gray-9">Launch your first Site</p>
-						<p class="mx-auto mt-1 max-w-md text-sm leading-6 text-ink-gray-5">Choose the Free Plan, confirm your ₹0 subscription, and LensCloud will prepare your first Site.</p>
+						<p class="mx-auto mt-1 max-w-md text-sm leading-6 text-ink-gray-5">Choose the Free Plan, confirm your $0 subscription, and LensCloud will prepare your first Site.</p>
 						<Button class="mt-4" :as="RouterLink" to="/customer/plans">
 							<SquareArrowOutUpRight class="size-4" />
 							Choose Plan

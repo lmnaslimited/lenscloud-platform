@@ -1583,11 +1583,11 @@ def plan_payment_summary(plan_doc, frequency=None):
 	if bool(plan_value(plan_doc, "is_free")):
 		return {
 			"amount": 0,
-			"amount_label": "₹0 due today",
+			"amount_label": "$0 due today",
 			"frequency": frequency,
 			"payment_note": "No payment method is required for this Free Plan.",
 		}
-	amount_label = "Approval required" if price_value == 0 else f"₹{price_value:g} / {frequency.lower()}"
+	amount_label = "Approval required" if price_value == 0 else f"${price_value:g} / {frequency.lower()}"
 	return {
 		"amount": price_value,
 		"amount_label": amount_label,

@@ -432,7 +432,7 @@ During Free-first E2E, validate the customer `Subscriptions` menu after the Plan
 3. Confirm the page uses customer-safe service cards, not a Platform list view.
 4. Confirm each card shows Plan, status, Region, Landscape, environment count, and a next action.
 5. Confirm the detail panel shows Subscription, Plan, Region, start date, end date when set, billing frequency, next renewal date, and Plan-specific payment summary.
-6. Confirm Free Plan copy says `₹0 due today` and no payment method is required, while paid/beta/request-access Plans do not reuse Free Plan payment copy.
+6. Confirm Free Plan copy says `$0 due today` and no payment method is required, while paid/beta/request-access Plans do not reuse Free Plan payment copy.
 7. Confirm the detail panel shows Landscape progress as environment rows. Each row should show the environment, Site status/provisioning state, customer-safe version when available, and an `Open Site` link only for ready Sites.
 8. Confirm the screen never exposes Bench, Database Server, Runtime Namespace, Kubernetes, CR names, Secrets, action logs, pod logs, kubeconfig, or raw operator resource names.
 9. For no subscription, confirm the empty state points to `Choose a Plan`.
