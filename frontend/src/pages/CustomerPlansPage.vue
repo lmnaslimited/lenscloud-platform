@@ -103,12 +103,24 @@ const resultRetryable = computed(() => Boolean(result.value?.site && (canonicalP
 const progressActive = computed(() => Boolean(result.value?.site && step.value === 'result' && !resultReady.value && !resultFailed.value && !resultSetupRequired.value))
 const selectedSiteLabel = computed(() => result.value?.hostname || result.value?.access_url?.replace(/^https?:\/\//, '') || resultSite.value?.title || resultSite.value?.name || hostnamePreview.value || '')
 
-const flowSteps = computed(() => [
-	{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
-	{ key: 'setup', label: 'Setup Workspace', helper: 'Pick Region and Workspace details.' },
-	{ key: 'checkout', label: 'Free Checkout', helper: 'Confirm ₹0 due today.' },
-	{ key: 'result', label: resultStarted.value || resultReady.value ? 'Launch Workspace' : 'Approval', helper: 'Track setup and open when ready.' },
-])
+const flowSteps = computed(() => {
+	const isFree = Boolean(selectedPlanRecord.value?.is_free)
+
+	return [
+		{ key: 'choose', label: 'Choose Plan', helper: 'Select the service that fits today.' },
+		{ key: 'setup', label: 'Setup Workspace', helper: 'Pick Region and Workspace details.' },
+		{
+			key: 'checkout',
+			label: isFree ? 'Free Checkout' : 'Checkout',
+			helper: isFree ? '$0 due today.' : 'Flexible Payment Options.'
+		},
+		{
+			key: 'result',
+			label: resultStarted.value || resultReady.value ? 'Launch Workspace' : 'Approval',
+			helper: 'Track setup and open when ready.'
+		},
+	]
+})
 
 const currentStepIndex = computed(() => Math.max(0, flowSteps.value.findIndex((item) => item.key === step.value)))
 const screenTitle = computed(() => {
@@ -118,7 +130,7 @@ const screenTitle = computed(() => {
 	return resultStarted.value || resultReady.value ? 'Your Workspace launch has started' : 'Your request is received'
 })
 const screenSubtitle = computed(() => {
-	if (step.value === 'choose') return 'Pick a submitted Platform Plan to continue.'
+	if (step.value === 'choose') return 'Pick a Platform Plan to continue.'
 	if (step.value === 'setup') return 'These details reserve your customer-facing Workspace. LensCloud chooses compatible capacity for you.'
 	if (step.value === 'checkout') return 'The Free Plan has no payment method requirement. Review once and start the subscription.'
 	return resultStarted.value || resultReady.value ? 'Follow setup progress here, then open the Workspace when it is ready.' : 'The LensCloud team will review this before setup starts.'
@@ -285,7 +297,7 @@ function priceLabel(plan) {
 	if (plan.is_free) return '$0 / month'
 	if (plan.cta_mode === 'request_access') return 'Request access'
 	if (!Number(plan.monthly_price)) return 'Custom pricing'
-	return `₹${Number(plan.monthly_price).toLocaleString('en-IN')} / month`
+	return `$${Number(plan.monthly_price).toLocaleString('en-IN')} / month`
 }
 
 function planCtaLabel(plan) {
@@ -650,8 +662,8 @@ async function autoCreateIssueOnFailure() {
 <template>
 	<WorkspaceLayout
 		title="Plans"
-		subtitle="A guided activity from Plan choice to Free checkout and Workspace launch."
-		inspector-kicker="Launch guide"
+		subtitle="From Plan choice to Free checkout and Workspace launch in a guided way."
+		inspector-kicker="Guided Launch"
 		inspector-title="Launch checklist"
 		:inspector-subtitle="screenSubtitle"
 	>
@@ -720,8 +732,8 @@ async function autoCreateIssueOnFailure() {
 							<div v-if="step === 'choose'" class="space-y-6">
 								<div class="mx-auto max-w-3xl text-center">
 									<p class="text-xs font-semibold text-[#64748B]">Choose Plan</p>
-									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Select your LensCloud service</h3>
-									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a submitted Platform Plan. Start free today or request access to higher tiers.</p>
+									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Start Your Enterprise Platform Journey</h3>
+									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a Platform Plan. Start free today or request access to higher tiers.</p>
 									<div class="mt-5 inline-flex rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-1">
 										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-primary shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
 									</div>

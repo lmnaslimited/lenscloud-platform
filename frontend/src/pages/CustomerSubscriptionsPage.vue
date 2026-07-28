@@ -95,7 +95,7 @@ onMounted(load)
 					<div class="max-w-lg">
 						<div class="mx-auto grid size-14 place-items-center rounded-xl bg-blue-200 text-primary"><CreditCard class="size-7" /></div>
 						<h2 class="mt-5 text-2xl font-semibold text-[#191c1e]">No Subscription Yet</h2>
-						<p class="mt-3 text-sm leading-6 text-[#64748B]">Choose a Plan to start your LensCloud service. The Free Plan has ₹0 due today and no payment method requirement.</p>
+						<p class="mt-3 text-sm leading-6 text-[#64748B]">Choose a Plan to start your LensCloud service. The Free Plan has $0 due today and no payment method requirement.</p>
 						<RouterLink to="/customer/plans" class="mt-6 inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-white transition hover:bg-primary"><span>Choose a Plan</span><ArrowRight class="size-4 shrink-0" /></RouterLink>
 					</div>
 				</section>

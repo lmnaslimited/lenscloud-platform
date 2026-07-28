@@ -51,7 +51,7 @@ def execute():
             "description": "Launch one production LensCloud Site with the Free Plan.",
             "portal_feature_json": [
                 {"icon": "globe", "feature": "One production Site"},
-                {"icon": "credit-card", "feature": "₹0 due today"},
+                {"icon": "credit-card", "feature": "$0 due today"},
                 {"icon": "shield", "feature": "Public starter placement"},
                 {"icon": "sparkles", "feature": "Guided setup included"},
             ],

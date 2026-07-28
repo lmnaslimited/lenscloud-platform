@@ -126,8 +126,9 @@
   },
   {
    "fieldname": "helpdesk_ticket_id",
-   "fieldtype": "Read Only",
-   "label": "Helpdesk Ticket ID"
+   "fieldtype": "Data",
+   "label": "Helpdesk Ticket ID",
+   "read_only": 1
   },
   {
    "fetch_from": "customer.external_customer_id",
@@ -147,7 +148,7 @@
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "links": [],
- "modified": "2026-07-27 16:11:11.325937",
+ "modified": "2026-07-28 18:20:12.878066",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Issue",

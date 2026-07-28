@@ -420,7 +420,7 @@ Documentation/evidence for this pass: `docs/evidence/customer-launch/customer-po
 
 ## June 30 Stitch Customer Portal UI Rehaul Complete
 
-Customer portal UI rehaul is implemented from non-legacy Stitch artifacts. Customer Dashboard, Plans, Sites, Account, and the compatibility Free setup route now use customer-safe Plan/Subscription/Site language and hide runtime internals. The Plans page includes a guided Plan selection, setup details, Free checkout summary with `₹0` due today and no payment method required, and real `request_customer_subscription` submission. Provisioning and ready states use real Site/Subscription context, not mock state.
+Customer portal UI rehaul is implemented from non-legacy Stitch artifacts. Customer Dashboard, Plans, Sites, Account, and the compatibility Free setup route now use customer-safe Plan/Subscription/Site language and hide runtime internals. The Plans page includes a guided Plan selection, setup details, Free checkout summary with `$0` due today and no payment method required, and real `request_customer_subscription` submission. Provisioning and ready states use real Site/Subscription context, not mock state.
 
 Validation passed: Python compile, 15 backend policy/context tests, production frontend build, authenticated desktop Playwright, and authenticated mobile Playwright. Evidence: `docs/evidence/customer-launch/customer-portal-ui-rehaul-20260630.md`. Workitems `Customer dashboard and plan browsing UX` and `Stitch customer portal UI rehaul` are complete. The remaining launch gate is controlled live Free E2E with apply enabled, HTTPS/static asset proof, action-log evidence, and cleanup/retention decision.
 

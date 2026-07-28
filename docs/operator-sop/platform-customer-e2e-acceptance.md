@@ -143,7 +143,7 @@ The Customer segment validates the launch experience and customer-safe language.
     - included features;
     - zero payment for Free Plan.
 12. Confirm Free checkout:
-    - `₹0 due today`;
+    - `$0 due today`;
     - no payment method required;
     - no fake paid checkout fields.
 13. Submit the Free Subscription request.
