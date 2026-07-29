@@ -11,6 +11,8 @@ import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import posthog from 'posthog-js'
 import { useSessionStore } from '@/lib/session'
+import { watchDocument } from '@/lib/realtime'
+
 
 const message = ref([])
 
@@ -192,17 +194,32 @@ async function load() {
 // 1. Cleanly inject the socket instance provided in main.js
 const socket = inject('$socket')
 
-// 2. Dedicated event handler function (isolated reference)
-function handleNectarCommentsUpdated(data) {
-  if (!data || data.issue_id !== props.issueId) return
+// Store the active realtime cleanup callback returned by watchDocument
+let stopWatching = null
 
-  const incomingComments = Array.isArray(data.comments)
-    ? data.comments
-    : [data.comments]
+function setupRealtimeListener(doctype, docName) {
+  // Clean up any existing subscription first
+  if (stopWatching) {
+    stopWatching()
+    stopWatching = null
+  }
 
-  // Update array immutably or safely append
-  message.value = [...message.value, ...incomingComments]
-  console.log('Realtime comments updated:', message.value)
+  if (!socket || !doctype || !docName) return
+
+  // 2. Initialize the listener using your helper
+  stopWatching = watchDocument(socket, {
+    doctype: doctype,
+    name: docName,
+    onUpdate: (data) => {
+      console.log('Realtime update received:', data)
+
+      // Extract new comments payload
+      if (data.comments) {
+        const incoming = Array.isArray(data.comments) ? data.comments : [data.comments]
+        message.value.push(...incoming)
+      }
+    },
+  })
 }
 
 
@@ -211,24 +228,16 @@ onMounted(() => {
     load()
   fetchIssueFieldOptions()
   
-  if (socket) {
-    console.log("socket object", socket)
-    console.log("ticket value", selectedTicket.value)
-    // 1. Join Frappe document room
-    socket.emit('doc_subscribe', 'Issue', "ISS-2026-07-0002")
-    debugger
-    // 3. Attach listener
-    socket.on('nectar_comments_updated', handleNectarCommentsUpdated)
-  } else {
-    console.warn('Socket instance not found via inject("$socket")')
-  }
+  // Subscribe when component mounts
+  const currentDocName = selectedTicket.value?.name || null
+  console.log("current ticket helpdesk id", currentDocName)
+  setupRealtimeListener('Issue', currentDocName)
 })
 
 onBeforeUnmount(() => {
-  if (socket) {
-    socket.emit('doc_unsubscribe', 'Issue', "ISS-2026-07-0002")
-    // 4. Detach ONLY this specific function reference to avoid killing global listeners
-    socket.off('nectar_comments_updated', handleNectarCommentsUpdated)
+  // 3. Execute cleanup function to unsub from room and remove socket listeners
+  if (stopWatching) {
+    stopWatching()
   }
 })
 

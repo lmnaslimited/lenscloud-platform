@@ -22,7 +22,7 @@ import {
 } from 'frappe-ui'
 import App from './App.vue'
 import router from './router'
-import posthog from "posthog-js"
+import posthog from 'posthog-js'
 import { initSocket } from './socket'
 
 setConfig('resourceFetcher', frappeRequest)
@@ -30,10 +30,13 @@ setConfig('resourceFetcher', frappeRequest)
 const app = createApp(App)
 const pinia = createPinia()
 
-posthog.init(import.meta.env.VITE_POSTHOG_PROJECT_TOKEN, {
-	  api_host: import.meta.env.VITE_POSTHOG_HOST,
-	  defaults: '2026-05-30',
-	});
+const posthogToken = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN
+if (posthogToken) {
+	posthog.init(posthogToken, {
+		api_host: import.meta.env.VITE_POSTHOG_HOST,
+		defaults: '2026-05-30',
+	})
+}
 
 app.use(FrappeUI)
 app.use(pinia)
@@ -57,7 +60,7 @@ async function startApplication() {
 	if (import.meta.env.DEV) {
 		const boot = await frappeRequest({
 			url: '/api/method/lenscloud.www.lenscloud.get_context_for_dev',
-			method: 'POST',
+			method: 'GET',
 		})
 
 		Object.assign(window, boot)

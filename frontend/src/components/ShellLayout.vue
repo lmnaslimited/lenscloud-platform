@@ -78,6 +78,7 @@ async function loadUserProfile() {
       fieldname: ['full_name']
     })
     const data = res.message || res
+	debugger
     if (data) {
       userProfile.full_name = data.full_name || ''
     }
