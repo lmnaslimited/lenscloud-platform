@@ -23,6 +23,8 @@ check_url() {
 }
 
 cd "${APP_DIR}"
+npm --prefix frontend run test:realtime-container -- \
+	"${SITE_NAME}" "${WEB_PORT}" "${VITE_PORT}" "${SOCKETIO_PORT}"
 npm --prefix frontend run test:realtime-config
 npm --prefix frontend run test:realtime
 bench --site "${SITE_NAME}" run-tests \
