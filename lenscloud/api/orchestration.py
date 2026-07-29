@@ -1807,28 +1807,9 @@ def update_customer_account(first_name=None, last_name=None):
     user_doc.first_name = first_name or ""
     user_doc.last_name = last_name or ""
     user_doc.save(ignore_permissions=True)
-
-    # 2. Check Customer Member status for the current user
-    # Adjust field names based on your custom DocType configuration
-    member = frappe.db.get_value(
-        "Customer Member",
-        {"user": user_id},
-        ["name", "customer", "is_primary_owner"],
-        as_dict=True
-    )
-	
-    customer_doc = frappe.get_doc("Customer", member.customer)
-
-    if member:
-        # 3. If primary owner is enabled, update Customer Master details
-        if member.get("is_primary_owner") and member.get("customer"):
-            customer_doc.first_name = first_name or ""
-            customer_doc.last_name = last_name or ""
-            customer_doc.save(ignore_permissions=True)
-
     frappe.db.commit()
 
-    return {"name": customer_doc.name, "first_name": customer_doc.first_name, "last_name": customer_doc.last_name, "region": customer_doc.region, "external_customer_id": customer_doc.external_customer_id}
+    return {"first_name": user_doc.first_name, "last_name": user_doc.last_name }
 
 
 def eligible_customer_bench(region, customer, plan=None):
