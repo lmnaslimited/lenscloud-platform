@@ -23,7 +23,7 @@ import {
 import App from './App.vue'
 import router from './router'
 import posthog from "posthog-js"
-import { initSocket } from './lib/socket.js'
+import { initSocket } from './socket'
 
 setConfig('resourceFetcher', frappeRequest)
 
@@ -53,13 +53,24 @@ app.component('Tabs', Tabs)
 app.component('TextInput', TextInput)
 app.component('Textarea', Textarea)
 
-// Socket initialization
-const socket = initSocket()
+async function startApplication() {
+	if (import.meta.env.DEV) {
+		const boot = await frappeRequest({
+			url: '/api/method/lenscloud.www.lenscloud.get_context_for_dev',
+			method: 'POST',
+		})
 
-// 1. For Options API (this.$socket)
-app.config.globalProperties.$socket = socket
+		Object.assign(window, boot)
+		window.frappe = window.frappe || {}
+		window.frappe.csrf_token = window.csrf_token
+	}
 
-// 2. For Composition API (inject('$socket'))
-app.provide('$socket', socket)
+	const socket = initSocket()
+	app.config.globalProperties.$socket = socket
+	app.provide('socket', socket)
+	app.mount('#app')
+}
 
-app.mount('#app')
+startApplication().catch((error) => {
+	console.error('LensCloud startup failed', error)
+})
