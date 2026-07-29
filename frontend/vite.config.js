@@ -23,6 +23,7 @@ export default defineConfig({
 		},
 	},
 	optimizeDeps: {
+		include: ['feather-icons'],
 		exclude: ['frappe-ui'],
 	},
 })
