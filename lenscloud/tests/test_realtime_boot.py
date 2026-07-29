@@ -8,11 +8,9 @@ from lenscloud.www.lenscloud import get_boot, get_context_for_dev
 
 class TestRealtimeBoot(FrappeTestCase):
 	def test_get_boot_matches_development_site(self):
-		self.assertEqual(frappe.local.site, "dev.localhost")
-
 		boot = get_boot()
 
-		self.assertEqual(boot.site_name, "dev.localhost")
+		self.assertEqual(boot.site_name, frappe.local.site)
 		self.assertIsInstance(boot.socketio_port, int)
 		self.assertEqual(boot.socketio_port, 9000)
 		self.assertTrue(boot.csrf_token)

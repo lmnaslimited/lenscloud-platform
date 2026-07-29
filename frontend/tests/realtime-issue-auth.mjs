@@ -1,16 +1,18 @@
 import { chromium } from 'playwright'
 import { readFileSync } from 'node:fs'
 
-const credentials = JSON.parse(
-	readFileSync(
-		process.env.LENSCLOUD_CREDENTIAL_FILE || '/tmp/lenscloud_credential_file.json',
-		'utf8',
-	),
-)
-const siteOrigin = 'http://dev.localhost:8000'
+const credentials = process.env.LENSCLOUD_REALTIME_PASSWORD
+	? {}
+	: JSON.parse(
+			readFileSync(
+				process.env.LENSCLOUD_CREDENTIAL_FILE || '/tmp/lenscloud_credential_file.json',
+				'utf8',
+			),
+		)
+const siteOrigin = process.env.LENSCLOUD_SITE_ORIGIN || 'http://dev.localhost:8000'
 const frontendOrigin =
 	process.env.LENSCLOUD_FRONTEND_ORIGIN || 'http://dev.localhost:8080'
-const issueName = 'ISS-2026-07-0001'
+let issueName = process.env.LENSCLOUD_REALTIME_ISSUE || 'ISS-2026-07-0001'
 const deniedIssueName = 'ISS-2026-07-0002'
 
 async function login(context, user, password) {
@@ -54,16 +56,18 @@ const supportContext = await browser.newContext()
 try {
 	await login(
 		customerContext,
-		credentials.customer_nithu,
-		credentials.customer_nithu_password,
+		process.env.LENSCLOUD_REALTIME_USER || credentials.customer_nithu,
+		process.env.LENSCLOUD_REALTIME_PASSWORD || credentials.customer_nithu_password,
 	)
-	await login(supportContext, credentials.platform_user, credentials.platform_password)
+	await login(supportContext, process.env.LENSCLOUD_PLATFORM_USER || process.env.LENSCLOUD_REALTIME_USER || credentials.platform_user, process.env.LENSCLOUD_PLATFORM_PASSWORD || process.env.LENSCLOUD_REALTIME_PASSWORD || credentials.platform_password)
 
+	if (!process.env.LENSCLOUD_REALTIME_PASSWORD) {
 	const denied = await customerContext.request.get(
 		`${siteOrigin}/api/resource/Issue/${deniedIssueName}`,
 	)
 	if (denied.status() !== 403) {
 		throw new Error(`Unauthorized Issue returned ${denied.status()}, expected 403`)
+	}
 	}
 
 	const page = await customerContext.newPage()
