@@ -1,6 +1,6 @@
 {
     "name": "Frappe Bench v16",
-    "forwardPorts": [8000, 8080, 9000, 6787],
+    "forwardPorts": [8000, 9000, 6787],
     "remoteUser": "frappe",
     "settings": {
       "terminal.integrated.defaultProfile.linux": "bash",

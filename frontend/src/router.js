@@ -13,7 +13,6 @@ import CustomerSitesPage from '@/pages/CustomerSitesPage.vue'
 import CustomerSubscriptionsPage from '@/pages/CustomerSubscriptionsPage.vue'
 import CustomerMarketplacePage from '@/pages/CustomerMarketplacePage.vue'
 import CustomerSupportTicketPage from '@/pages/CustomerSupportTicketPage.vue'
-import RealtimeIssuePocPage from '@/pages/RealtimeIssuePocPage.vue'
 
 const routes = [
 	{
@@ -105,7 +104,6 @@ const routes = [
 			{ path: 'marketplace', name: 'customer-marketplace', component: CustomerMarketplacePage, meta: { scope: 'customer' } },
 			{ path: 'members', name: 'customer-members', component: CustomerMembersPage, meta: { scope: 'customer' } },
 			{ path: 'support-tickets', name: 'customer-support-tickets', component: CustomerSupportTicketPage, meta: { scope: 'customer' } },
-			{ path: 'realtime-issue/:name', name: 'customer-realtime-issue-poc', component: RealtimeIssuePocPage, props: true, meta: { scope: 'customer' } },
 			{ path: 'sites/:name', name: 'customer-site-detail', component: CustomerSitesPage, meta: { scope: 'customer' } },
 			{ path: 'create-site', name: 'customer-create-site', component: CustomerCreateSitePage, meta: { scope: 'customer' } },
 			{ path: 'account', name: 'customer-account', component: CustomerAccountPage, meta: { scope: 'customer' } },

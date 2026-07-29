@@ -3,12 +3,9 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "vite --host 0.0.0.0",
+		"dev": "vite",
 		"build": "vite build",
 		"test:auth": "node tests/live-auth.mjs",
-		"test:realtime": "node tests/realtime-unit.mjs",
-		"test:realtime-config": "node tests/realtime-vite-config.mjs",
-		"test:realtime-auth": "node tests/realtime-issue-auth.mjs",
 		"preview": "vite preview",
 		"test:child-tables": "node tests/child-tables-auth.mjs",
 		"test:metadata-framework": "node tests/metadata-framework-auth.mjs",
@@ -22,7 +19,6 @@
 		"pinia": "^2.2.6",
 		"playwright": "^1.60.0",
 		"posthog-js": "^1.402.3",
-		"socket.io-client": "^4.8.3",
 		"vue": "^3.5.13",
 		"vue-router": "^4.5.0"
 	},
