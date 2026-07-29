@@ -1,6 +1,6 @@
 import { io } from 'socket.io-client'
 
-export function getSocketUrl({ dev = import.meta.env.DEV } = {}) {
+export function getSocketUrl() {
 	const siteName = window.site_name
 	const socketioPort = Number(window.socketio_port)
 
@@ -11,15 +11,15 @@ export function getSocketUrl({ dev = import.meta.env.DEV } = {}) {
 		throw new Error('Cannot initialize realtime: invalid socketio_port')
 	}
 
-	const origin = dev
+	const origin = window.location.port
 		? `${window.location.protocol}//${window.location.hostname}:${socketioPort}`
 		: window.location.origin
 
 	return `${origin}/${siteName}`
 }
 
-export function initSocket(options = {}) {
-	const url = getSocketUrl(options)
+export function initSocket() {
+	const url = getSocketUrl()
 	const socket = io(url, {
 		withCredentials: true,
 		reconnection: true,

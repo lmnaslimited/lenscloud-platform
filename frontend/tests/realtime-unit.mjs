@@ -2,6 +2,27 @@ import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
 
 import { watchDocument } from '../src/lib/realtime.js'
+import { getSocketUrl } from '../src/socket.js'
+
+global.window = {
+	site_name: 'dev.localhost',
+	socketio_port: 9000,
+	location: {
+		protocol: 'http:',
+		hostname: 'dev.localhost',
+		port: '8000',
+		origin: 'http://dev.localhost:8000',
+	},
+}
+assert.equal(getSocketUrl(), 'http://dev.localhost:9000/dev.localhost')
+window.location = {
+	protocol: 'https:',
+	hostname: 'cloud.example.com',
+	port: '',
+	origin: 'https://cloud.example.com',
+}
+window.site_name = 'cloud.example.com'
+assert.equal(getSocketUrl(), 'https://cloud.example.com/cloud.example.com')
 
 class SocketMock extends EventEmitter {
 	connected = true

@@ -11,9 +11,11 @@ add manual `/api`, `/assets`, `/files`, `/private`, login, logout, or
 
 The backend boot context must supply a non-empty `site_name`, positive numeric
 `socketio_port`, and CSRF token. Development fetches this context through Vite.
-The browser connects with its normal Frappe `sid`, `withCredentials: true`, to
-`http://dev.localhost:9000/dev.localhost`. Production uses the current origin
-and namespace `/dev.localhost`, relying on ingress `/socket.io` routing.
+The browser connects with its normal Frappe `sid` and `withCredentials: true`.
+When the local page has an explicit port (8000 or 8080), it connects to
+`http://dev.localhost:9000/dev.localhost`. A normal production URL has no
+explicit port and uses the current origin plus namespace `/dev.localhost`,
+relying on ingress `/socket.io` routing.
 
 For an open Issue, emit `doc_subscribe`, `Issue`, and the exact name. Frappe
 permission-checks the request before joining `doc:Issue/<name>`. Filter

@@ -2,9 +2,10 @@
 
 ## Decision
 
-LensCloud uses Frappe's existing realtime service. In development the Vue app
-connects directly to `http://dev.localhost:9000/dev.localhost`; in production
-it connects to the same origin at namespace `/dev.localhost`, leaving
+LensCloud uses Frappe's existing realtime service. On a local page with an
+explicit development port (8000 or 8080), the Vue app connects directly to
+`http://dev.localhost:9000/dev.localhost`. On the normal production origin,
+where the URL has no explicit port, it connects to the same origin and leaves
 `/socket.io` routing to the Frappe proxy/ingress.
 
 The open Issue emits `doc_subscribe`, which Frappe permission-checks before
