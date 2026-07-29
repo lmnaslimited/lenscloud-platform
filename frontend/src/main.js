@@ -23,6 +23,7 @@ import {
 import App from './App.vue'
 import router from './router'
 import posthog from "posthog-js"
+import { initSocket } from './lib/socket.js'
 
 setConfig('resourceFetcher', frappeRequest)
 
@@ -51,5 +52,14 @@ app.component('LoadingIndicator', LoadingIndicator)
 app.component('Tabs', Tabs)
 app.component('TextInput', TextInput)
 app.component('Textarea', Textarea)
+
+// Socket initialization
+const socket = initSocket()
+
+// 1. For Options API (this.$socket)
+app.config.globalProperties.$socket = socket
+
+// 2. For Composition API (inject('$socket'))
+app.provide('$socket', socket)
 
 app.mount('#app')

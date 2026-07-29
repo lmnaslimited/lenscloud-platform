@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch, getCurrentInstance, onBeforeUnmount, inject } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import { 
@@ -12,6 +12,7 @@ import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import posthog from 'posthog-js'
 import { useSessionStore } from '@/lib/session'
 
+const message = ref([])
 
 const session = useSessionStore()
 
@@ -188,10 +189,47 @@ async function load() {
     }
 }
 
+// 1. Cleanly inject the socket instance provided in main.js
+const socket = inject('$socket')
+
+// 2. Dedicated event handler function (isolated reference)
+function handleNectarCommentsUpdated(data) {
+  if (!data || data.issue_id !== props.issueId) return
+
+  const incomingComments = Array.isArray(data.comments)
+    ? data.comments
+    : [data.comments]
+
+  // Update array immutably or safely append
+  message.value = [...message.value, ...incomingComments]
+  console.log('Realtime comments updated:', message.value)
+}
+
+
 // onMounted(load)
 onMounted(() => {
     load()
   fetchIssueFieldOptions()
+  
+  if (socket) {
+    console.log("socket object", socket)
+    console.log("ticket value", selectedTicket.value)
+    // 1. Join Frappe document room
+    socket.emit('doc_subscribe', 'Issue', "ISS-2026-07-0002")
+    debugger
+    // 3. Attach listener
+    socket.on('nectar_comments_updated', handleNectarCommentsUpdated)
+  } else {
+    console.warn('Socket instance not found via inject("$socket")')
+  }
+})
+
+onBeforeUnmount(() => {
+  if (socket) {
+    socket.emit('doc_unsubscribe', 'Issue', "ISS-2026-07-0002")
+    // 4. Detach ONLY this specific function reference to avoid killing global listeners
+    socket.off('nectar_comments_updated', handleNectarCommentsUpdated)
+  }
 })
 
 const siteOptions = computed(() => {
