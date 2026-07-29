@@ -7,6 +7,7 @@
 		"build": "vite build",
 		"test:auth": "node tests/live-auth.mjs",
 		"test:realtime": "node tests/realtime-unit.mjs",
+		"test:realtime-auth": "node tests/realtime-issue-auth.mjs",
 		"preview": "vite preview",
 		"test:child-tables": "node tests/child-tables-auth.mjs",
 		"test:metadata-framework": "node tests/metadata-framework-auth.mjs",

@@ -10,7 +10,9 @@ add manual `/api`, `/assets`, `/files`, `/private`, login, logout, or
 `/assets/lenscloud/frontend/` base and copies the Jinja-compatible page.
 
 The backend boot context must supply a non-empty `site_name`, positive numeric
-`socketio_port`, and CSRF token. Development fetches this context through Vite.
+`socketio_port`, and CSRF token. Development fetches this read-only context
+through Vite with GET so an authenticated session does not need a CSRF token
+before retrieving its CSRF token.
 The browser connects with its normal Frappe `sid` and `withCredentials: true`.
 When the local page has an explicit port (8000 or 8080), it connects to
 `http://dev.localhost:9000/dev.localhost`. A normal production URL has no
