@@ -84,20 +84,24 @@ const resultOauthConfigured = computed(() => oauthConfiguredStatuses.has(resultO
 const siteReadyForOpen = (site) => ['Ready', 'Active'].includes(site?.site_status) && site?.route_status === 'Ready' && site?.setup_status === 'Complete' && oauthConfiguredStatuses.has(site?.oauth_status)
 const hasReadySite = computed(() => resultReady.value || existingSites.value.some(siteReadyForOpen))
 const readySiteUrl = computed(() => {
+	console.log('resultSite', resultSite.value)
 	if (provisioningMode.value === 'ready' && resultOauthConfigured.value) return result.value?.access_url || resultSite.value?.access_url || ''
 	return existingSites.value.find((site) => siteReadyForOpen(site) && site.access_url)?.access_url || ''
 })
+const effectiveStage = computed(
+    () => currentStage.value ?? canonicalProgress.value?.stage
+)
 const canonicalMode = computed(() => ({
 	requested: 'started', runtime_reconciling: 'started', route_pending: 'route_pending',
 	bootstrap_installing: 'bootstrap_installing', setup_completing: 'setup_running', setup_verifying: 'setup_checking',
 	oauth_configuring: 'oauth_configuring', oauth_verifying: 'oauth_checking', ready: 'ready',
 	blocked_customer_input: 'setup_required', blocked_platform_action: 'failed', blocked_infra_action: 'failed', failed: 'failed',
-}[canonicalProgress.value?.stage] || ''))
+}[effectiveStage.value] || ''))
 const provisioningMode = computed(() => canonicalMode.value || result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
 const resultStarted = computed(() => ['started', 'route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
 const resultPaused = computed(() => !canonicalProgress.value && (provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run'))
 const resultFailed = computed(() => canonicalProgress.value ? ['failed', 'blocked'].includes(canonicalProgress.value.stage_status) : ['failed', 'bootstrap_failed', 'oauth_failed'].includes(provisioningMode.value))
-const resultSetupRequired = computed(() => canonicalProgress.value?.stage === 'blocked_customer_input' || provisioningMode.value === 'setup_required')
+const resultSetupRequired = computed(() => effectiveStage.value === 'blocked_customer_input' || provisioningMode.value === 'setup_required')
 const resultBootstrapStatus = computed(() => result.value?.bootstrap_status || resultSite.value?.bootstrap_status || '')
 const resultReady = computed(() => provisioningMode.value === 'ready')
 const resultRetryable = computed(() => Boolean(result.value?.site && (canonicalProgress.value ? canonicalProgress.value.can_retry : (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value))))
@@ -139,7 +143,7 @@ const screenSubtitle = computed(() => {
 
 const rawProvisioningSteps = computed(() => {
 	const usingRealtime = Boolean(canonicalProgress.value)
-	const stage = canonicalProgress.value?.stage
+	const stage = effectiveStage.value
 
 	const attempted = Boolean(result.value?.site || resultStarted.value || resultPaused.value || resultFailed.value || resultReady.value)
 	const runtimeProgressed = ['route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
@@ -542,6 +546,7 @@ async function load() {
 
 function applyCanonicalProgress(snapshot) {
 	if (!snapshot?.site || (result.value?.site && snapshot.site !== result.value.site)) return
+	updateDisplayedStage(snapshot)
 	canonicalProgress.value = snapshot
 	result.value = { ...(result.value || {}), site: snapshot.site, canonical_progress: snapshot }
 	// Trigger issue creation directly on failure/blocked state
@@ -723,19 +728,84 @@ async function autoCreateIssueOnFailure() {
 	}
 }
 
-// // Watch canonical failure state automatically
-// watch(resultFailed, (isFailed) => {
-// 	if (isFailed) {
-// 		autoCreateIssueOnFailure()
-// 	}
-// })
+const STAGES = [
+  'requested',
+  'runtime_reconciling',
+  'route_pending',
+  'bootstrap_installing',
+  'setup_verifying',
+  'setup_completing',
+  'oauth_configuring',
+  'oauth_verifying',
+  'ready',
+]
+
+const STAGE_GRAPH = {
+  requested: ['runtime_reconciling'],
+
+  runtime_reconciling: ['route_pending'],
+
+  route_pending: ['bootstrap_installing'],
+
+  bootstrap_installing: [
+    'setup_verifying',
+    'failed',
+    'blocked_platform_action',
+  ],
+
+  setup_verifying: [
+    'setup_completing',
+    'blocked_customer_input',
+    'failed',
+  ],
+
+  setup_completing: [
+    'oauth_configuring',
+    'failed',
+  ],
+
+  oauth_configuring: [
+    'oauth_verifying',
+    'failed',
+  ],
+
+  oauth_verifying: [
+    'ready',
+    'failed',
+  ],
+
+  ready: [],
+}
+
+function canTransition(from, to) {
+    if (!from) return true
+    if (from === to) return true
+
+    return STAGE_GRAPH[from]?.includes(to) ?? false
+}
+
+const currentStage = ref(null)
+
+function updateDisplayedStage(snapshot) {
+    const next = snapshot.stage
+
+    if (canTransition(currentStage.value, next)) {
+        currentStage.value = next
+    } else {
+        console.warn(
+            `[Realtime] Ignored transition ${currentStage.value} -> ${next}`
+        )
+    }
+}
+
+
 
 </script>
 
 <template>
 	<WorkspaceLayout
 		title="Plans"
-		subtitle="From Plan choice to Free checkout and Workspace launch in a guided way."
+		subtitle="From choice of plans to free checkout, Launch your workspace with a guided approach"
 		inspector-kicker="Guided Launch"
 		inspector-title="Launch checklist"
 		:inspector-subtitle="screenSubtitle"
@@ -804,8 +874,8 @@ async function autoCreateIssueOnFailure() {
 						<div class="p-5 lg:p-6">
 							<div v-if="step === 'choose'" class="space-y-6">
 								<div class="mx-auto max-w-3xl text-center">
-									<p class="text-xs font-semibold text-[#64748B]">Choose Plan</p>
-									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Start Your Enterprise Platform Journey</h3>
+									<!-- <p class="text-xs font-semibold text-[#64748B]">Choose Plan</p> -->
+									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Free Today and Upgrade Later</h3>
 									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a Platform Plan. Start free today or request access to higher tiers.</p>
 									<div class="mt-5 inline-flex rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-1">
 										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-primary shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
@@ -1046,7 +1116,7 @@ async function autoCreateIssueOnFailure() {
 										<ShieldCheck class="size-5" /></div>
 										<h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3>
 										<p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p>
-										<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com">
+										<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:hello@lmnas.com">
 										<Headset class="size-4" />Contact support</a>
 
 										<div v-if="resultStarted || resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
@@ -1061,8 +1131,8 @@ async function autoCreateIssueOnFailure() {
 												<button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()">
 													<RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin [animation-direction:reverse]' : ''" />
 													{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
-												<a v-if="readySiteUrl && hasReadySite" 
-													:href="readySiteUrl" target="_blank" 
+												<a v-if="resultReady && hasReadySite" 
+													:href="readySiteUrl.access_url" target="_blank" 
 													class="bg-primary hover:bg-secondary text-white inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
 													@click="posthog.capture('site_opened', {
 														site: result?.site,

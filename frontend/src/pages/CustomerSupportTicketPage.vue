@@ -354,7 +354,7 @@ async function handleAddComment() {
             content: newCommentText.value
         })
         newCommentText.value = ''
-        await loadComments(selectedTicket.value.name)
+        // await loadComments(selectedTicket.value.name)
     } catch (err) {
         commentError.value = err?.message || 'Failed to post comment.'
     } finally {

@@ -49,6 +49,7 @@ class Issue(Document):
 
         try:
             response = requests.post(endpoint, json=payload, headers=headers, timeout=10)
+            print("the reponse", response)
             response.raise_for_status()
             response_data = response.json()
         except requests.exceptions.RequestException as e:
