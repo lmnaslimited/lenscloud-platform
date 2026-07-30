@@ -37,16 +37,14 @@ const passwordError = ref('')
 const passwordSuccess = ref('')
 const passwordForm = reactive({ old_password: '', new_password: '', confirm_password: '' })
 const scopeLabel = computed(() => currentScope.value === 'customer' ? 'Customer portal' : 'Platform console')
-const userProfile = reactive({ full_name: '' })
 
 const accountName = computed(() => {
-	// const raw = session.user
-	// const local = raw.includes('@') ? raw.split('@')[0] : raw
-	// const name = local.replace(/[._-]+/g, ' ').trim()
-	// return name ? name.replace(/\b\w/g, (char) => char.toUpperCase()) : raw
-	if (userProfile.full_name) return userProfile.full_name
+	const raw = session.user || 'LensCloud User'
+	const local = raw.includes('@') ? raw.split('@')[0] : raw
+	const name = local.replace(/[._-]+/g, ' ').trim()
+	return name ? name.replace(/\b\w/g, (char) => char.toUpperCase()) : raw
 })
-const accountInitials = computed(() => accountName.value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase())
+const accountInitials = computed(() => accountName.value.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join('').toUpperCase() || 'LC')
 const accountCaption = computed(() => {
 	if (currentScope.value !== 'customer') return 'Platform Console'
 	return customerAccess.value?.recent_plan || customerAccess.value?.membership?.member_role || 'Customer Portal'
@@ -68,23 +66,6 @@ async function loadNavigation() {
 	try { const response = await callMethod('lenscloud.api.launch.get_navigation', { scope: 'platform' }); remotePlatformNav.value = response.message || response || [] }
 	catch { remotePlatformNav.value = [] }
 	initializeClosed()
-}
-async function loadUserProfile() {
-  if (!session.user || session.user === 'Guest') return
-  try {
-    const res = await callMethod('frappe.client.get_value', {
-      doctype: 'User',
-      filters: { name: session.user },
-      fieldname: ['full_name']
-    })
-    const data = res.message || res
-	debugger
-    if (data) {
-      userProfile.full_name = data.full_name || ''
-    }
-  } catch (err) {
-    console.error('Failed to load user profile:', err)
-  }
 }
 function closeMobileNav() { mobileNavOpen.value = false }
 
@@ -127,10 +108,7 @@ async function submitPasswordChange() {
 		passwordError.value = err?.message || 'Unable to update password. Check your current password and try again.'
 	}
 }
-onMounted(() => {
-  loadNavigation()
-  loadUserProfile()
-})
+onMounted(loadNavigation)
 watch(currentScope, loadNavigation)
 watch(() => route.fullPath, () => {
 	accountMenuOpen.value = false

@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch, getCurrentInstance, onBeforeUnmount, inject } from 'vue'
+import { computed, onMounted, ref, watch, onBeforeUnmount, inject } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import { 
@@ -12,9 +12,6 @@ import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import posthog from 'posthog-js'
 import { useSessionStore } from '@/lib/session'
 import { watchDocument } from '@/lib/realtime'
-
-
-const message = ref([])
 
 const session = useSessionStore()
 
@@ -192,32 +189,24 @@ async function load() {
 }
 
 // 1. Cleanly inject the socket instance provided in main.js
-const socket = inject('$socket')
+const socket = inject('socket')
 
 // Store the active realtime cleanup callback returned by watchDocument
 let stopWatching = null
 
-function setupRealtimeListener(doctype, docName) {
-  // Clean up any existing subscription first
-  if (stopWatching) {
-    stopWatching()
-    stopWatching = null
-  }
+function setupRealtimeListener(docName) {
+  stopWatching?.()
 
-  if (!socket || !doctype || !docName) return
+  if (!socket || !docName) return
 
-  // 2. Initialize the listener using your helper
   stopWatching = watchDocument(socket, {
-    doctype: doctype,
+    doctype: 'Issue',
     name: docName,
-    onUpdate: (data) => {
-      console.log('Realtime update received:', data)
+    onUpdate: async () => {
+      console.log('Issue updated:', docName)
 
-      // Extract new comments payload
-      if (data.comments) {
-        const incoming = Array.isArray(data.comments) ? data.comments : [data.comments]
-        message.value.push(...incoming)
-      }
+      // Reload whatever needs refreshing
+      await loadComments(docName)
     },
   })
 }
@@ -227,18 +216,18 @@ function setupRealtimeListener(doctype, docName) {
 onMounted(() => {
     load()
   fetchIssueFieldOptions()
-  
-  // Subscribe when component mounts
-  const currentDocName = selectedTicket.value?.name || null
-  console.log("current ticket helpdesk id", currentDocName)
-  setupRealtimeListener('Issue', currentDocName)
 })
 
+watch(
+  selectedName,
+  (name) => {
+    setupRealtimeListener(name)
+  },
+  { immediate: true }
+)
+
 onBeforeUnmount(() => {
-  // 3. Execute cleanup function to unsub from room and remove socket listeners
-  if (stopWatching) {
-    stopWatching()
-  }
+  stopWatching?.()
 })
 
 const siteOptions = computed(() => {

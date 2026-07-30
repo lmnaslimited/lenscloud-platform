@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, inject } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
@@ -23,7 +23,8 @@ import posthog from 'posthog-js'
 
 const route = useRoute()
 const router = useRouter()
-const socket = getCurrentInstance()?.appContext.config.globalProperties.$socket
+// Cleanly inject the socket instance provided in main.js
+const socket = inject('socket')
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -137,32 +138,104 @@ const screenSubtitle = computed(() => {
 })
 
 const rawProvisioningSteps = computed(() => {
+	const usingRealtime = Boolean(canonicalProgress.value)
+	const stage = canonicalProgress.value?.stage
+
 	const attempted = Boolean(result.value?.site || resultStarted.value || resultPaused.value || resultFailed.value || resultReady.value)
 	const runtimeProgressed = ['route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
 	const runtimeReady = Boolean(runtimeProgressed || ['Ready', 'Active'].includes(result.value?.site_status) || result.value?.provisioning_status === 'Ready' || ['Ready', 'Active'].includes(resultSite.value?.site_status))
-	const routeReady = Boolean(resultRouteReady.value)
+	// const routeReady = Boolean(resultRouteReady.value)
+	const routeReady = usingRealtime
+    ? [
+        'bootstrap_installing',
+        'setup_completing',
+        'setup_verifying',
+        'oauth_configuring',
+        'oauth_verifying',
+        'ready',
+    ].includes(stage)
+    : Boolean(resultRouteReady.value)
+
 	const routeFailed = Boolean(result.value?.route_status === 'Failed' || resultSite.value?.route_status === 'Failed')
 	const setupStatus = result.value?.setup_status || resultSite.value?.setup_status || 'Not Checked'
 	const setupError = result.value?.setup_error || resultSite.value?.setup_error || ''
 	const bootstrapStatus = resultBootstrapStatus.value
-	const setupDone = setupStatus === 'Complete' || resultReady.value
+	// const setupDone = setupStatus === 'Complete' || resultReady.value
+	const setupDone = usingRealtime
+    ? [
+        'oauth_configuring',
+        'oauth_verifying',
+        'ready',
+    ].includes(stage)
+    : (
+        setupStatus === 'Complete' ||
+        resultReady.value
+    )
 	const setupBlocked = setupStatus === 'Blocked' || resultSetupRequired.value
 	const bootstrapFailed = bootstrapStatus === 'Failed' || provisioningMode.value === 'bootstrap_failed' || /bootstrap app install failed/i.test(setupError)
-	const bootstrapInstalling = provisioningMode.value === 'bootstrap_installing' || ['Queued', 'Running'].includes(bootstrapStatus)
+	// const bootstrapInstalling = provisioningMode.value === 'bootstrap_installing' || ['Queued', 'Running'].includes(bootstrapStatus)
+	const bootstrapInstalling = usingRealtime
+    ? stage === 'bootstrap_installing'
+    : (
+        provisioningMode.value === 'bootstrap_installing' ||
+        ['Queued', 'Running'].includes(bootstrapStatus)
+    )
+
 	const bootstrapAdvanced = ['setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
-	const bootstrapDone = !bootstrapFailed && !bootstrapInstalling && (bootstrapStatus === 'Succeeded' || setupStatus === 'Complete' || bootstrapAdvanced)
+	// const bootstrapDone = !bootstrapFailed && !bootstrapInstalling && (bootstrapStatus === 'Succeeded' || setupStatus === 'Complete' || bootstrapAdvanced)
+	const bootstrapDone = usingRealtime
+    ? [
+        'setup_completing',
+        'setup_verifying',
+        'oauth_configuring',
+        'oauth_verifying',
+        'ready',
+    ].includes(stage)
+    : (
+        !bootstrapFailed &&
+        !bootstrapInstalling &&
+        (
+            bootstrapStatus === 'Succeeded' ||
+            setupStatus === 'Complete' ||
+            bootstrapAdvanced
+        )
+    )
 	const setupFailed = !bootstrapFailed && (setupStatus === 'Failed' || (provisioningMode.value === 'failed' && routeReady))
-	const setupRunning = provisioningMode.value === 'setup_running' || setupStatus === 'Required'
-	const setupChecking = provisioningMode.value === 'setup_checking'
+	// const setupRunning = provisioningMode.value === 'setup_running' || setupStatus === 'Required'
+	const setupRunning = usingRealtime
+    ? stage === 'setup_completing'
+    : (
+        provisioningMode.value === 'setup_running' ||
+        setupStatus === 'Required'
+    )
+	// const setupChecking = provisioningMode.value === 'setup_checking'
+	const setupChecking = usingRealtime
+    ? stage === 'setup_verifying'
+    : provisioningMode.value === 'setup_checking'
 	const oauthStatus = resultOauthStatus.value
-	const oauthDone = resultOauthConfigured.value || resultReady.value
+	// const oauthDone = resultOauthConfigured.value || resultReady.value
+	const oauthDone = usingRealtime
+    ? stage === 'ready'
+    : (
+        resultOauthConfigured.value ||
+        resultReady.value
+    )
 	const oauthFailed = oauthStatus === 'Failed' || provisioningMode.value === 'oauth_failed'
-	const oauthRunning = ['Running', 'Pending'].includes(oauthStatus) || ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
+	// const oauthRunning = ['Running', 'Pending'].includes(oauthStatus) || ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
+	const oauthRunning = usingRealtime
+    ? [
+        'oauth_configuring',
+        'oauth_verifying',
+    ].includes(stage)
+    : (
+        ['Running', 'Pending'].includes(oauthStatus) ||
+        ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
+    )
 	return [
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
 		{ label: 'Workspace reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Workspace address is reserved for you.' : 'Waiting for Workspace reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
-		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
+		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access (approx. 3 mins).' : 'This starts after workspace preparation.' },
 		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : bootstrapInstalling || routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
 		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || (routeReady && bootstrapDone) ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Workspace needs first-time setup.' : 'This starts after default apps are installed.' },
 		{ label: 'Setting Workspace defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Workspace defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Workspace needs first-time setup.' },
