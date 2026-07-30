@@ -26,7 +26,11 @@ const subscriptions = computed(() => context.value?.subscriptions || [])
 const usage = computed(() => context.value?.usage || {})
 const settings = computed(() => context.value?.settings || {})
 const primarySubscription = computed(() => subscriptions.value[0] || null)
-const displayName = computed(() => [formState.first_name, formState.last_name].filter(Boolean).join(' ') || customer.value?.name || session.user)
+// const displayName = computed(() => [formState.first_name, formState.last_name].filter(Boolean).join(' ') || customer.value?.name || session.user)
+const displayName = computed(() => {
+  const name = [formState.first_name, formState.last_name].filter(Boolean).join(' ')
+  return name || context.value?.user?.full_name || session.user
+})
 const accountInitial = computed(() => (displayName.value || 'L').slice(0, 1).toUpperCase())
 const regionLabel = computed(() => formState.region || context.value?.customer?.region || 'Not selected')
 const membership = computed(() => context.value?.membership || customer.value || {})
@@ -40,9 +44,14 @@ async function load() {
 		const portalResponse = await callMethod('lenscloud.api.orchestration.get_customer_portal_context')
 		context.value = portalResponse.message || portalResponse
 		customer.value = context.value?.customer || null
+		// Extract user details directly from context
+		const userData = context.value?.user || {}
 		if (customer.value) {
 			for (const key of Object.keys(formState)) formState[key] = customer.value[key] || ''
 		}
+		// Populate formState directly from User Doctype data
+		formState.first_name = userData.first_name || ''
+    	formState.last_name = userData.last_name || ''
 	} catch (err) {
 		error.value = err?.message || 'Unable to load account.'
 	} finally {
@@ -105,7 +114,10 @@ async function save() {
 	saveState.value = 'saving'
 	error.value = ''
 	try {
-		const response = await callMethod('lenscloud.api.orchestration.update_customer_account', { ...formState }, 'POST')
+		const response = await callMethod('lenscloud.api.orchestration.update_customer_account', {
+			first_name: formState.first_name,
+			last_name: formState.last_name
+		}, 'POST')
 		customer.value = response.message || response
 		saveState.value = 'saved'
 		await load()
@@ -193,12 +205,19 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 								<Badge v-else-if="saveState === 'saving'" class="bg-blue-50 text-blue-700">Saving</Badge>
 								<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Needs retry</Badge>
 							</div>
-							<div v-if="!customer" class="mt-5 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">No Customer Record is linked to this signed-in user yet. Platform should link the Customer before subscriptions and access can feel complete.</div>
+							<!-- <div v-if="!customer" class="mt-5 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">No Customer Record is linked to this signed-in user yet. Platform should link the Customer before subscriptions and access can feel complete.</div>
 							<div v-else class="mt-5 grid gap-3 sm:grid-cols-2">
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">First Name</span><TextInput v-model="formState.first_name" /></label>
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Last Name</span><TextInput v-model="formState.last_name" /></label>
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Default Region</span><TextInput v-model="formState.region" placeholder="Region" /></label>
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Customer Reference</span><TextInput v-model="formState.external_customer_id" placeholder="CRM or billing reference" /></label>
+								<div class="sm:col-span-2"><Button :disabled="saveState === 'saving'" @click="save">{{ saveState === 'saving' ? 'Saving...' : 'Save account details' }}</Button></div>
+							</div> -->
+							<div class="mt-5 grid gap-3 sm:grid-cols-2">
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">First Name</span><TextInput v-model="formState.first_name" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Last Name</span><TextInput v-model="formState.last_name" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Default Region</span><TextInput v-model="formState.region" placeholder="Region" :disabled="true" class="bg-gray-100 cursor-not-allowed" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Customer Reference</span><TextInput v-model="formState.external_customer_id" placeholder="Support or billing reference" :disabled="true" class="bg-gray-100 cursor-not-allowed" /></label>
 								<div class="sm:col-span-2"><Button :disabled="saveState === 'saving'" @click="save">{{ saveState === 'saving' ? 'Saving...' : 'Save account details' }}</Button></div>
 							</div>
 						</section>
