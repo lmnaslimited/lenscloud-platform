@@ -662,7 +662,7 @@ async function autoCreateIssueOnFailure() {
 <template>
 	<WorkspaceLayout
 		title="Plans"
-		subtitle="From Plan choice to Free checkout and Workspace launch in a guided way."
+		subtitle="From choice of plans to free checkout, Launch your workspace with a guided approach"
 		inspector-kicker="Guided Launch"
 		inspector-title="Launch checklist"
 		:inspector-subtitle="screenSubtitle"
@@ -731,8 +731,8 @@ async function autoCreateIssueOnFailure() {
 						<div class="p-5 lg:p-6">
 							<div v-if="step === 'choose'" class="space-y-6">
 								<div class="mx-auto max-w-3xl text-center">
-									<p class="text-xs font-semibold text-[#64748B]">Choose Plan</p>
-									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Start Your Enterprise Platform Journey</h3>
+									<!-- <p class="text-xs font-semibold text-[#64748B]">Choose Plan</p> -->
+									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Start Free Today and Upgrade Later</h3>
 									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a Platform Plan. Start free today or request access to higher tiers.</p>
 									<div class="mt-5 inline-flex rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-1">
 										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-primary shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
@@ -973,7 +973,7 @@ async function autoCreateIssueOnFailure() {
 										<ShieldCheck class="size-5" /></div>
 										<h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3>
 										<p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p>
-										<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com">
+										<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:hello@lmnas.com">
 										<Headset class="size-4" />Contact support</a>
 
 										<div v-if="resultStarted || resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
