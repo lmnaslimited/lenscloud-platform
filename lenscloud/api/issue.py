@@ -185,12 +185,7 @@ def get_helpdesk_comments(issue_id):
 
 @frappe.whitelist()
 def syn_comment_webhook():
-    # Debug lines: look at these in your bench web.1 console logs!
-    print("--- RAW DATA FROM REQUEST ---")
-    print("form_dict:", frappe.form_dict)
-    print("json_data:", frappe.request.get_json() if frappe.request.is_json else "Not JSON")
-    print("-----------------------------")
-
+   
     # Read payload cleanly
     data = frappe.request.get_json() if (frappe.request and frappe.request.is_json) else frappe.form_dict
 

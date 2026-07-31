@@ -203,8 +203,6 @@ function setupRealtimeListener(docName) {
     doctype: 'Issue',
     name: docName,
     onUpdate: async () => {
-      console.log('Issue updated:', docName)
-
       // Reload whatever needs refreshing
       await loadComments(docName)
     },
