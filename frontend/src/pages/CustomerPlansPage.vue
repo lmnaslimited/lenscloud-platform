@@ -87,9 +87,7 @@ const readySiteUrl = computed(() => {
 	if (provisioningMode.value === 'ready' && resultOauthConfigured.value) return result.value?.access_url || resultSite.value?.access_url || ''
 	return existingSites.value.find((site) => siteReadyForOpen(site) && site.access_url)?.access_url || ''
 })
-// const effectiveStage = computed(
-//     () => currentStage.value ?? canonicalProgress.value?.stage
-// )
+
 const canonicalMode = computed(() => ({
 	requested: 'started', runtime_reconciling: 'started', route_pending: 'route_pending',
 	bootstrap_installing: 'bootstrap_installing', setup_completing: 'setup_running', setup_verifying: 'setup_checking',
@@ -166,7 +164,7 @@ const rawProvisioningSteps = computed(() => {
 	// const setupDone = setupStatus === 'Complete' || resultReady.value
 	const setupDone = usingRealtime
     ? [
-		'setup_verifying',
+		'setup_verifying', //added
         'oauth_configuring',
         'oauth_verifying',
         'ready',
