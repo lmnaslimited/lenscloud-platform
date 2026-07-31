@@ -181,3 +181,30 @@ def get_helpdesk_comments(issue_id):
             message=f"Endpoint: {endpoint}\nError: {e}",
         )
         return []
+    
+
+@frappe.whitelist()
+def syn_comment_webhook():
+   
+    # Read payload cleanly
+    data = frappe.request.get_json() if (frappe.request and frappe.request.is_json) else frappe.form_dict
+
+    issue_id = data.get("issue_id")
+    comments = data.get("comments")
+
+    if not issue_id or not comments:
+        frappe.throw(f"Missing required fields. Received keys: {list(data.keys())}")
+
+    # Emit Socket.io event to Vue
+    frappe.publish_realtime(
+        event="nectar_comments_updated",
+        message={
+            "issue_id": issue_id,
+            "comments": comments
+        },
+        doctype="Issue",      # <--- Your DocType name
+        docname=issue_id,     # <--- Document ID (e.g., ISS-2026-001)
+        after_commit=False    # Immediate release (doesn't wait for DB transaction)
+    )
+
+    return {"status": "success", "issue_id": issue_id}

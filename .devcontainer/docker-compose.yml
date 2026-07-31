@@ -37,6 +37,8 @@ services:
       - SHELL=/bin/bash
     volumes:
       - ..:/workspace:cached
+    extra_hosts:
+      - "test.localhost:127.0.0.1"
     working_dir: /workspace/frappe-bench
     ports:
       - "8000-8005:8000-8005"

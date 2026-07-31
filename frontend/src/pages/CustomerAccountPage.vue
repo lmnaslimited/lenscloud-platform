@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button, TextInput } from 'frappe-ui'
-import { Building2, CheckCircle2, CreditCard, ExternalLink, LifeBuoy, LockKeyhole, MapPin, ShieldCheck, UserRound, UsersRound } from 'lucide-vue-next'
+import { Building2, Headset, CreditCard, ExternalLink, LifeBuoy, LockKeyhole, MapPin, ShieldCheck, UserRound, UsersRound } from 'lucide-vue-next'
 import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import { useSessionStore } from '@/lib/session'
@@ -26,7 +26,11 @@ const subscriptions = computed(() => context.value?.subscriptions || [])
 const usage = computed(() => context.value?.usage || {})
 const settings = computed(() => context.value?.settings || {})
 const primarySubscription = computed(() => subscriptions.value[0] || null)
-const displayName = computed(() => [formState.first_name, formState.last_name].filter(Boolean).join(' ') || customer.value?.name || session.user)
+// const displayName = computed(() => [formState.first_name, formState.last_name].filter(Boolean).join(' ') || customer.value?.name || session.user)
+const displayName = computed(() => {
+  const name = [formState.first_name, formState.last_name].filter(Boolean).join(' ')
+  return name || context.value?.user?.full_name || session.user
+})
 const accountInitial = computed(() => (displayName.value || 'L').slice(0, 1).toUpperCase())
 const regionLabel = computed(() => formState.region || context.value?.customer?.region || 'Not selected')
 const membership = computed(() => context.value?.membership || customer.value || {})
@@ -40,9 +44,14 @@ async function load() {
 		const portalResponse = await callMethod('lenscloud.api.orchestration.get_customer_portal_context')
 		context.value = portalResponse.message || portalResponse
 		customer.value = context.value?.customer || null
+		// Extract user details directly from context
+		const userData = context.value?.user || {}
 		if (customer.value) {
 			for (const key of Object.keys(formState)) formState[key] = customer.value[key] || ''
 		}
+		// Populate formState directly from User Doctype data
+		formState.first_name = userData.first_name || ''
+    	formState.last_name = userData.last_name || ''
 	} catch (err) {
 		error.value = err?.message || 'Unable to load account.'
 	} finally {
@@ -105,7 +114,10 @@ async function save() {
 	saveState.value = 'saving'
 	error.value = ''
 	try {
-		const response = await callMethod('lenscloud.api.orchestration.update_customer_account', { ...formState }, 'POST')
+		const response = await callMethod('lenscloud.api.orchestration.update_customer_account', {
+			first_name: formState.first_name,
+			last_name: formState.last_name
+		}, 'POST')
 		customer.value = response.message || response
 		saveState.value = 'saved'
 		await load()
@@ -129,7 +141,7 @@ const inspectorItems = computed(() => [
 	{ label: 'Role', value: membership.value?.member_role || 'Customer' },
 	{ label: 'Default Region', value: regionLabel.value },
 	{ label: 'Active Subscriptions', value: usage.value.subscriptions || 0 },
-	{ label: 'Support System', value: settings.value.support_system || 'Platform-managed' },
+	// { label: 'Support System', value: settings.value.support_system || 'Platform-managed' },
 ])
 
 onMounted(load)
@@ -188,17 +200,26 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 					<div class="grid gap-4 lg:grid-cols-[1fr_1fr]">
 						<section class="rounded-2xl border border-[#EDEDED] bg-white p-5">
 							<div class="flex items-start justify-between gap-3">
-								<div><p class="text-xs font-semibold text-[#64748B]">Profile</p><h3 class="mt-2 text-lg font-semibold text-[#191c1e]">Your Account Details</h3><p class="mt-1 text-sm leading-6 text-[#64748B]">Keep the basics right so every LensCloud handoff feels personal.</p></div>
+								<div><p class="text-xs font-semibold text-[#64748B]">Profile</p><h3 class="mt-2 text-lg font-semibold text-[#191c1e]">Your Account Details</h3>
+									<!-- <p class="mt-1 text-sm leading-6 text-[#64748B]">Keep the basics right so every LensCloud handoff feels personal.</p> -->
+								</div>
 								<Badge v-if="saveState === 'saved'" class="bg-emerald-50 text-emerald-700">Saved</Badge>
 								<Badge v-else-if="saveState === 'saving'" class="bg-blue-50 text-blue-700">Saving</Badge>
 								<Badge v-else-if="saveState === 'error'" class="bg-red-50 text-red-700">Needs retry</Badge>
 							</div>
-							<div v-if="!customer" class="mt-5 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">No Customer Record is linked to this signed-in user yet. Platform should link the Customer before subscriptions and access can feel complete.</div>
+							<!-- <div v-if="!customer" class="mt-5 rounded-lg border border-dashed border-amber-200 bg-amber-50 p-4 text-sm leading-6 text-amber-800">No Customer Record is linked to this signed-in user yet. Platform should link the Customer before subscriptions and access can feel complete.</div>
 							<div v-else class="mt-5 grid gap-3 sm:grid-cols-2">
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">First Name</span><TextInput v-model="formState.first_name" /></label>
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Last Name</span><TextInput v-model="formState.last_name" /></label>
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Default Region</span><TextInput v-model="formState.region" placeholder="Region" /></label>
 								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Customer Reference</span><TextInput v-model="formState.external_customer_id" placeholder="CRM or billing reference" /></label>
+								<div class="sm:col-span-2"><Button :disabled="saveState === 'saving'" @click="save">{{ saveState === 'saving' ? 'Saving...' : 'Save account details' }}</Button></div>
+							</div> -->
+							<div class="mt-5 grid gap-3 sm:grid-cols-2">
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">First Name</span><TextInput v-model="formState.first_name" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Last Name</span><TextInput v-model="formState.last_name" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B]">Default Region</span><TextInput v-model="formState.region" placeholder="Region" :disabled="true" class="bg-gray-100 cursor-not-allowed" /></label>
+								<label class="space-y-1.5"><span class="text-xs font-semibold text-[#64748B] hidden">Customer Reference</span><TextInput v-model="formState.external_customer_id" placeholder="Support or billing reference" :disabled="true" class="bg-gray-100 cursor-not-allowed hidden" /></label>
 								<div class="sm:col-span-2"><Button :disabled="saveState === 'saving'" @click="save">{{ saveState === 'saving' ? 'Saving...' : 'Save account details' }}</Button></div>
 							</div>
 						</section>
@@ -210,7 +231,11 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 							<div class="mt-5 space-y-3">
 								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LockKeyhole class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Site Access Is Platform-Managed</p><p class="text-xs leading-5 text-[#64748B]">Customers should not manage users independently inside each Site.</p></div></div>
 								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><UsersRound class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Team Invites</p><p class="text-xs leading-5 text-[#64748B]">Coming soon: invite users, assign customer roles, and audit access.</p></div></div>
-								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LifeBuoy class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Support And Billing Contacts</p><p class="text-xs leading-5 text-[#64748B]">{{ settings.support_system || 'Support' }} and {{ settings.billing_system || 'billing' }} details will connect here as external systems mature.</p></div></div>
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LifeBuoy class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Support And Billing Contacts</p>
+									<!-- <p class="text-xs leading-5 text-[#64748B]">{{ settings.support_system || 'Support' }} and {{ settings.billing_system || 'billing' }} details will connect here as external systems mature.</p> -->
+									<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-secondary" href="mailto:hello@lmnas.com">
+									<Headset class="size-4" />Contact support</a>
+								</div></div>
 							</div>
 						</section>
 					</div>
@@ -226,15 +251,15 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 						<div v-for="item in inspectorItems" :key="item.label" class="rounded-lg border border-[#EDEDED] bg-[#f7f9fb] px-3 py-2"><p class="text-xs text-[#64748B]">{{ item.label }}</p><p class="mt-1 truncate text-sm font-semibold text-[#191c1e]">{{ item.value }}</p></div>
 					</div>
 				</div>
-				<div class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-4">
+				<!-- <div class="rounded-xl border border-[#EDEDED] bg-[#f7f9fb] p-4">
 					<p class="text-sm font-semibold text-[#191c1e]">What Belongs Here</p>
 					<ul class="mt-3 space-y-2 text-sm leading-6 text-[#64748B]"><li>Identity and organization truth.</li><li>Customer access model and future invites.</li><li>Support and billing contact context.</li></ul>
-				</div>
-				<div class="rounded-xl border border-[#EDEDED] bg-white p-4">
+				</div> -->
+				<!-- <div class="rounded-xl border border-[#EDEDED] bg-white p-4">
 					<p class="text-sm font-semibold text-[#191c1e]">Service Work Stays In Subscriptions</p>
 					<p class="mt-2 text-sm leading-6 text-[#64748B]">Provisioning, Plan changes, and Site progress belong in Subscriptions so Account stays calm and trustworthy.</p>
 					<RouterLink to="/customer/subscriptions" class="mt-3 inline-flex min-h-10 items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-[#f2f4f6] px-4 py-2 text-sm font-semibold text-[#434655] transition hover:bg-[#e8ecf1]"><span>Open Subscriptions</span></RouterLink>
-				</div>
+				</div> -->
 			</div>
 		</template>
 	</WorkspaceLayout>

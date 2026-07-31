@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch, onBeforeUnmount, inject } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import { 
@@ -11,7 +11,7 @@ import { callMethod } from '@/lib/api'
 import WorkspaceLayout from '@/components/WorkspaceLayout.vue'
 import posthog from 'posthog-js'
 import { useSessionStore } from '@/lib/session'
-
+import { watchDocument } from '@/lib/realtime'
 
 const session = useSessionStore()
 
@@ -188,10 +188,46 @@ async function load() {
     }
 }
 
+// 1. Cleanly inject the socket instance provided in main.js
+const socket = inject('socket')
+
+// Store the active realtime cleanup callback returned by watchDocument
+let stopWatching = null
+
+function setupRealtimeListener(docName) {
+  stopWatching?.()
+
+  if (!socket || !docName) return
+
+  stopWatching = watchDocument(socket, {
+    doctype: 'Issue',
+    name: docName,
+    onUpdate: async () => {
+      // Reload whatever needs refreshing
+    //   await loadComments(docName)
+    // since both documnet fields and comments are getting updated, load page itself
+        await load()
+    },
+  })
+}
+
+
 // onMounted(load)
 onMounted(() => {
     load()
   fetchIssueFieldOptions()
+})
+
+watch(
+  selectedName,
+  (name) => {
+    setupRealtimeListener(name)
+  },
+  { immediate: true }
+)
+
+onBeforeUnmount(() => {
+  stopWatching?.()
 })
 
 const siteOptions = computed(() => {
@@ -318,7 +354,7 @@ async function handleAddComment() {
             content: newCommentText.value
         })
         newCommentText.value = ''
-        await loadComments(selectedTicket.value.name)
+        // await loadComments(selectedTicket.value.name)
     } catch (err) {
         commentError.value = err?.message || 'Failed to post comment.'
     } finally {
