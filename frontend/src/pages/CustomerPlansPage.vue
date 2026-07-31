@@ -237,8 +237,8 @@ const rawProvisioningSteps = computed(() => {
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
 		{ label: 'Workspace reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Workspace address is reserved for you.' : 'Waiting for Workspace reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
-		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady && !routeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access (approx. 3 mins).' : 'This starts after workspace preparation.' },
-		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : runtimeReady && !routeReady || bootstrapInstalling ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
+		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : runtimeReady && !routeReady || bootstrapInstalling ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : runtimeReady && !routeReady || bootstrapInstalling ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
+		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access (approx. 3 mins).' : 'This starts after workspace preparation.' },
 		{ label: 'Setting Workspace defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Workspace defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Workspace needs first-time setup.' },
 		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupBlocked ? 'done' : setupChecking ? 'active' : 'pending', helper: setupDone || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Workspace needs first-time setup.' : 'This starts after default apps are installed.' },
 		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Workspace.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Workspace defaults are applied.' },
@@ -269,7 +269,13 @@ const provisioningSteps = computed(() => {
 			if (['failed', 'paused'].includes(item.state)) return item
 			return { ...item, state: 'done' }
 		}
-		if (index > targetIndex) return { ...item, state: 'pending' }
+		// allowing multiple active stage
+		// if (index > targetIndex) return { ...item, state: 'pending' }
+		if (index > targetIndex) {
+			// Keep additional active steps active
+			if (item.state === 'active') return item
+			return { ...item, state: 'pending' }
+		}
 		return item
 	})
 })
@@ -1057,7 +1063,7 @@ async function autoCreateIssueOnFailure() {
 													<RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin [animation-direction:reverse]' : ''" />
 													{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
 												<a v-if="resultReady && hasReadySite" 
-													:href="readySiteUrl.access_url" target="_blank" 
+													:href="readySiteUrl" target="_blank" 
 													class="bg-primary hover:bg-secondary text-white inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
 													@click="posthog.capture('site_opened', {
 														site: result?.site,
@@ -1069,6 +1075,7 @@ async function autoCreateIssueOnFailure() {
 														<ExternalLink class="size-4" />
 													
 												Open Workspace</a>
+												<!-- <p>{{ readySiteUrl }}</p> -->
 											</div>
 										</div>
 									</div>

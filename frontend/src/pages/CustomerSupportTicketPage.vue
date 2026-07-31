@@ -204,7 +204,9 @@ function setupRealtimeListener(docName) {
     name: docName,
     onUpdate: async () => {
       // Reload whatever needs refreshing
-      await loadComments(docName)
+    //   await loadComments(docName)
+    // since both documnet fields and comments are getting updated, load page itself
+        await load()
     },
   })
 }
