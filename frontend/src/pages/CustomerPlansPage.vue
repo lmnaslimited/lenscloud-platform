@@ -84,24 +84,23 @@ const resultOauthConfigured = computed(() => oauthConfiguredStatuses.has(resultO
 const siteReadyForOpen = (site) => ['Ready', 'Active'].includes(site?.site_status) && site?.route_status === 'Ready' && site?.setup_status === 'Complete' && oauthConfiguredStatuses.has(site?.oauth_status)
 const hasReadySite = computed(() => resultReady.value || existingSites.value.some(siteReadyForOpen))
 const readySiteUrl = computed(() => {
-	console.log('resultSite', resultSite.value)
 	if (provisioningMode.value === 'ready' && resultOauthConfigured.value) return result.value?.access_url || resultSite.value?.access_url || ''
 	return existingSites.value.find((site) => siteReadyForOpen(site) && site.access_url)?.access_url || ''
 })
-const effectiveStage = computed(
-    () => currentStage.value ?? canonicalProgress.value?.stage
-)
+// const effectiveStage = computed(
+//     () => currentStage.value ?? canonicalProgress.value?.stage
+// )
 const canonicalMode = computed(() => ({
 	requested: 'started', runtime_reconciling: 'started', route_pending: 'route_pending',
 	bootstrap_installing: 'bootstrap_installing', setup_completing: 'setup_running', setup_verifying: 'setup_checking',
 	oauth_configuring: 'oauth_configuring', oauth_verifying: 'oauth_checking', ready: 'ready',
 	blocked_customer_input: 'setup_required', blocked_platform_action: 'failed', blocked_infra_action: 'failed', failed: 'failed',
-}[effectiveStage.value] || ''))
+}[canonicalProgress.value?.stage] || ''))
 const provisioningMode = computed(() => canonicalMode.value || result.value?.provisioning || (result.value?.reconcile?.status === 'dry_run' ? 'paused' : ''))
 const resultStarted = computed(() => ['started', 'route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value))
 const resultPaused = computed(() => !canonicalProgress.value && (provisioningMode.value === 'paused' || provisioningMode.value === 'dry_run'))
 const resultFailed = computed(() => canonicalProgress.value ? ['failed', 'blocked'].includes(canonicalProgress.value.stage_status) : ['failed', 'bootstrap_failed', 'oauth_failed'].includes(provisioningMode.value))
-const resultSetupRequired = computed(() => effectiveStage.value === 'blocked_customer_input' || provisioningMode.value === 'setup_required')
+const resultSetupRequired = computed(() => canonicalProgress.value?.stage === 'blocked_customer_input' || provisioningMode.value === 'setup_required')
 const resultBootstrapStatus = computed(() => result.value?.bootstrap_status || resultSite.value?.bootstrap_status || '')
 const resultReady = computed(() => provisioningMode.value === 'ready')
 const resultRetryable = computed(() => Boolean(result.value?.site && (canonicalProgress.value ? canonicalProgress.value.can_retry : (result.value?.retry_available || resultStarted.value || resultPaused.value || resultFailed.value))))
@@ -143,7 +142,7 @@ const screenSubtitle = computed(() => {
 
 const rawProvisioningSteps = computed(() => {
 	const usingRealtime = Boolean(canonicalProgress.value)
-	const stage = effectiveStage.value
+	const stage = canonicalProgress.value?.stage
 
 	const attempted = Boolean(result.value?.site || resultStarted.value || resultPaused.value || resultFailed.value || resultReady.value)
 	const runtimeProgressed = ['route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
@@ -167,6 +166,7 @@ const rawProvisioningSteps = computed(() => {
 	// const setupDone = setupStatus === 'Complete' || resultReady.value
 	const setupDone = usingRealtime
     ? [
+		'setup_verifying',
         'oauth_configuring',
         'oauth_verifying',
         'ready',
@@ -239,10 +239,10 @@ const rawProvisioningSteps = computed(() => {
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
 		{ label: 'Workspace reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Workspace address is reserved for you.' : 'Waiting for Workspace reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
-		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access (approx. 3 mins).' : 'This starts after workspace preparation.' },
-		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : bootstrapInstalling || routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
-		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || (routeReady && bootstrapDone) ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Workspace needs first-time setup.' : 'This starts after default apps are installed.' },
+		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady && !routeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access (approx. 3 mins).' : 'This starts after workspace preparation.' },
+		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : runtimeReady && !routeReady || bootstrapInstalling ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
 		{ label: 'Setting Workspace defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Workspace defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Workspace needs first-time setup.' },
+		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupBlocked ? 'done' : setupChecking ? 'active' : 'pending', helper: setupDone || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Workspace needs first-time setup.' : 'This starts after default apps are installed.' },
 		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Workspace.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Workspace defaults are applied.' },
 		{ label: 'Ready to open', state: resultReady.value ? 'done' : oauthDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Workspace is ready to open.' : oauthDone ? 'LensCloud is publishing the Open Workspace action.' : 'We will show the Open Workspace action when access is verified.' },
 	]
@@ -546,7 +546,6 @@ async function load() {
 
 function applyCanonicalProgress(snapshot) {
 	if (!snapshot?.site || (result.value?.site && snapshot.site !== result.value.site)) return
-	updateDisplayedStage(snapshot)
 	canonicalProgress.value = snapshot
 	result.value = { ...(result.value || {}), site: snapshot.site, canonical_progress: snapshot }
 	// Trigger issue creation directly on failure/blocked state
@@ -727,78 +726,6 @@ async function autoCreateIssueOnFailure() {
 		issueCreated.value = false
 	}
 }
-
-const STAGES = [
-  'requested',
-  'runtime_reconciling',
-  'route_pending',
-  'bootstrap_installing',
-  'setup_verifying',
-  'setup_completing',
-  'oauth_configuring',
-  'oauth_verifying',
-  'ready',
-]
-
-const STAGE_GRAPH = {
-  requested: ['runtime_reconciling'],
-
-  runtime_reconciling: ['route_pending'],
-
-  route_pending: ['bootstrap_installing'],
-
-  bootstrap_installing: [
-    'setup_verifying',
-    'failed',
-    'blocked_platform_action',
-  ],
-
-  setup_verifying: [
-    'setup_completing',
-    'blocked_customer_input',
-    'failed',
-  ],
-
-  setup_completing: [
-    'oauth_configuring',
-    'failed',
-  ],
-
-  oauth_configuring: [
-    'oauth_verifying',
-    'failed',
-  ],
-
-  oauth_verifying: [
-    'ready',
-    'failed',
-  ],
-
-  ready: [],
-}
-
-function canTransition(from, to) {
-    if (!from) return true
-    if (from === to) return true
-
-    return STAGE_GRAPH[from]?.includes(to) ?? false
-}
-
-const currentStage = ref(null)
-
-function updateDisplayedStage(snapshot) {
-    const next = snapshot.stage
-
-    if (canTransition(currentStage.value, next)) {
-        currentStage.value = next
-    } else {
-        console.warn(
-            `[Realtime] Ignored transition ${currentStage.value} -> ${next}`
-        )
-    }
-}
-
-
 
 </script>
 
