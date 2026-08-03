@@ -84,7 +84,7 @@ class Issue(Document):
                 'name': self.name,
                 'status': self.status,
             },
-            doctype=self.doctype,
-            docname=self.name,
+            # doctype=self.doctype,
+            # docname=self.name,
             after_commit=True # Ensures DB transaction completes before sending
         )

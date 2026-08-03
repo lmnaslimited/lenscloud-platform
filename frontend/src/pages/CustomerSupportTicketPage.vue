@@ -215,7 +215,7 @@ function subscribeToDoc(docName) {
     if (!socket || !docName) return
 
     // 1. Join the Frappe room for this specific document
-    socket.emit('doc_subscribe', 'Issue', docName)
+    // socket.emit('doc_subscribe', 'Issue', docName)
 
     // 2. Attach the update handler
     socket.off('issue_updated', handleUpdate) // Avoid duplicate listeners
@@ -224,13 +224,17 @@ function subscribeToDoc(docName) {
 
 function unsubscribeFromDoc(docName) {
     if (!socket || !docName) return
-    socket.emit('doc_unsubscribe', 'Issue', docName)
+    // socket.emit('doc_unsubscribe', 'Issue', docName)
     socket.off('issue_updated', handleUpdate)
 }
 
 async function handleUpdate(data) {
     console.log('⚡ Issue updated in room:', data)
-    await load()
+   // Filter: Only reload if the updated issue matches the one currently open!
+   if (data?.doctype === 'Issue' && data?.name === selectedName.value) {
+        console.log('✅ Issue match found. Reloading page...')
+        await load()
+    }
 }
 
 // Resubscribe whenever selectedName changes
