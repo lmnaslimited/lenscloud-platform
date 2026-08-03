@@ -194,23 +194,58 @@ const socket = inject('socket')
 // Store the active realtime cleanup callback returned by watchDocument
 let stopWatching = null
 
-function setupRealtimeListener(docName) {
-  stopWatching?.()
+// function setupRealtimeListener(docName) {
+//   stopWatching?.()
 
-  if (!socket || !docName) return
+//   if (!socket || !docName) return
 
-  stopWatching = watchDocument(socket, {
-    doctype: 'Issue',
-    name: docName,
-    onUpdate: async () => {
-      // Reload whatever needs refreshing
-    //   await loadComments(docName)
-    // since both documnet fields and comments are getting updated, load page itself
-        await load()
-    },
-  })
+//   stopWatching = watchDocument(socket, {
+//     doctype: 'Issue',
+//     name: docName,
+//     onUpdate: async () => {
+//       // Reload whatever needs refreshing
+//     //   await loadComments(docName)
+//     // since both documnet fields and comments are getting updated, load page itself
+//         await load()
+//     },
+//   })
+// }
+
+function subscribeToDoc(docName) {
+    if (!socket || !docName) return
+
+    // 1. Join the Frappe room for this specific document
+    socket.emit('doc_subscribe', 'Issue', docName)
+
+    // 2. Attach the update handler
+    socket.off('issue_updated', handleUpdate) // Avoid duplicate listeners
+    socket.on('issue_updated', handleUpdate)
 }
 
+function unsubscribeFromDoc(docName) {
+    if (!socket || !docName) return
+    socket.emit('doc_unsubscribe', 'Issue', docName)
+    socket.off('issue_updated', handleUpdate)
+}
+
+async function handleUpdate(data) {
+    console.log('⚡ Issue updated in room:', data)
+    await load()
+}
+
+// Resubscribe whenever selectedName changes
+watch(
+    selectedName,
+    (newName, oldName) => {
+        if (oldName) unsubscribeFromDoc(oldName)
+        if (newName) subscribeToDoc(newName)
+    },
+    { immediate: true }
+)
+
+onBeforeUnmount(() => {
+    if (selectedName.value) unsubscribeFromDoc(selectedName.value)
+})
 
 // onMounted(load)
 onMounted(() => {
@@ -218,17 +253,17 @@ onMounted(() => {
   fetchIssueFieldOptions()
 })
 
-watch(
-  selectedName,
-  (name) => {
-    setupRealtimeListener(name)
-  },
-  { immediate: true }
-)
+// watch(
+//   selectedName,
+//   (name) => {
+//     setupRealtimeListener(name)
+//   },
+//   { immediate: true }
+// )
 
-onBeforeUnmount(() => {
-  stopWatching?.()
-})
+// onBeforeUnmount(() => {
+//   stopWatching?.()
+// })
 
 const siteOptions = computed(() => {
     const sites = context.value?.sites || []

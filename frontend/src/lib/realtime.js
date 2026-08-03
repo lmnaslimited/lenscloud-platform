@@ -8,7 +8,7 @@ export function watchDocument(socket, { doctype, name, onUpdate }) {
 	const subscribe = () => {
 		if (!active) return
 		socket.emit('doc_subscribe', doctype, name)
-		console.info('[realtime] subscribed', { doctype, name })
+		// console.info('[realtime] subscribed', { doctype, name })
 	}
 	const handleUpdate = (message) => {
 		if (!active || message?.doctype !== doctype || message?.name !== name) return
