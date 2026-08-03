@@ -2,31 +2,24 @@ import { io } from 'socket.io-client'
 
 export function getSocketUrl() {
 	const siteName = window.site_name
-	const socketioPort = Number(window.socketio_port)
 
-	if (!siteName || siteName === 'undefined') {
-		throw new Error('Cannot initialize realtime: site_name is missing')
-	}
-	if (!Number.isInteger(socketioPort) || socketioPort <= 0) {
-		throw new Error('Cannot initialize realtime: invalid socketio_port')
-	}
+    if (!siteName || siteName === 'undefined') {
+        throw new Error('Cannot initialize realtime: site_name is missing')
+    }
 
-	const origin = window.location.port
-		? `${window.location.protocol}//${window.location.hostname}:${socketioPort}`
-		: window.location.origin
-
-	return `${origin}/${siteName}`
+    return `/${siteName}`
 }
 
 export function initSocket() {
 	const url = getSocketUrl()
 	const socket = io(url, {
-		withCredentials: true,
-		reconnection: true,
-	})
+        path: "/socket.io",
+        withCredentials: true,
+        reconnection: true,
+    })
 
 	socket.on('connect', () => {
-		console.info('[realtime] connected', { namespace: socket.nsp })
+		console.info('[realtime] connected', { namespace: socket })
 	})
 	socket.on('connect_error', (error) => {
 		console.error('[realtime] connection failed', {
