@@ -38,7 +38,8 @@ if (posthogToken) {
 	})
 }
 
-app.use(FrappeUI)
+// LensCloud owns the Socket.IO lifecycle below; disable the implicit plugin socket.
+app.use(FrappeUI, { socketio: false })
 app.use(pinia)
 app.use(router)
 
