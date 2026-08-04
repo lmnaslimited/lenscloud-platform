@@ -26,7 +26,7 @@ export function initSocket() {
 	})
 
 	socket.on('connect', () => {
-		console.info('[realtime] connected', { namespace: socket.nsp })
+		// console.info('[realtime] connected', { namespace: socket.nsp })
 	})
 	socket.on('connect_error', (error) => {
 		console.error('[realtime] connection failed', {
@@ -35,7 +35,7 @@ export function initSocket() {
 		})
 	})
 	socket.on('disconnect', (reason) => {
-		console.warn('[realtime] disconnected', { reason, namespace: socket.nsp })
+		// console.warn('[realtime] disconnected', { reason, namespace: socket.nsp })
 	})
 
 	return socket
