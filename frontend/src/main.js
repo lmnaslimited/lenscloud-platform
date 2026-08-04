@@ -22,8 +22,8 @@ import {
 } from 'frappe-ui'
 import App from './App.vue'
 import router from './router'
-import posthog from 'posthog-js'
 import { initSocket } from './socket'
+import posthog from 'posthog-js'
 
 setConfig('resourceFetcher', frappeRequest)
 
@@ -38,7 +38,8 @@ if (posthogToken) {
 	})
 }
 
-app.use(FrappeUI)
+// LensCloud owns the Socket.IO lifecycle below; disable the implicit plugin socket.
+app.use(FrappeUI, { socketio: false })
 app.use(pinia)
 app.use(router)
 
