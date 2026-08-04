@@ -75,16 +75,3 @@ class Issue(Document):
                 message=f"Ticket created on remote site, but 'name' key was missing in response: {response_data}",
             )
     
-    def on_update(self):
-
-        frappe.publish_realtime(
-            event='issue_updated',
-            message={
-                'doctype': self.doctype,
-                'name': self.name,
-                'status': self.status,
-            },
-            # doctype=self.doctype,
-            # docname=self.name,
-            after_commit=True # Ensures DB transaction completes before sending
-        )
