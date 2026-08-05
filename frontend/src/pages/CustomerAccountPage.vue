@@ -231,11 +231,20 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 							<div class="mt-5 space-y-3">
 								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LockKeyhole class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Site Access Is Platform-Managed</p><p class="text-xs leading-5 text-[#64748B]">Customers should not manage users independently inside each Site.</p></div></div>
 								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><UsersRound class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Team Invites</p><p class="text-xs leading-5 text-[#64748B]">Coming soon: invite users, assign customer roles, and audit access.</p></div></div>
-								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3"><LifeBuoy class="mt-0.5 size-4 text-primary" /><div><p class="text-sm font-semibold text-[#191c1e]">Support And Billing Contacts</p>
-									<!-- <p class="text-xs leading-5 text-[#64748B]">{{ settings.support_system || 'Support' }} and {{ settings.billing_system || 'billing' }} details will connect here as external systems mature.</p> -->
-									<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-secondary" href="mailto:hello@lmnas.com">
-									<Headset class="size-4" />Contact support</a>
-								</div></div>
+								<div class="flex gap-3 rounded-lg border border-[#EDEDED] bg-[#f7f9fb] p-3">
+									<LifeBuoy class="mt-0.5 size-4 text-primary" />
+									<div>
+										<p class="text-sm font-semibold text-[#191c1e]">Support And Billing Contacts</p>
+										<!-- <p class="text-xs leading-5 text-[#64748B]">{{ settings.support_system || 'Support' }} and {{ settings.billing_system || 'billing' }} details will connect here as external systems mature.</p> -->
+										<RouterLink 
+										to="/customer/support-tickets" 
+										class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-primary px-3 py-2 text-sm font-semibold text-white hover:bg-secondary"
+										>
+										<Headset class="size-4" />
+										Contact support
+										</RouterLink>
+									</div>
+								</div>
 							</div>
 						</section>
 					</div>
@@ -286,8 +295,21 @@ watch(() => route.query.changePassword, (value) => { if (value === '1') openPass
 					<input v-model="passwordForm.confirm_password" type="password" autocomplete="new-password" aria-label="Confirm New Password" class="block h-9 w-full rounded-md border border-[#EDEDED] bg-white px-3 text-sm outline-none focus:border-[#1D4ED8] focus:ring-2 focus:ring-[#dce1ff]" />
 				</label>
 				<div class="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:justify-end">
-					<Button variant="subtle" @click="closePasswordDialog">Cancel</Button>
-					<Button type="submit" variant="solid" :disabled="passwordState === 'saving'">{{ passwordState === 'saving' ? 'Updating...' : 'Update Password' }}</Button>
+					<button 
+						type="button" 
+						class="inline-flex h-9 items-center justify-center rounded-lg border border-[#EDEDED] bg-surface-gray-2 px-4 text-sm font-medium text-ink-gray-7 transition hover:bg-surface-gray-3"
+						@click="closePasswordDialog"
+					>
+						Cancel
+					</button>
+					
+					<button 
+						type="submit" 
+						class="inline-flex h-9 items-center justify-center rounded-lg bg-primary px-4 text-sm font-medium text-white transition hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-60" 
+						:disabled="passwordState === 'saving'"
+					>
+						{{ passwordState === 'saving' ? 'Updating...' : 'Update Password' }}
+					</button>
 				</div>
 			</form>
 		</section>
