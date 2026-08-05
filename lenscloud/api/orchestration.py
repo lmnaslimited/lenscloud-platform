@@ -49,6 +49,14 @@ def slugify(value):
 def as_bool(value):
 	return str(value).lower() not in {"false", "0", "no", "none", ""}
 
+@frappe.whitelist()
+def get_all_sites():
+	sites = frappe.get_all(
+        "Site",
+        fields=["name"]
+    )
+	return sites
+
 
 def label_value(value):
 	value = slugify(value)

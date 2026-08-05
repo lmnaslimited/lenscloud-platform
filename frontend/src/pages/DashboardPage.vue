@@ -229,7 +229,16 @@ const hasSubscription = computed(() => Boolean(selectedSubscription.value))
 						<section class="mx-auto mt-4 grid max-w-5xl gap-4 md:grid-cols-3">
 							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><CreditCard class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">{{ selectedSubscription?.plan || freePlan?.title || 'Subscription' }}</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">{{ selectedSubscription?.status || 'Active' }} service subscription.</p></div>
 							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><Globe class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">{{ activeSite?.title || activeSite?.name || 'Workspace setup' }}</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">{{ activeSite?.site_status || 'Preparing' }}</p></div>
-							<div class="rounded-xl border border-[#EDEDED] bg-white p-6"><div class="flex items-center gap-2"><Headset class="size-6 text-primary" /><p class="text-lg font-semibold text-[#191c1e]">Support</p></div><p class="mt-3 text-base leading-7 text-[#64748B]">Contact support from any setup state.</p></div>
+							<RouterLink 
+								to="/customer/support-tickets" 
+								class="block rounded-xl border border-[#EDEDED] bg-white p-6 transition hover:border-gray-300 hover:shadow-sm"
+								>
+								<div class="flex items-center gap-2">
+									<Headset class="size-6 text-primary" />
+									<p class="text-lg font-semibold text-[#191c1e]">Support</p>
+								</div>
+								<p class="mt-3 text-base leading-7 text-[#64748B]">Contact support from any setup state.</p>
+							</RouterLink>
 						</section>
 					</template>
 				</template>			</div>

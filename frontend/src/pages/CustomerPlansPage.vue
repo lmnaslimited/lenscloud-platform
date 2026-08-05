@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, reactive, ref, inject } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, inject, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
@@ -43,6 +43,7 @@ const placementFilter = ref('all')
 let progressPoller = null
 let advanceTimer = null
 const setupSchemaState = ref(null)
+const sites = ref([])
 
 const form = reactive({
 	region: '',
@@ -292,6 +293,40 @@ function flowStepState(index) {
 	if (index === currentStepIndex.value) return 'current'
 	return 'pending'
 }
+
+async function loadSites() {
+  const response = await callMethod('lenscloud.api.orchestration.get_all_sites')
+  sites.value = response.message
+}
+
+const isAvailable = ref(false)
+
+function checkAvailability() {
+	isAvailable.value = false
+	const subdomain = normalizedSubdomain.value
+
+	if (!subdomain) {
+		isAvailable.value = false
+		return
+	}
+
+	const fullSite = `${subdomain}${domainSuffix.value}`.toLowerCase()
+
+	isAvailable.value = !sites.value.some(
+		site => site.name.toLowerCase() === fullSite
+	)
+}
+
+watch(
+	() => form.setup_defaults.company_name,
+	(company) => {
+		form.setup_defaults.company_abbr = (company || '')
+			.split(/\s+/)
+			.filter(Boolean)
+			.map(word => word[0].toUpperCase())
+			.join('')
+	}
+)
 
 function shouldAutoOpenSetupDialog() {
 	return Boolean(
@@ -698,6 +733,7 @@ onMounted(async () => {
 	startProgressPolling()
 	scheduleAdvance(0)
 	posthog.capture('plans_viewed')
+	loadSites()
 })
 onBeforeUnmount(() => {
 	socket?.off('lenscloud_site_progress', onSiteProgress)
@@ -907,12 +943,12 @@ async function autoCreateIssueOnFailure() {
 											<div class="flex flex-wrap items-center gap-4">
 												<div class="flex rounded-md shadow-sm">
 													<span class="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-4 text-sm font-medium text-gray-600">https://</span>
-													<input v-model="form.subdomain" aria-label="Subdomain" class="block w-full min-w-0 flex-1 border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500 sm:w-48" name="subdomain" placeholder="my-subdomain" type="text" />
+													<input v-model="form.subdomain" @input="checkAvailability" aria-label="Subdomain" class="block w-full min-w-0 flex-1 border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500 sm:w-48" name="subdomain" placeholder="my-subdomain" type="text" />
 													<span class="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-4 text-sm font-medium text-gray-600">{{ domainSuffix }}</span>
 												</div>
-												<div class="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium" :class="normalizedSubdomain ? 'border-green-200 bg-green-100 text-green-700' : 'border-gray-200 bg-gray-100 text-gray-500'">
+												<div class="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium" :class="!normalizedSubdomain ? 'border-gray-200 bg-gray-100 text-gray-500' : isAvailable ? 'border-green-200 bg-green-100 text-green-700' : 'border-red-200 bg-red-100 text-red-700'">
 													<CheckCircle2 class="size-4" />
-													{{ normalizedSubdomain ? 'Available' : 'Required' }}
+													{{ !normalizedSubdomain ? 'Required' : isAvailable ? 'Available' : 'Not Available' }}
 												</div>
 											</div>
 										</section>
@@ -1063,7 +1099,7 @@ async function autoCreateIssueOnFailure() {
 													<RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin [animation-direction:reverse]' : ''" />
 													{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
 												<a v-if="resultReady && hasReadySite" 
-													:href="readySiteUrl" target="_blank" 
+													:href="'https://' + selectedSiteLabel" target="_blank" 
 													class="bg-primary hover:bg-secondary text-white inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
 													@click="posthog.capture('site_opened', {
 														site: result?.site,
@@ -1075,7 +1111,6 @@ async function autoCreateIssueOnFailure() {
 														<ExternalLink class="size-4" />
 													
 												Open Workspace</a>
-												<!-- <p>{{ readySiteUrl }}</p> -->
 											</div>
 										</div>
 									</div>
