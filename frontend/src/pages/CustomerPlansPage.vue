@@ -1083,8 +1083,15 @@ async function autoCreateIssueOnFailure() {
 										<ShieldCheck class="size-5" /></div>
 										<h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3>
 										<p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p>
-										<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:hello@lmnas.com">
-										<Headset class="size-4" />Contact support</a>
+										<!-- <a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:hello@lmnas.com">
+										<Headset class="size-4" />Contact support</a> -->
+										<RouterLink
+											to="/customer/support-tickets"
+											class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white"
+										>
+											<Headset class="size-4" />
+											Contact Support
+										</RouterLink>
 
 										<div v-if="resultStarted || resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
 										<div class="flex flex-col items-start gap-4">
