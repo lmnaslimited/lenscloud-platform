@@ -22,19 +22,24 @@ import {
 } from 'frappe-ui'
 import App from './App.vue'
 import router from './router'
-import posthog from "posthog-js"
+import { initSocket } from './socket'
+import posthog from 'posthog-js'
 
 setConfig('resourceFetcher', frappeRequest)
 
 const app = createApp(App)
 const pinia = createPinia()
 
-posthog.init(import.meta.env.VITE_POSTHOG_PROJECT_TOKEN, {
-	  api_host: import.meta.env.VITE_POSTHOG_HOST,
-	  defaults: '2026-05-30',
-	});
+const posthogToken = import.meta.env.VITE_POSTHOG_PROJECT_TOKEN
+if (posthogToken) {
+	posthog.init(posthogToken, {
+		api_host: import.meta.env.VITE_POSTHOG_HOST,
+		defaults: '2026-05-30',
+	})
+}
 
-app.use(FrappeUI)
+// LensCloud owns the Socket.IO lifecycle below; disable the implicit plugin socket.
+app.use(FrappeUI, { socketio: false })
 app.use(pinia)
 app.use(router)
 
@@ -52,4 +57,24 @@ app.component('Tabs', Tabs)
 app.component('TextInput', TextInput)
 app.component('Textarea', Textarea)
 
-app.mount('#app')
+async function startApplication() {
+	if (import.meta.env.DEV) {
+		const boot = await frappeRequest({
+			url: '/api/method/lenscloud.www.lenscloud.get_context_for_dev',
+			method: 'GET',
+		})
+
+		Object.assign(window, boot)
+		window.frappe = window.frappe || {}
+		window.frappe.csrf_token = window.csrf_token
+	}
+
+	const socket = initSocket()
+	app.config.globalProperties.$socket = socket
+	app.provide('socket', socket)
+	app.mount('#app')
+}
+
+startApplication().catch((error) => {
+	console.error('LensCloud startup failed', error)
+})

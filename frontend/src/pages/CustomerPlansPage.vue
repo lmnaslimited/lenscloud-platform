@@ -1,5 +1,5 @@
 <script setup>
-import { computed, getCurrentInstance, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, inject, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { Alert, Badge, Button } from 'frappe-ui'
 import {
@@ -23,7 +23,8 @@ import posthog from 'posthog-js'
 
 const route = useRoute()
 const router = useRouter()
-const socket = getCurrentInstance()?.appContext.config.globalProperties.$socket
+// Cleanly inject the socket instance provided in main.js
+const socket = inject('socket')
 
 const loading = ref(true)
 const submitting = ref(false)
@@ -42,6 +43,7 @@ const placementFilter = ref('all')
 let progressPoller = null
 let advanceTimer = null
 const setupSchemaState = ref(null)
+const sites = ref([])
 
 const form = reactive({
 	region: '',
@@ -86,6 +88,7 @@ const readySiteUrl = computed(() => {
 	if (provisioningMode.value === 'ready' && resultOauthConfigured.value) return result.value?.access_url || resultSite.value?.access_url || ''
 	return existingSites.value.find((site) => siteReadyForOpen(site) && site.access_url)?.access_url || ''
 })
+
 const canonicalMode = computed(() => ({
 	requested: 'started', runtime_reconciling: 'started', route_pending: 'route_pending',
 	bootstrap_installing: 'bootstrap_installing', setup_completing: 'setup_running', setup_verifying: 'setup_checking',
@@ -137,35 +140,108 @@ const screenSubtitle = computed(() => {
 })
 
 const rawProvisioningSteps = computed(() => {
+	const usingRealtime = Boolean(canonicalProgress.value)
+	const stage = canonicalProgress.value?.stage
+
 	const attempted = Boolean(result.value?.site || resultStarted.value || resultPaused.value || resultFailed.value || resultReady.value)
 	const runtimeProgressed = ['route_pending', 'bootstrap_installing', 'setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
 	const runtimeReady = Boolean(runtimeProgressed || ['Ready', 'Active'].includes(result.value?.site_status) || result.value?.provisioning_status === 'Ready' || ['Ready', 'Active'].includes(resultSite.value?.site_status))
-	const routeReady = Boolean(resultRouteReady.value)
+	// const routeReady = Boolean(resultRouteReady.value)
+	const routeReady = usingRealtime
+    ? [
+        'bootstrap_installing',
+        'setup_completing',
+        'setup_verifying',
+        'oauth_configuring',
+        'oauth_verifying',
+        'ready',
+    ].includes(stage)
+    : Boolean(resultRouteReady.value)
+
 	const routeFailed = Boolean(result.value?.route_status === 'Failed' || resultSite.value?.route_status === 'Failed')
 	const setupStatus = result.value?.setup_status || resultSite.value?.setup_status || 'Not Checked'
 	const setupError = result.value?.setup_error || resultSite.value?.setup_error || ''
 	const bootstrapStatus = resultBootstrapStatus.value
-	const setupDone = setupStatus === 'Complete' || resultReady.value
+	// const setupDone = setupStatus === 'Complete' || resultReady.value
+	const setupDone = usingRealtime
+    ? [
+		'setup_verifying', //added
+        'oauth_configuring',
+        'oauth_verifying',
+        'ready',
+    ].includes(stage)
+    : (
+        setupStatus === 'Complete' ||
+        resultReady.value
+    )
 	const setupBlocked = setupStatus === 'Blocked' || resultSetupRequired.value
 	const bootstrapFailed = bootstrapStatus === 'Failed' || provisioningMode.value === 'bootstrap_failed' || /bootstrap app install failed/i.test(setupError)
-	const bootstrapInstalling = provisioningMode.value === 'bootstrap_installing' || ['Queued', 'Running'].includes(bootstrapStatus)
+	// const bootstrapInstalling = provisioningMode.value === 'bootstrap_installing' || ['Queued', 'Running'].includes(bootstrapStatus)
+	const bootstrapInstalling = usingRealtime
+    ? stage === 'bootstrap_installing'
+    : (
+        provisioningMode.value === 'bootstrap_installing' ||
+        ['Queued', 'Running'].includes(bootstrapStatus)
+    )
+
 	const bootstrapAdvanced = ['setup_checking', 'setup_running', 'setup_required', 'oauth_checking', 'oauth_configuring', 'ready'].includes(provisioningMode.value)
-	const bootstrapDone = !bootstrapFailed && !bootstrapInstalling && (bootstrapStatus === 'Succeeded' || setupStatus === 'Complete' || bootstrapAdvanced)
+	// const bootstrapDone = !bootstrapFailed && !bootstrapInstalling && (bootstrapStatus === 'Succeeded' || setupStatus === 'Complete' || bootstrapAdvanced)
+	const bootstrapDone = usingRealtime
+    ? [
+        'setup_completing',
+        'setup_verifying',
+        'oauth_configuring',
+        'oauth_verifying',
+        'ready',
+    ].includes(stage)
+    : (
+        !bootstrapFailed &&
+        !bootstrapInstalling &&
+        (
+            bootstrapStatus === 'Succeeded' ||
+            setupStatus === 'Complete' ||
+            bootstrapAdvanced
+        )
+    )
 	const setupFailed = !bootstrapFailed && (setupStatus === 'Failed' || (provisioningMode.value === 'failed' && routeReady))
-	const setupRunning = provisioningMode.value === 'setup_running' || setupStatus === 'Required'
-	const setupChecking = provisioningMode.value === 'setup_checking'
+	// const setupRunning = provisioningMode.value === 'setup_running' || setupStatus === 'Required'
+	const setupRunning = usingRealtime
+    ? stage === 'setup_completing'
+    : (
+        provisioningMode.value === 'setup_running' ||
+        setupStatus === 'Required'
+    )
+	// const setupChecking = provisioningMode.value === 'setup_checking'
+	const setupChecking = usingRealtime
+    ? stage === 'setup_verifying'
+    : provisioningMode.value === 'setup_checking'
 	const oauthStatus = resultOauthStatus.value
-	const oauthDone = resultOauthConfigured.value || resultReady.value
+	// const oauthDone = resultOauthConfigured.value || resultReady.value
+	const oauthDone = usingRealtime
+    ? stage === 'ready'
+    : (
+        resultOauthConfigured.value ||
+        resultReady.value
+    )
 	const oauthFailed = oauthStatus === 'Failed' || provisioningMode.value === 'oauth_failed'
-	const oauthRunning = ['Running', 'Pending'].includes(oauthStatus) || ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
+	// const oauthRunning = ['Running', 'Pending'].includes(oauthStatus) || ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
+	const oauthRunning = usingRealtime
+    ? [
+        'oauth_configuring',
+        'oauth_verifying',
+    ].includes(stage)
+    : (
+        ['Running', 'Pending'].includes(oauthStatus) ||
+        ['oauth_checking', 'oauth_configuring'].includes(provisioningMode.value)
+    )
 	return [
 		{ label: 'Subscription approved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your LensCloud service subscription is active.' : 'Waiting for subscription confirmation.' },
 		{ label: 'Workspace reserved', state: attempted ? 'done' : 'pending', helper: attempted ? 'Your Workspace address is reserved for you.' : 'Waiting for Workspace reservation.' },
 		{ label: 'Preparing workspace', state: resultFailed.value && !runtimeReady ? 'failed' : resultPaused.value ? 'paused' : runtimeReady ? 'done' : resultStarted.value ? 'active' : 'pending', helper: resultFailed.value && !runtimeReady ? 'Setup needs another attempt from Platform.' : resultPaused.value ? 'Live setup is paused until Platform apply is enabled.' : runtimeReady ? 'Workspace preparation is complete.' : resultStarted.value ? 'LensCloud is preparing your workspace.' : 'Waiting to start.' },
-		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access.' : 'This starts after workspace preparation.' },
-		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : bootstrapInstalling || routeReady ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : bootstrapInstalling || routeReady ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
-		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupRunning || setupBlocked ? 'done' : setupChecking || (routeReady && bootstrapDone) ? 'active' : 'pending', helper: setupDone || setupRunning || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Workspace needs first-time setup.' : 'This starts after default apps are installed.' },
+		{ label: 'Installing default apps', state: bootstrapFailed ? 'failed' : bootstrapDone ? 'done' : runtimeReady && !routeReady || bootstrapInstalling ? 'active' : 'pending', helper: bootstrapFailed ? 'Default app installation did not complete. Retry or contact support.' : bootstrapDone ? 'Default apps from the Release Group are installed.' : runtimeReady && !routeReady || bootstrapInstalling ? 'LensCloud is installing the default apps for this Workspace.' : 'This starts after secure access is ready.' },
+		{ label: 'Connecting HTTPS', state: routeFailed ? 'failed' : routeReady ? 'done' : runtimeReady ? 'active' : 'pending', helper: routeFailed ? 'Secure access needs another status check or support review.' : routeReady ? 'Secure access is ready.' : runtimeReady ? 'LensCloud is checking secure access (approx. 3 mins).' : 'This starts after workspace preparation.' },
 		{ label: 'Setting Workspace defaults', state: setupFailed || setupBlocked ? 'failed' : setupDone ? 'done' : setupRunning ? 'active' : 'pending', helper: setupBlocked ? 'Required setup defaults are missing. Reopen setup defaults and retry.' : setupFailed ? 'Setup defaults could not be applied. Retry or contact support.' : setupDone ? 'Workspace defaults are applied.' : setupRunning ? 'LensCloud is applying required setup defaults.' : 'This starts if the Workspace needs first-time setup.' },
+		{ label: 'Checking setup status', state: setupFailed ? 'failed' : setupDone || setupBlocked ? 'done' : setupChecking ? 'active' : 'pending', helper: setupDone || setupBlocked ? 'First-time setup status was checked.' : routeReady && bootstrapDone ? 'LensCloud checks whether your Workspace needs first-time setup.' : 'This starts after default apps are installed.' },
 		{ label: 'Platform access', state: oauthFailed ? 'failed' : oauthDone ? 'done' : setupDone || oauthRunning ? 'active' : 'pending', helper: oauthFailed ? 'Single sign-on could not be configured. Retry or contact support.' : oauthDone ? 'Single sign-on is configured for this Workspace.' : setupDone || oauthRunning ? 'LensCloud is configuring Platform sign-on.' : 'This starts after Workspace defaults are applied.' },
 		{ label: 'Ready to open', state: resultReady.value ? 'done' : oauthDone ? 'active' : 'pending', helper: resultReady.value ? 'Your Workspace is ready to open.' : oauthDone ? 'LensCloud is publishing the Open Workspace action.' : 'We will show the Open Workspace action when access is verified.' },
 	]
@@ -194,7 +270,13 @@ const provisioningSteps = computed(() => {
 			if (['failed', 'paused'].includes(item.state)) return item
 			return { ...item, state: 'done' }
 		}
-		if (index > targetIndex) return { ...item, state: 'pending' }
+		// allowing multiple active stage
+		// if (index > targetIndex) return { ...item, state: 'pending' }
+		if (index > targetIndex) {
+			// Keep additional active steps active
+			if (item.state === 'active') return item
+			return { ...item, state: 'pending' }
+		}
 		return item
 	})
 })
@@ -211,6 +293,40 @@ function flowStepState(index) {
 	if (index === currentStepIndex.value) return 'current'
 	return 'pending'
 }
+
+async function loadSites() {
+  const response = await callMethod('lenscloud.api.orchestration.get_all_sites')
+  sites.value = response.message
+}
+
+const isAvailable = ref(false)
+
+function checkAvailability() {
+	isAvailable.value = false
+	const subdomain = normalizedSubdomain.value
+
+	if (!subdomain) {
+		isAvailable.value = false
+		return
+	}
+
+	const fullSite = `${subdomain}${domainSuffix.value}`.toLowerCase()
+
+	isAvailable.value = !sites.value.some(
+		site => site.name.toLowerCase() === fullSite
+	)
+}
+
+watch(
+	() => form.setup_defaults.company_name,
+	(company) => {
+		form.setup_defaults.company_abbr = (company || '')
+			.split(/\s+/)
+			.filter(Boolean)
+			.map(word => word[0].toUpperCase())
+			.join('')
+	}
+)
 
 function shouldAutoOpenSetupDialog() {
 	return Boolean(
@@ -617,6 +733,7 @@ onMounted(async () => {
 	startProgressPolling()
 	scheduleAdvance(0)
 	posthog.capture('plans_viewed')
+	loadSites()
 })
 onBeforeUnmount(() => {
 	socket?.off('lenscloud_site_progress', onSiteProgress)
@@ -650,19 +767,12 @@ async function autoCreateIssueOnFailure() {
 	}
 }
 
-// // Watch canonical failure state automatically
-// watch(resultFailed, (isFailed) => {
-// 	if (isFailed) {
-// 		autoCreateIssueOnFailure()
-// 	}
-// })
-
 </script>
 
 <template>
 	<WorkspaceLayout
 		title="Plans"
-		subtitle="From Plan choice to Free checkout and Workspace launch in a guided way."
+		subtitle="From choice of plans to free checkout, Launch your workspace with a guided approach"
 		inspector-kicker="Guided Launch"
 		inspector-title="Launch checklist"
 		:inspector-subtitle="screenSubtitle"
@@ -731,8 +841,8 @@ async function autoCreateIssueOnFailure() {
 						<div class="p-5 lg:p-6">
 							<div v-if="step === 'choose'" class="space-y-6">
 								<div class="mx-auto max-w-3xl text-center">
-									<p class="text-xs font-semibold text-[#64748B]">Choose Plan</p>
-									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Start Your Enterprise Platform Journey</h3>
+									<!-- <p class="text-xs font-semibold text-[#64748B]">Choose Plan</p> -->
+									<h3 class="mt-2 text-2xl font-semibold text-[#191c1e]">Free Today and Upgrade Later</h3>
 									<p class="mt-3 text-sm leading-6 text-[#505f76]">Pick a Platform Plan. Start free today or request access to higher tiers.</p>
 									<div class="mt-5 inline-flex rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-1">
 										<button v-for="option in ['all', 'public', 'private']" :key="option" class="rounded-md px-4 py-2 text-sm font-semibold transition" :class="placementFilter === option ? 'bg-white text-primary shadow-sm' : 'text-[#64748B] hover:text-[#191c1e]'" @click="setPlacementFilter(option)">{{ placementLabel(option) }}</button>
@@ -833,12 +943,12 @@ async function autoCreateIssueOnFailure() {
 											<div class="flex flex-wrap items-center gap-4">
 												<div class="flex rounded-md shadow-sm">
 													<span class="inline-flex items-center rounded-l-md border border-r-0 border-gray-300 bg-gray-50 px-4 text-sm font-medium text-gray-600">https://</span>
-													<input v-model="form.subdomain" aria-label="Subdomain" class="block w-full min-w-0 flex-1 border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500 sm:w-48" name="subdomain" placeholder="my-subdomain" type="text" />
+													<input v-model="form.subdomain" @input="checkAvailability" aria-label="Subdomain" class="block w-full min-w-0 flex-1 border border-gray-300 px-4 py-2.5 text-sm focus:border-blue-500 focus:ring-blue-500 sm:w-48" name="subdomain" placeholder="my-subdomain" type="text" />
 													<span class="inline-flex items-center rounded-r-md border border-l-0 border-gray-300 bg-gray-50 px-4 text-sm font-medium text-gray-600">{{ domainSuffix }}</span>
 												</div>
-												<div class="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium" :class="normalizedSubdomain ? 'border-green-200 bg-green-100 text-green-700' : 'border-gray-200 bg-gray-100 text-gray-500'">
+												<div class="flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm font-medium" :class="!normalizedSubdomain ? 'border-gray-200 bg-gray-100 text-gray-500' : isAvailable ? 'border-green-200 bg-green-100 text-green-700' : 'border-red-200 bg-red-100 text-red-700'">
 													<CheckCircle2 class="size-4" />
-													{{ normalizedSubdomain ? 'Available' : 'Required' }}
+													{{ !normalizedSubdomain ? 'Required' : isAvailable ? 'Available' : 'Not Available' }}
 												</div>
 											</div>
 										</section>
@@ -973,8 +1083,15 @@ async function autoCreateIssueOnFailure() {
 										<ShieldCheck class="size-5" /></div>
 										<h3 class="mt-4 text-base font-semibold text-[#191c1e]">What happens next</h3>
 										<p class="mt-2 text-sm leading-6 text-[#64748B]">LensCloud keeps progress visible here and on the dashboard. If setup is delayed, support can continue from the Platform side without exposing infrastructure details.</p>
-										<a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:support@lmnas.com">
-										<Headset class="size-4" />Contact support</a>
+										<!-- <a class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white" href="mailto:hello@lmnas.com">
+										<Headset class="size-4" />Contact support</a> -->
+										<RouterLink
+											to="/customer/support-tickets"
+											class="mt-4 inline-flex items-center gap-2 rounded-lg border border-[#EDEDED] bg-white px-3 py-2 text-sm font-semibold text-[#505f76] hover:bg-white"
+										>
+											<Headset class="size-4" />
+											Contact Support
+										</RouterLink>
 
 										<div v-if="resultStarted || resultPaused || resultFailed" class="mt-8 rounded-lg border border-[#EDEDED] bg-[#f2f4f6] p-5">
 										<div class="flex flex-col items-start gap-4">
@@ -988,8 +1105,8 @@ async function autoCreateIssueOnFailure() {
 												<button v-else-if="resultRetryable" class="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white hover:bg-primary disabled:cursor-not-allowed disabled:opacity-60" :disabled="submitting || polling" @click="resultStarted ? refreshProgress() : retrySetup()">
 													<RefreshCcw class="size-4" :class="submitting || polling ? 'animate-spin [animation-direction:reverse]' : ''" />
 													{{ submitting || polling ? 'Checking...' : resultStarted ? 'Refresh status' : 'Retry Setup' }}</button>
-												<a v-if="readySiteUrl && hasReadySite" 
-													:href="readySiteUrl" target="_blank" 
+												<a v-if="resultReady && hasReadySite" 
+													:href="'https://' + selectedSiteLabel" target="_blank" 
 													class="bg-primary hover:bg-secondary text-white inline-flex items-center justify-center gap-2 rounded-lg px-5 py-3 text-sm font-semibold"
 													@click="posthog.capture('site_opened', {
 														site: result?.site,

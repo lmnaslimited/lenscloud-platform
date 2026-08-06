@@ -60,26 +60,34 @@ function inputProps(row, column) {
 			<table class="border-separate border-spacing-0 text-left" :style="{ minWidth: `${tableWidth}px` }">
 				<thead>
 					<tr class="text-xs font-medium text-ink-gray-5">
-						<th class="sticky left-0 top-0 z-30 w-[52px] border-b border-r border-outline-gray-2 bg-surface-gray-1 px-2 py-2 text-center">#</th>
+						<th class="sticky left-0 top-0 z-30 w-[52px] min-w-[52px] max-w-[52px] border-b border-r border-outline-gray-2 bg-surface-gray-1 px-2 py-2 text-center">#</th>
 						<th
 							v-for="(column, columnIndex) in columns"
 							:key="column.key"
-							class="sticky top-0 z-20 border-b border-r border-outline-gray-2 bg-surface-gray-1 px-3 py-2"
-							:class="columnIndex === 0 ? 'left-[52px] z-30 shadow-[2px_0_0_0_var(--outline-gray-2)]' : ''"
-							:style="{ width: `${column.width || 220}px`, minWidth: `${column.width || 220}px` }"
+							class="sticky top-0 border-b border-r border-outline-gray-2 bg-surface-gray-1 px-3 py-2"
+							:class="columnIndex === 0 ? 'sticky left-[52px] z-30 shadow-[2px_0_0_0_var(--outline-gray-2)]' : 'z-20'"
+							:style="{
+								width: `${column.width || 220}px`,
+								minWidth: `${column.width || 220}px`,
+								left: columnIndex === 0 ? '52px' : undefined
+							}"
 						>{{ column.label }}<span v-if="column.required" class="text-red-500"> *</span></th>
 						<th class="sticky right-0 top-0 z-30 w-[150px] border-b border-outline-gray-2 bg-surface-gray-1 px-3 py-2 text-right">Row actions</th>
 					</tr>
 				</thead>
 				<tbody>
 					<tr v-for="(row, rowIndex) in rows" :key="rowKey(row, rowIndex)" class="group align-top hover:bg-surface-gray-1">
-						<td class="sticky left-0 z-20 border-b border-r border-outline-gray-2 bg-surface-white px-2 py-3 text-center text-xs text-ink-gray-5 group-hover:bg-surface-gray-1"><GripVertical class="mx-auto size-4 text-ink-gray-4" />{{ rowIndex + 1 }}</td>
+						<td class="sticky left-0 z-20 w-[52px] min-w-[52px] max-w-[52px] border-b border-r border-outline-gray-2 bg-surface-white px-2 py-3 text-center text-xs text-ink-gray-5 group-hover:bg-surface-gray-1"><GripVertical class="mx-auto size-4 text-ink-gray-4" />{{ rowIndex + 1 }}</td>
 						<td
 							v-for="(column, columnIndex) in columns"
 							:key="column.key"
 							class="border-b border-r border-outline-gray-2 bg-surface-white px-2 py-2 group-hover:bg-surface-gray-1 [&_label]:sr-only"
-							:class="columnIndex === 0 ? 'sticky left-[52px] z-20 shadow-[2px_0_0_0_var(--outline-gray-2)]' : ''"
-							:style="{ width: `${column.width || 220}px`, minWidth: `${column.width || 220}px` }"
+							:class="columnIndex === 0 ? 'sticky z-20 shadow-[2px_0_0_0_var(--outline-gray-2)]' : ''"
+							:style="{
+								width: `${column.width || 220}px`,
+								minWidth: `${column.width || 220}px`,
+								left: columnIndex === 0 ? '52px' : undefined
+							}"
 						>
 							<FormControl v-if="['link', 'select', 'check'].includes(column.type)" v-bind="inputProps(row, column)" @update:modelValue="(value) => updateCell(rowIndex, column, value)" />
 							<textarea v-else-if="column.type === 'textarea'" :aria-label="column.label" :value="row[column.key]" class="min-h-16 w-full rounded border border-outline-gray-2 bg-surface-gray-1 px-2 py-1.5 text-sm text-ink-gray-8 focus:border-blue-500 focus:outline-none" :disabled="disabled || column.readOnly" @input="updateCell(rowIndex, column, $event.target.value)"></textarea>

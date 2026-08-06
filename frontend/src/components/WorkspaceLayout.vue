@@ -114,7 +114,7 @@ function startResize(direction, event) {
 				<div class="flex h-14 shrink-0 items-center justify-between gap-3 border-b border-outline-gray-2 px-4">
 					<div class="min-w-0">
 						<p class="text-xs font-medium text-ink-gray-5">{{ inspectorKicker }}</p>
-						<h2 class="truncate text-base font-semibold text-ink-gray-9 mt-2 cursor-text">{{ inspectorTitle }}</h2>
+						<h2 class="truncate text-base font-semibold text-ink-gray-9 mt-2 select-text cursor-text">{{ inspectorTitle }}</h2>
 					</div>
 					<!-- <Button variant="ghost" :tooltip="assistantOpen ? 'Hide assistant' : assistantLabel" @click="assistantOpen = !assistantOpen">
 						<component :is="assistantIcon" class="size-4" />

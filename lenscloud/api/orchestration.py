@@ -49,6 +49,14 @@ def slugify(value):
 def as_bool(value):
 	return str(value).lower() not in {"false", "0", "no", "none", ""}
 
+@frappe.whitelist()
+def get_all_sites():
+	sites = frappe.get_all(
+        "Site",
+        fields=["name"]
+    )
+	return sites
+
 
 def label_value(value):
 	value = slugify(value)
@@ -1725,6 +1733,8 @@ def get_customer_portal_context():
 	user = frappe.session.user
 	if user == "Guest":
 		frappe.throw(_("Authentication is required."), frappe.PermissionError)
+	# Fetch User document directly (this respects document permissions and isn't a direct whitelisted User endpoint)
+	user_data = frappe.db.get_value("User", user, ["first_name", "last_name", "full_name", "email"], as_dict=True)
 	provision_customer_for_user(user, source="Signup")
 	membership = ensure_customer_access_for_user(user) or customer_membership_for_user(user)
 	customer_name = membership.customer if membership else frappe.db.get_value("Customer", {"user": user}, "name")
@@ -1756,6 +1766,12 @@ def get_customer_portal_context():
 	return {
 		"customer": customer,
 		"membership": membership,
+		"user": {
+            "first_name": user_data.first_name,
+            "last_name": user_data.last_name,
+            "email": user_data.email,
+            "full_name": user_data.full_name
+        },
 		"permissions": {
 			"can_create_subscription": permissions.get("Subscription", {}).get("create", False),
 			"can_manage_members": permissions.get("Customer Member", {}).get("read", False),
@@ -1776,18 +1792,32 @@ def get_customer_portal_context():
 	}
 
 
+# @frappe.whitelist(methods=["POST"])
+# def update_customer_account(first_name=None, last_name=None, region=None, external_customer_id=None):
+# 	customer = ensure_customer_for_user(region)
+# 	doc = frappe.get_doc("Customer", customer)
+# 	doc.first_name = first_name or ""
+# 	doc.last_name = last_name or ""
+# 	if region is not None:
+# 		doc.region = region
+# 	if external_customer_id is not None:
+# 		doc.external_customer_id = external_customer_id
+# 	doc.save(ignore_permissions=True)
+# 	return {"name": doc.name, "first_name": doc.first_name, "last_name": doc.last_name, "region": doc.region, "external_customer_id": doc.external_customer_id}
 @frappe.whitelist(methods=["POST"])
-def update_customer_account(first_name=None, last_name=None, region=None, external_customer_id=None):
-	customer = ensure_customer_for_user(region)
-	doc = frappe.get_doc("Customer", customer)
-	doc.first_name = first_name or ""
-	doc.last_name = last_name or ""
-	if region is not None:
-		doc.region = region
-	if external_customer_id is not None:
-		doc.external_customer_id = external_customer_id
-	doc.save(ignore_permissions=True)
-	return {"name": doc.name, "first_name": doc.first_name, "last_name": doc.last_name, "region": doc.region, "external_customer_id": doc.external_customer_id}
+def update_customer_account(first_name=None, last_name=None):
+    user_id = frappe.session.user
+    if not user_id or user_id == "Guest":
+        frappe.throw(_("Authentication required to update account details."))
+
+    # 1. Update the User Doctype for the logged-in user
+    user_doc = frappe.get_doc("User", user_id)
+    user_doc.first_name = first_name or ""
+    user_doc.last_name = last_name or ""
+    user_doc.save(ignore_permissions=True)
+    frappe.db.commit()
+
+    return {"first_name": user_doc.first_name, "last_name": user_doc.last_name }
 
 
 def eligible_customer_bench(region, customer, plan=None):

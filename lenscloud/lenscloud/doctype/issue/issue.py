@@ -74,3 +74,4 @@ class Issue(Document):
                 title=f"Support sync warning: {self.name}",
                 message=f"Ticket created on remote site, but 'name' key was missing in response: {response_data}",
             )
+    
