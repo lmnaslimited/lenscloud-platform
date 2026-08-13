@@ -8,6 +8,7 @@
   "cluster_section",
   "default_signup_region",
   "default_plan",
+  "default_signout_url",
   "cua_oauth_section",
   "oauth_provider",
   "oauth_provider_name",
@@ -375,13 +376,18 @@
    "fieldname": "billing_integration_section",
    "fieldtype": "Section Break",
    "label": "Billing Integration"
+  },
+  {
+   "fieldname": "default_signout_url",
+   "fieldtype": "Data",
+   "label": "Default Signout URL"
   }
  ],
  "grid_page_length": 50,
  "index_web_pages_for_search": 1,
  "issingle": 1,
  "links": [],
- "modified": "2026-07-22 23:56:31.930620",
+ "modified": "2026-08-13 13:26:13.516205",
  "modified_by": "Administrator",
  "module": "Lenscloud",
  "name": "Platform Settings",

@@ -8,6 +8,7 @@ import { Alert, Badge, Button } from 'frappe-ui'
 import { ChevronDown, ChevronRight, Circle, KeyRound, LogOut, Menu, PanelLeftClose, UserRound } from 'lucide-vue-next'
 
 const route = useRoute()
+const defaultUrl = ref('')
 const router = useRouter()
 const session = useSessionStore()
 const mobileNavOpen = ref(false)
@@ -103,12 +104,21 @@ async function loadUserProfile() {
     console.error('Failed to load user profile:', err)
   }
 }
+async function loadSettings() {
+  try {
+    // Drop the 'GET' parameter completely
+    const res = await callMethod('lenscloud.api.orchestration.get_signout_url')
+	defaultUrl.value = res.message
+  } catch (error) {
+    console.error("Error loading settings:", error)
+  }
+}
 function closeMobileNav() { mobileNavOpen.value = false }
 
 function accountRoute() { return currentScope.value === 'customer' ? '/customer/account' : '/platform/dashboard' }
 async function signOut() {
 	try { await callMethod('logout', {}, 'POST') }
-	finally { session.reset(); window.location.href = '/login' }
+	finally { session.reset(); window.location.href = defaultUrl.value}
 }
 function resetPasswordForm() {
 	passwordForm.old_password = ''
@@ -147,6 +157,7 @@ async function submitPasswordChange() {
 onMounted(() => {
   loadNavigation()
   loadUserProfile()
+  loadSettings()
 })
 watch(currentScope, loadNavigation)
 watch(() => route.fullPath, () => {

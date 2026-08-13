@@ -106,6 +106,11 @@ def manifest_yaml(manifest):
 def get_platform_settings():
 	return frappe.get_single("Platform Settings")
 
+@frappe.whitelist()
+def get_signout_url():
+    # Fetch the Single Doc bypassing permissions
+    doc = frappe.get_doc("Platform Settings", "Platform Settings", ignore_permissions=True)
+    return doc.default_signout_url
 
 def get_region_cluster(region):
 	if not region:
