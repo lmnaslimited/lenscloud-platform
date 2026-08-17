@@ -37,6 +37,8 @@ RUNNER_SUPPORTED_COMMANDS = {
 	"maintenance_mode.enable",
 	"maintenance_mode.disable",
 	"maintenance_mode.status",
+	"scheduler.enable",
+	"scheduler.disable",
 	"developer_mode.enable",
 	"developer_mode.disable",
 	"developer_mode.status",
@@ -64,7 +66,7 @@ RUNNER_PENDING_COMMANDS = {
 	"user.roles.set",
 	"site_access.status",
 }
-APPROVED_SITE_CONFIG_KEYS = {"maintenance_mode", "developer_mode", "allow_cors", "server_script_enabled", "client_script_enabled"}
+APPROVED_SITE_CONFIG_KEYS = {"maintenance_mode", "developer_mode", "allow_cors", "server_script_enabled", "client_script_enabled", "pause_scheduler"}
 APPROVED_SITE_SETUP_KEYS = {"language", "email", "full_name", "country", "timezone", "currency", "company_name", "company_abbr", "industry", "chart_of_accounts", "fiscal_year_start_date", "fiscal_year_end_date"}
 APPROVED_OAUTH_CONFIGURE_KEYS = {
 	"provider",
@@ -110,6 +112,8 @@ CONTRACTED_COMMANDS = {
 	"maintenance_mode.enable",
 	"maintenance_mode.disable",
 	"maintenance_mode.status",
+	"scheduler.disable",
+	"scheduler.enable",
 	"developer_mode.enable",
 	"developer_mode.disable",
 	"developer_mode.status",
